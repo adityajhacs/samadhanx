@@ -1,5 +1,8 @@
-from pydantic import BaseModel, Field
+from datetime import datetime
+from uuid import UUID
 from typing import List
+
+from pydantic import BaseModel, Field
 
 
 class AIAnalysis(BaseModel):
@@ -41,3 +44,16 @@ class AIAnalysis(BaseModel):
     keywords: List[str] = Field(
         description="Important keywords related to the problem"
     )
+
+
+class AIAnalysisResponse(BaseModel):
+    id: UUID
+    problem_id: UUID
+    subcategory: str
+    severity_level: str
+    affected_sector: str
+    estimated_affected_people: int
+    root_cause: str
+    ai_summary: str
+    keywords: List[str]
+    created_at: datetime
