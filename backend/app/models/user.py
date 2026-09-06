@@ -16,6 +16,12 @@ class User(Base):
         primary_key=True
     )
 
+    auth_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        unique=True,
+        nullable=True
+    )
+
     full_name: Mapped[str] = mapped_column(Text)
 
     email: Mapped[str] = mapped_column(Text)

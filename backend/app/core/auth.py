@@ -5,6 +5,10 @@ import json
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
+from sqlalchemy.orm import Session
+from app.core.database import get_db
+from app.models.user import User
+
 
 security = HTTPBearer()
 
@@ -15,7 +19,8 @@ JWT_ISSUER = f"{SUPABASE_URL}/auth/v1"
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
 ):
     token = credentials.credentials
 
@@ -63,7 +68,31 @@ def get_current_user(
             audience="authenticated"
         )
 
-        return payload
+        # Get Supabase Auth user ID
+        auth_id = payload.get("sub")
+
+        if not auth_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token: user ID missing"
+            )
+
+        # Find corresponding public.users record
+        print("Auth ID from JWT:", auth_id)
+
+        user = db.query(User).filter(
+            User.auth_id == auth_id
+        ).first()
+
+        print("User found:", user)
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User profile not found"
+            )
+
+        return user
 
     except HTTPException:
         raise
