@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from uuid import UUID
-
+from sqlalchemy import text
 from app.services.ai.analysis_service import analyze_and_save_problem
 from app.core.database import get_db
 from app.models.problem import Problem
 from app.schemas.ai import AIAnalysisResponse
+from app.services.ai.embedding import generate_embedding
 from app.schemas.problem import (
     ProblemCreate,
     ProblemUpdate,
@@ -49,7 +50,14 @@ def get_problem(
 def create_problem(
     problem: ProblemCreate,
     db: Session = Depends(get_db)
-):
+): 
+    problem_text = f"""
+Title: {problem.title}
+
+Description: {problem.description}
+
+District: {problem.district}
+"""
     new_problem = Problem(
         citizen_id=problem.citizen_id,
         title=problem.title,
@@ -60,6 +68,7 @@ def create_problem(
         longitude=problem.longitude,
         image_url=problem.image_url,
         video_url=problem.video_url,
+        embedding=generate_embedding(problem_text)
     )
 
     db.add(new_problem)
@@ -117,3 +126,67 @@ def analyze_problem_with_ai(
         )
 
     return analysis
+
+@router.get("/{problem_id}/similar")
+def get_similar_problems(
+    problem_id: UUID,
+    db: Session = Depends(get_db)
+): 
+
+  problem = (
+        db.query(Problem)
+        .filter(Problem.id == problem_id)
+        .first()
+    )
+
+  if not problem:
+        raise HTTPException(
+            status_code=404,
+            detail="Problem not found"
+        )
+
+  if problem.embedding is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Problem embedding not found"
+        )
+  query = text("""
+        SELECT
+            p.id,
+            p.title,
+            p.description,
+            p.district,
+            p.category,
+            ROUND(
+                (1 - (p.embedding <=> target.embedding))::numeric,
+                4
+            ) AS similarity
+        FROM public.problems p
+        CROSS JOIN (
+            SELECT embedding
+            FROM public.problems
+            WHERE id = :problem_id
+        ) target
+       WHERE p.embedding IS NOT NULL
+  AND p.id != :problem_id
+  AND (1 - (p.embedding <=> target.embedding)) >= 0.85
+        ORDER BY p.embedding <=> target.embedding
+        LIMIT 5
+    """)
+
+  result = db.execute(
+        query,
+        {"problem_id": str(problem_id)}
+    )
+
+  return [
+        {
+            "id": row.id,
+            "title": row.title,
+            "description": row.description,
+            "district": row.district,
+            "category": row.category,
+            "similarity": float(row.similarity)
+        }
+        for row in result
+    ]

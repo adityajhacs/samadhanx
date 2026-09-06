@@ -1,6 +1,8 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
+from pgvector.sqlalchemy import Vector
+from pgvector.sqlalchemy import Vector
 from app.models.user import User
 from sqlalchemy import Text, Integer, DateTime, Numeric, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
@@ -13,9 +15,10 @@ class Problem(Base):
     __tablename__ = "problems"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        primary_key=True
-    )
+    UUID(as_uuid=True),
+    primary_key=True,
+    default=uuid.uuid4
+)
 
     citizen_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -45,3 +48,7 @@ class Problem(Base):
     image_url: Mapped[str] = mapped_column(Text)
 
     video_url: Mapped[str] = mapped_column(Text)
+    embedding: Mapped[list[float] | None] = mapped_column(
+    Vector(768),
+    nullable=True
+)
