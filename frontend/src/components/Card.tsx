@@ -26,31 +26,23 @@ export default function Card({
   return (
     <section
       className={`
-        group relative overflow-hidden
+        group relative
+        overflow-hidden
         rounded-2xl
-        border border-slate-200/80
+        border border-slate-200
         bg-white
-        shadow-[0_4px_20px_rgba(15,23,42,0.05)]
-        transition-all duration-300
+        shadow-sm
+        transition-all duration-200
         hover:-translate-y-0.5
-        hover:shadow-[0_12px_35px_rgba(15,23,42,0.10)]
+        hover:border-teal-200
+        hover:shadow-md
         ${accentStyles[accent]}
         ${className}
       `}
     >
-      {/* subtle teal glow */}
-      <div
-        className="
-          pointer-events-none absolute -right-12 -top-12
-          h-28 w-28 rounded-full
-          bg-teal-400/10 blur-2xl
-          transition-all duration-300
-          group-hover:bg-teal-400/20
-        "
-      />
-
+      {/* Card Header */}
       {(title || description) && (
-        <div className="relative border-b border-slate-100 px-5 py-4">
+        <div className="border-b border-slate-100 px-5 py-4">
           {title && (
             <h3 className="text-base font-semibold tracking-tight text-slate-900">
               {title}
@@ -65,7 +57,8 @@ export default function Card({
         </div>
       )}
 
-      <div className="relative">{children}</div>
+      {/* Card Content */}
+      <div>{children}</div>
     </section>
   );
 }

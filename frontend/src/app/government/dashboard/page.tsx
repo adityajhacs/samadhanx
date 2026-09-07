@@ -1,87 +1,82 @@
 "use client";
 
 import Link from "next/link";
+import {
+  AlertCircle,
+  ArrowRight,
+  BellRing,
+  CheckCircle2,
+  ClipboardList,
+  Clock3,
+  Construction,
+  FolderKanban,
+  Map,
+  Network,
+  ShieldCheck,
+  Sparkles,
+  TrendingUp,
+  Wrench,
+} from "lucide-react";
 
 const stats = [
   {
-    label: "Total Problems",
     value: "8",
-    description: "Citizen reports",
-    icon: "📋",
-    color: "text-slate-900",
+    label: "Community Challenges",
+    description: "Citizen reports received",
+    icon: ClipboardList,
   },
   {
-    label: "Critical",
-    value: "2",
-    description: "Immediate attention",
-    icon: "🚨",
-    color: "text-red-600",
-  },
-  {
-    label: "In Progress",
-    value: "3",
-    description: "Currently handled",
-    icon: "⚙️",
-    color: "text-blue-600",
-  },
-  {
-    label: "Resolution Rate",
-    value: "13%",
-    description: "1 problem resolved",
-    icon: "✓",
-    color: "text-emerald-600",
-  },
-  {
-    label: "Pending",
-    value: "2",
-    description: "Awaiting government action",
-    icon: "⏳",
-    color: "text-amber-600",
-  },
-  {
-    label: "Active Clusters",
-    value: "6",
-    description: "2 critical clusters",
-    icon: "🧩",
-    color: "text-teal-600",
-  },
-  {
-    label: "Active Solutions",
     value: "7",
-    description: "Currently being processed",
-    icon: "🔧",
-    color: "text-indigo-600",
+    label: "Solutions Active",
+    description: "Solutions in progress",
+    icon: Wrench,
+  },
+  {
+    value: "6",
+    label: "Challenge Clusters",
+    description: "Recurring issues identified",
+    icon: Network,
+  },
+  {
+    value: "13%",
+    label: "Resolution Rate",
+    description: "Challenges successfully resolved",
+    icon: CheckCircle2,
   },
 ];
 
 const operations = [
   {
-    title: "Citizen Problems",
-    description: "Review, filter and inspect reported problems.",
-    icon: "📋",
+    title: "Community Challenges",
+    description:
+      "Review citizen-reported challenges and identify issues that need government attention.",
+    icon: AlertCircle,
     href: "/government/problems",
-    button: "View Problems",
+    action: "Explore Challenges",
   },
   {
-    title: "Problem Clusters",
-    description: "Identify repeated problems by location and category.",
-    icon: "🧩",
+    title: "Challenge Clusters",
+    description:
+      "Discover recurring challenges grouped by location, category and community need.",
+    icon: Network,
     href: "/government/clusters",
-    button: "View Clusters",
+    action: "Explore Clusters",
   },
   {
-    title: "Problem Map",
-    description: "View geographical hotspots and problem concentration.",
-    icon: "📍",
+    title: "Impact Map",
+    description:
+      "Visualise challenge hotspots and understand where intervention is needed most.",
+    icon: Map,
     href: "/government/map",
-    button: "Open Map",
+    action: "Open Impact Map",
   },
   {
-    title: "Solution Pipeline",
-    description: "Track problems from report to final resolution.",
-    icon: "🚀",
+    title: "Innovation Projects",
+    description:
+      "Track solutions as they move from verified challenges towards measurable impact.",
+    icon: FolderKanban,
     href: "/government/projects",
-    button: "View Pipeline",
+    action: "View Projects",
   },
 ];
 
@@ -92,7 +87,7 @@ const recentProblems = [
     location: "Central Delhi",
     category: "Roads",
     status: "Critical",
-    statusClass: "bg-red-50 text-red-700 border-red-200",
+    statusClass: "bg-red-50 text-red-700 border-red-100",
   },
   {
     id: "P-1023",
@@ -100,7 +95,7 @@ const recentProblems = [
     location: "Lucknow",
     category: "Water",
     status: "In Progress",
-    statusClass: "bg-blue-50 text-blue-700 border-blue-200",
+    statusClass: "bg-teal-50 text-teal-700 border-teal-100",
   },
   {
     id: "P-1022",
@@ -108,7 +103,7 @@ const recentProblems = [
     location: "Jaipur",
     category: "Electricity",
     status: "Pending",
-    statusClass: "bg-amber-50 text-amber-700 border-amber-200",
+    statusClass: "bg-amber-50 text-amber-700 border-amber-100",
   },
   {
     id: "P-1021",
@@ -116,420 +111,1417 @@ const recentProblems = [
     location: "Bhopal",
     category: "Sanitation",
     status: "Resolved",
-    statusClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    statusClass: "bg-green-50 text-green-700 border-green-100",
   },
 ];
 
 const categories = [
-  { name: "Roads", count: 2, width: "100%" },
-  { name: "Water", count: 2, width: "86%" },
-  { name: "Electricity", count: 2, width: "72%" },
-  { name: "Sanitation", count: 2, width: "58%" },
+  {
+    name: "Road Infrastructure",
+    count: "2",
+    icon: Construction,
+  },
+  {
+    name: "Water Management",
+    count: "2",
+    icon: BellRing,
+  },
+  {
+    name: "Electricity",
+    count: "2",
+    icon: Sparkles,
+  },
+  {
+    name: "Sanitation",
+    count: "2",
+    icon: ShieldCheck,
+  },
+];
+
+const clusters = [
+  {
+    id: "C-001",
+    name: "Central Delhi Infrastructure",
+    progress: "43%",
+    status: "Critical",
+  },
+  {
+    id: "C-002",
+    name: "Lucknow Water Supply",
+    progress: "64%",
+    status: "Active",
+  },
+  {
+    id: "C-003",
+    name: "Jaipur Electricity",
+    progress: "56%",
+    status: "Active",
+  },
+];
+
+const pipeline = [
+  {
+    number: "1",
+    label: "Reported",
+  },
+  {
+    number: "2",
+    label: "Verified",
+  },
+  {
+    number: "1",
+    label: "Assigned",
+  },
+  {
+    number: "3",
+    label: "Execution",
+  },
+  {
+    number: "1",
+    label: "Resolved",
+  },
 ];
 
 export default function GovernmentDashboard() {
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-6 md:px-8 lg:px-10">
-      <div className="mx-auto max-w-7xl">
+    <main className="min-h-screen bg-slate-50 text-slate-900">
+      <div className="mx-auto max-w-7xl px-6 py-8">
+                {/* =====================================================
+            HERO — M1 STYLE
+           ===================================================== */}
 
-        {/* HERO */}
-        <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-teal-900 via-teal-700 to-emerald-600 px-7 py-9 text-white shadow-xl md:px-10 md:py-11">
-          <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute -bottom-28 right-40 h-64 w-64 rounded-full bg-emerald-300/10 blur-3xl" />
+        <section className="relative overflow-hidden bg-white">
+          <div className="grid items-center gap-12 py-6 lg:grid-cols-2 lg:py-10">
+            {/* =================================================
+                LEFT — HERO CONTENT
+               ================================================= */}
 
-          <div className="relative z-10 max-w-4xl">
-            <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold tracking-wider text-white">
-              GOVERNMENT ADMINISTRATION
-            </span>
-
-            <h1 className="mt-5 text-4xl font-black tracking-tight md:text-5xl">
-              Government Dashboard
-            </h1>
-
-            <p className="mt-4 max-w-3xl text-base leading-7 text-teal-50 md:text-lg">
-              Central command view for citizen problems, infrastructure
-              clusters, geographical hotspots and government solution progress.
-            </p>
-
-            {/* FIXED BUTTONS */}
-            <div className="mt-7 flex flex-wrap gap-3">
-
-              {/* VIEW PROBLEMS - FIXED */}
-              <Link
-                href="/government/problems"
-                className="inline-flex items-center justify-center gap-2 rounded-xl !bg-white px-6 py-3.5 text-sm font-extrabold !text-teal-800 shadow-lg transition-all duration-200 hover:!bg-teal-50 hover:-translate-y-0.5"
+            <div>
+              <div
+                className="
+                  mb-6
+                  inline-flex
+                  items-center
+                  gap-2
+                  rounded-full
+                  border border-teal-100
+                  bg-teal-50
+                  px-4 py-2
+                  text-sm
+                  font-medium
+                  text-teal-700
+                "
               >
-                <span className="text-base">📋</span>
-                <span>View Problems</span>
-              </Link>
+                <Sparkles size={15} strokeWidth={2} />
 
-              {/* VIEW CLUSTERS */}
-              <Link
-                href="/government/clusters"
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/30 !bg-white/10 px-6 py-3.5 text-sm font-extrabold !text-white backdrop-blur-sm transition-all duration-200 hover:!bg-white/20 hover:-translate-y-0.5"
-              >
-                <span className="text-base">🧩</span>
-                <span>View Clusters</span>
-              </Link>
-
-            </div>
-          </div>
-
-          {/* HERO SUMMARY */}
-          <div className="relative z-10 mt-9 grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-              <p className="text-xs font-semibold text-teal-100">
-                CITIZEN REPORTS
-              </p>
-              <p className="mt-2 text-2xl font-black">8</p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-              <p className="text-xs font-semibold text-teal-100">
-                CRITICAL
-              </p>
-              <p className="mt-2 text-2xl font-black">2</p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-              <p className="text-xs font-semibold text-teal-100">
-                CLUSTERS
-              </p>
-              <p className="mt-2 text-2xl font-black">6</p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-              <p className="text-xs font-semibold text-teal-100">
-                RESOLVED
-              </p>
-              <p className="mt-2 text-2xl font-black">1</p>
-            </div>
-          </div>
-        </section>
-
-        {/* STAT CARDS */}
-        <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.slice(0, 4).map((stat) => (
-            <div
-              key={stat.label}
-              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    {stat.label}
-                  </p>
-
-                  <p className={`mt-2 text-3xl font-black ${stat.color}`}>
-                    {stat.value}
-                  </p>
-
-                  <p className="mt-1 text-sm text-slate-500">
-                    {stat.description}
-                  </p>
-                </div>
-
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-50 text-xl">
-                  {stat.icon}
-                </div>
+                <span>
+                  Turning community challenges into coordinated action
+                </span>
               </div>
-            </div>
-          ))}
-        </section>
 
-        {/* SECONDARY STATS */}
-        <section className="mt-4 grid gap-4 md:grid-cols-3">
-          {stats.slice(4).map((stat) => (
-            <div
-              key={stat.label}
-              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    {stat.label}
-                  </p>
-
-                  <p className={`mt-2 text-3xl font-black ${stat.color}`}>
-                    {stat.value}
-                  </p>
-
-                  <p className="mt-1 text-sm text-slate-500">
-                    {stat.description}
-                  </p>
-                </div>
-
-                <span className="text-2xl">{stat.icon}</span>
-              </div>
-            </div>
-          ))}
-        </section>
-
-        {/* GOVERNMENT OPERATIONS */}
-        <section className="mt-8">
-          <div className="mb-4">
-            <h2 className="text-2xl font-black text-slate-900">
-              Government Operations
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Navigate directly to the M2 government management modules.
-            </p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {operations.map((operation) => (
-              <Link
-                key={operation.title}
-                href={operation.href}
-                className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-teal-200 hover:shadow-lg"
+              <h1
+                className="
+                  max-w-3xl
+                  text-5xl
+                  font-extrabold
+                  leading-tight
+                  tracking-tight
+                  sm:text-6xl
+                "
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-50 text-2xl">
-                    {operation.icon}
+                Your Challenges.
+                <br />
+                <span className="text-teal-600">
+                  Government Action.
+                </span>
+                <br />
+                Real Impact.
+              </h1>
+
+              <p
+                className="
+                  mt-6
+                  max-w-xl
+                  text-lg
+                  leading-8
+                  text-slate-600
+                "
+              >
+                SamadhanX gives government teams a unified view of
+                community-reported challenges, recurring problem clusters,
+                geographical hotspots and the solutions working to resolve
+                them.
+              </p>
+
+              <div className="mt-8 flex flex-wrap gap-4">
+                <Link
+                  href="/government/problems"
+                  className="
+                    inline-flex
+                    items-center
+                    gap-2
+                    rounded-xl
+                    bg-teal-600
+                    px-6 py-3
+                    font-semibold
+                    text-white
+                    shadow-lg
+                    transition
+                    hover:bg-teal-700
+                  "
+                >
+                  Explore Challenges
+                  <ArrowRight size={17} strokeWidth={2} />
+                </Link>
+
+                <Link
+                  href="/government/map"
+                  className="
+                    inline-flex
+                    items-center
+                    gap-2
+                    rounded-xl
+                    border border-slate-300
+                    bg-white
+                    px-6 py-3.5
+                    font-semibold
+                    text-slate-700
+                    transition
+                    hover:border-teal-200
+                    hover:bg-slate-50
+                  "
+                >
+                  <Map size={17} strokeWidth={2} />
+                  Explore Impact Map
+                </Link>
+              </div>
+
+              <div className="mt-8 flex items-center gap-4 text-sm text-slate-500">
+                <div className="flex -space-x-2">
+                  <div
+                    className="
+                      flex h-9 w-9
+                      items-center justify-center
+                      rounded-full
+                      border-2 border-white
+                      bg-teal-100
+                      text-teal-700
+                    "
+                  >
+                    <ShieldCheck size={17} strokeWidth={2} />
                   </div>
 
-                  <span className="text-lg text-slate-300 transition-transform group-hover:translate-x-1">
-                    →
+                  <div
+                    className="
+                      flex h-9 w-9
+                      items-center justify-center
+                      rounded-full
+                      border-2 border-white
+                      bg-green-100
+                      text-green-700
+                    "
+                  >
+                    <Construction size={17} strokeWidth={2} />
+                  </div>
+
+                  <div
+                    className="
+                      flex h-9 w-9
+                      items-center justify-center
+                      rounded-full
+                      border-2 border-white
+                      bg-amber-100
+                      text-amber-700
+                    "
+                  >
+                    <Wrench size={17} strokeWidth={2} />
+                  </div>
+                </div>
+
+                <span>
+                  Government teams turning reported needs into measurable
+                  outcomes
+                </span>
+              </div>
+            </div>
+
+            {/* =================================================
+                RIGHT — LIVE IMPACT CARD
+               ================================================= */}
+
+            <div className="relative">
+              <div
+                className="
+                  absolute
+                  -inset-6
+                  rounded-[2rem]
+                  bg-teal-100/60
+                  blur-3xl
+                "
+              />
+
+              <div
+                className="
+                  relative
+                  rounded-3xl
+                  border border-slate-200
+                  bg-white
+                  p-6
+                  shadow-2xl
+                "
+              >
+                <div className="mb-5 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">
+                      Government Overview
+                    </p>
+
+                    <h2 className="mt-1 text-2xl font-bold">
+                      Live Impact
+                    </h2>
+                  </div>
+
+                  <span
+                    className="
+                      inline-flex
+                      items-center
+                      gap-1.5
+                      rounded-full
+                      bg-green-50
+                      px-3 py-1
+                      text-xs
+                      font-semibold
+                      text-green-600
+                    "
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                    Active
                   </span>
                 </div>
 
-                <h3 className="mt-5 text-lg font-bold text-slate-900">
-                  {operation.title}
-                </h3>
-
-                <p className="mt-2 min-h-[48px] text-sm leading-6 text-slate-500">
-                  {operation.description}
-                </p>
-
-                <div className="mt-5 inline-flex items-center rounded-lg !bg-teal-700 px-4 py-2 text-sm font-bold !text-white transition group-hover:!bg-teal-800">
-                  {operation.button}
-                  <span className="ml-2">→</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* MAIN CONTENT */}
-        <section className="mt-8 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
-
-          {/* RECENT PROBLEMS */}
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-              <div>
-                <h2 className="text-xl font-black text-slate-900">
-                  Recent Citizen Problems
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Latest reports connected to government workflows.
-                </p>
-              </div>
-
-              <Link
-                href="/government/problems"
-                className="rounded-lg !bg-teal-50 px-4 py-2 text-sm font-bold !text-teal-700 hover:!bg-teal-100"
-              >
-                View All
-              </Link>
-            </div>
-
-            <div className="divide-y divide-slate-100">
-              {recentProblems.map((problem) => (
-                <Link
-                  href="/government/problems"
-                  key={problem.id}
-                  className="block px-6 py-5 transition hover:bg-slate-50"
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                {/* Main impact metric */}
+                <div className="rounded-2xl bg-slate-900 p-6 text-white">
+                  <div className="flex items-start justify-between">
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-teal-700">
-                          {problem.id}
-                        </span>
+                      <p className="text-sm text-slate-400">
+                        Challenges being addressed
+                      </p>
 
-                        <span
-                          className={`rounded-full border px-2.5 py-1 text-xs font-bold ${problem.statusClass}`}
-                        >
-                          {problem.status}
-                        </span>
-                      </div>
-
-                      <h3 className="mt-2 font-bold text-slate-900">
-                        {problem.title}
-                      </h3>
-
-                      <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-500">
-                        <span>📍 {problem.location}</span>
-                        <span>•</span>
-                        <span>{problem.category}</span>
-                      </div>
+                      <p className="mt-2 text-4xl font-bold">
+                        7
+                      </p>
                     </div>
 
-                    <span className="text-sm font-bold text-teal-600">
-                      Inspect →
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* CATEGORIES */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-black text-slate-900">
-              Problem Categories
-            </h2>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Current distribution of citizen reports.
-            </p>
-
-            <div className="mt-7 space-y-6">
-              {categories.map((category) => (
-                <div key={category.name}>
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-700">
-                      {category.name}
-                    </span>
-
-                    <span className="text-sm font-bold text-slate-500">
-                      {category.count}
-                    </span>
-                  </div>
-
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                     <div
-                      className="h-full rounded-full bg-teal-600"
-                      style={{ width: category.width }}
-                    />
+                      className="
+                        flex h-10 w-10
+                        items-center justify-center
+                        rounded-xl
+                        bg-teal-500/15
+                        text-teal-400
+                      "
+                    >
+                      <TrendingUp size={19} strokeWidth={2} />
+                    </div>
+                  </div>
+
+                  <div className="mt-6 h-3 overflow-hidden rounded-full bg-slate-700">
+                    <div className="h-full w-[72%] rounded-full bg-teal-500" />
+                  </div>
+
+                  <div className="mt-3 flex justify-between text-xs text-slate-400">
+                    <span>Active solution pipeline</span>
+                    <span>72% progressing</span>
                   </div>
                 </div>
-              ))}
+
+                {/* Secondary metrics */}
+                <div className="mt-5 grid grid-cols-2 gap-4">
+                  <div className="rounded-2xl bg-teal-50 p-5">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="
+                          flex h-8 w-8
+                          items-center justify-center
+                          rounded-lg
+                          bg-teal-100
+                          text-teal-700
+                        "
+                      >
+                        <Network size={15} strokeWidth={2} />
+                      </div>
+
+                      <p className="text-sm text-slate-500">
+                        Active Clusters
+                      </p>
+                    </div>
+
+                    <p className="mt-2 text-2xl font-bold text-teal-700">
+                      6
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-green-50 p-5">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="
+                          flex h-8 w-8
+                          items-center justify-center
+                          rounded-lg
+                          bg-green-100
+                          text-green-700
+                        "
+                      >
+                        <CheckCircle2 size={15} strokeWidth={2} />
+                      </div>
+
+                      <p className="text-sm text-slate-500">
+                        Resolved
+                      </p>
+                    </div>
+
+                    <p className="mt-2 text-2xl font-bold text-green-700">
+                      1
+                    </p>
+                  </div>
+                </div>
+
+                {/* Quick status */}
+                <div
+                  className="
+                    mt-4
+                    flex
+                    items-center
+                    justify-between
+                    rounded-2xl
+                    border border-slate-100
+                    bg-slate-50
+                    px-5 py-4
+                  "
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="
+                        flex h-9 w-9
+                        items-center justify-center
+                        rounded-xl
+                        bg-amber-50
+                        text-amber-600
+                      "
+                    >
+                      <Clock3 size={17} strokeWidth={2} />
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500">
+                        Awaiting action
+                      </p>
+
+                      <p className="text-sm font-bold text-slate-900">
+                        2 pending challenges
+                      </p>
+                    </div>
+                  </div>
+
+                  <ArrowRight
+                    size={17}
+                    strokeWidth={2}
+                    className="text-slate-300"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+                {/* =====================================================
+            GOVERNMENT OPERATIONS
+           ===================================================== */}
+
+        <section className="py-10">
+          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+            <div>
+              <p className="font-semibold text-teal-600">
+                GOVERNMENT WORKSPACE
+              </p>
+
+              <h2 className="mt-2 text-3xl font-bold tracking-tight">
+                Where should action begin?
+              </h2>
+
+              <p className="mt-3 max-w-3xl text-slate-600">
+                Move from community-reported challenges to coordinated
+                government action. Explore problems, identify patterns,
+                understand hotspots and track solutions.
+              </p>
             </div>
 
             <Link
               href="/government/problems"
-              className="mt-7 block rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-center text-sm font-bold text-teal-700 transition hover:bg-teal-100"
+              className="
+                inline-flex
+                items-center
+                gap-1.5
+                text-sm
+                font-semibold
+                text-teal-600
+                hover:text-teal-700
+              "
             >
-              Analyze All Problems →
+              View all challenges
+              <ArrowRight size={15} strokeWidth={2} />
             </Link>
+          </div>
+
+          {/* =================================================
+              OPERATION CARDS
+             ================================================= */}
+
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {operations.map((operation) => {
+              const Icon = operation.icon;
+
+              return (
+                <Link
+                  key={operation.title}
+                  href={operation.href}
+                  className="
+                    group
+                    rounded-2xl
+                    border border-slate-200
+                    bg-white
+                    p-6
+                    transition
+                    duration-200
+                    hover:-translate-y-1
+                    hover:border-teal-200
+                    hover:shadow-lg
+                  "
+                >
+                  {/* Icon */}
+                  <div
+                    className="
+                      flex h-12 w-12
+                      items-center justify-center
+                      rounded-xl
+                      bg-slate-100
+                      text-teal-600
+                      transition
+                      group-hover:bg-teal-50
+                    "
+                  >
+                    <Icon size={22} strokeWidth={1.9} />
+                  </div>
+
+                  {/* Title */}
+                  <h3 className="mt-5 font-bold text-slate-900">
+                    {operation.title}
+                  </h3>
+
+                  {/* Description */}
+                  <p className="mt-2 min-h-[72px] text-sm leading-6 text-slate-500">
+                    {operation.description}
+                  </p>
+
+                  {/* Action */}
+                  <span
+                    className="
+                      mt-5
+                      inline-flex
+                      items-center
+                      gap-1.5
+                      text-sm
+                      font-semibold
+                      text-teal-600
+                      transition
+                      group-hover:text-teal-700
+                    "
+                  >
+                    {operation.action}
+                    <ArrowRight
+                      size={15}
+                      strokeWidth={2}
+                      className="
+                        transition-transform
+                        group-hover:translate-x-1
+                      "
+                    />
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         </section>
 
-        {/* CLUSTERS + PIPELINE */}
-        <section className="mt-8 grid gap-6 lg:grid-cols-2">
+        {/* =====================================================
+            GOVERNMENT SNAPSHOT
+           ===================================================== */}
 
-          {/* CLUSTERS */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between">
+        <section className="py-6">
+          <div
+            className="
+              rounded-3xl
+              border border-slate-200
+              bg-white
+              p-6
+              shadow-sm
+              md:p-8
+            "
+          >
+            <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
               <div>
-                <h2 className="text-xl font-black text-slate-900">
-                  Infrastructure Clusters
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Problems automatically connected to reports.
-                </p>
-              </div>
-
-              <Link
-                href="/government/clusters"
-                className="rounded-lg bg-teal-50 px-3 py-2 text-xs font-bold text-teal-700"
-              >
-                View Clusters
-              </Link>
-            </div>
-
-            <div className="mt-6 space-y-4">
-              {[
-                ["C-001", "Central Delhi Infrastructure", "43%"],
-                ["C-002", "Lucknow Water Supply", "64%"],
-                ["C-003", "Jaipur Electricity", "56%"],
-              ].map(([id, name, progress]) => (
-                <div
-                  key={id}
-                  className="rounded-xl border border-slate-100 bg-slate-50 p-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-bold text-teal-700">{id}</p>
-                      <p className="mt-1 font-bold text-slate-800">{name}</p>
-                    </div>
-
-                    <span className="text-xs font-bold text-slate-500">
-                      {progress}
-                    </span>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="
+                      flex h-10 w-10
+                      items-center justify-center
+                      rounded-xl
+                      bg-teal-50
+                      text-teal-600
+                    "
+                  >
+                    <TrendingUp size={19} strokeWidth={2} />
                   </div>
 
-                  <div className="mt-3 h-2 rounded-full bg-slate-200">
-                    <div
-                      className="h-full rounded-full bg-teal-600"
-                      style={{ width: progress }}
-                    />
+                  <div>
+                    <p className="text-sm font-semibold text-teal-600">
+                      PLATFORM SNAPSHOT
+                    </p>
+
+                    <h2 className="mt-1 text-2xl font-bold tracking-tight">
+                      Community needs are becoming actionable insights.
+                    </h2>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {/* SOLUTION PIPELINE */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-black text-slate-900">
-                  Solution Pipeline
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Track problems from report to resolution.
+                <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">
+                  SamadhanX helps government teams move beyond individual
+                  complaints by connecting related challenges, prioritising
+                  critical issues and monitoring the progress of solutions.
                 </p>
               </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-2xl bg-teal-50 px-5 py-4 text-center">
+                  <p className="text-2xl font-bold text-teal-700">
+                    8
+                  </p>
+
+                  <p className="mt-1 text-xs font-medium text-slate-500">
+                    Challenges
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-slate-50 px-5 py-4 text-center">
+                  <p className="text-2xl font-bold text-slate-800">
+                    6
+                  </p>
+
+                  <p className="mt-1 text-xs font-medium text-slate-500">
+                    Clusters
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-green-50 px-5 py-4 text-center">
+                  <p className="text-2xl font-bold text-green-700">
+                    7
+                  </p>
+
+                  <p className="mt-1 text-xs font-medium text-slate-500">
+                    Solutions
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+                {/* =====================================================
+            RECENT COMMUNITY CHALLENGES
+           ===================================================== */}
+
+        <section className="py-10">
+          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+            <div>
+              <p className="font-semibold text-teal-600">
+                COMMUNITY VOICE
+              </p>
+
+              <h2 className="mt-2 text-3xl font-bold tracking-tight">
+                What communities are reporting
+              </h2>
+
+              <p className="mt-3 max-w-3xl text-slate-600">
+                Stay informed about the latest challenges and the action
+                currently being taken by government teams.
+              </p>
+            </div>
+
+            <Link
+              href="/government/problems"
+              className="
+                inline-flex
+                items-center
+                gap-1.5
+                text-sm
+                font-semibold
+                text-teal-600
+                hover:text-teal-700
+              "
+            >
+              View all problems
+              <ArrowRight size={15} strokeWidth={2} />
+            </Link>
+          </div>
+
+          <div className="mt-8 grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+            {/* Recent Problems */}
+            <div
+              className="
+                overflow-hidden
+                rounded-2xl
+                border border-slate-200
+                bg-white
+              "
+            >
+              <div className="border-b border-slate-100 px-6 py-5">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="
+                      flex h-10 w-10
+                      items-center justify-center
+                      rounded-xl
+                      bg-teal-50
+                      text-teal-600
+                    "
+                  >
+                    <ClipboardList size={19} strokeWidth={2} />
+                  </div>
+
+                  <div>
+                    <h3 className="font-bold text-slate-900">
+                      Latest Challenges
+                    </h3>
+
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Recent reports entering government workflows
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="divide-y divide-slate-100">
+                {recentProblems.map((problem) => (
+                  <Link
+                    key={problem.id}
+                    href="/government/problems"
+                    className="
+                      group
+                      block
+                      px-6 py-5
+                      transition
+                      hover:bg-slate-50
+                    "
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-bold text-teal-600">
+                            {problem.id}
+                          </span>
+
+                          <span
+                            className={`
+                              rounded-full
+                              border
+                              px-2.5 py-1
+                              text-xs
+                              font-semibold
+                              ${problem.statusClass}
+                            `}
+                          >
+                            {problem.status}
+                          </span>
+                        </div>
+
+                        <h4
+                          className="
+                            mt-2
+                            truncate
+                            font-bold
+                            text-slate-900
+                            transition
+                            group-hover:text-teal-700
+                          "
+                        >
+                          {problem.title}
+                        </h4>
+
+                        <p className="mt-1 text-xs text-slate-500">
+                          {problem.location} · {problem.category}
+                        </p>
+                      </div>
+
+                      <ArrowRight
+                        size={17}
+                        strokeWidth={2}
+                        className="
+                          shrink-0
+                          text-slate-300
+                          transition
+                          group-hover:translate-x-1
+                          group-hover:text-teal-600
+                        "
+                      />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {/* Categories */}
+            <div
+              className="
+                rounded-2xl
+                border border-slate-200
+                bg-white
+                p-6
+              "
+            >
+              <p className="font-semibold text-teal-600">
+                CHALLENGE AREAS
+              </p>
+
+              <h3 className="mt-2 text-xl font-bold tracking-tight">
+                Where attention is needed
+              </h3>
+
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                A quick view of the areas currently generating community
+                challenges.
+              </p>
+
+              <div className="mt-7 space-y-4">
+                {categories.map((category) => {
+                  const Icon = category.icon;
+
+                  return (
+                    <Link
+                      key={category.name}
+                      href="/government/problems"
+                      className="
+                        group
+                        flex
+                        items-center
+                        gap-3
+                        rounded-xl
+                        border border-slate-100
+                        bg-slate-50
+                        p-3
+                        transition
+                        hover:border-teal-100
+                        hover:bg-teal-50
+                      "
+                    >
+                      <div
+                        className="
+                          flex h-10 w-10
+                          shrink-0
+                          items-center justify-center
+                          rounded-lg
+                          bg-white
+                          text-teal-600
+                          shadow-sm
+                          transition
+                          group-hover:bg-teal-100
+                        "
+                      >
+                        <Icon size={18} strokeWidth={1.9} />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-slate-800">
+                          {category.name}
+                        </p>
+
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {category.count} reported challenges
+                        </p>
+                      </div>
+
+                      <ArrowRight
+                        size={15}
+                        strokeWidth={2}
+                        className="
+                          text-slate-300
+                          transition
+                          group-hover:translate-x-1
+                          group-hover:text-teal-600
+                        "
+                      />
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* =====================================================
+            CHALLENGE CLUSTERS + SOLUTION PIPELINE
+           ===================================================== */}
+
+        <section className="py-10">
+          <div className="mb-8">
+            <p className="font-semibold text-teal-600">
+              FROM PROBLEM TO PROGRESS
+            </p>
+
+            <h2 className="mt-2 text-3xl font-bold tracking-tight">
+              See how challenges move forward
+            </h2>
+
+            <p className="mt-3 max-w-3xl text-slate-600">
+              SamadhanX connects related challenges and keeps government
+              teams focused on measurable progress.
+            </p>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Challenge Clusters */}
+            <div
+              className="
+                rounded-2xl
+                border border-slate-200
+                bg-white
+                p-6
+              "
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div
+                    className="
+                      flex h-10 w-10
+                      shrink-0
+                      items-center justify-center
+                      rounded-xl
+                      bg-teal-50
+                      text-teal-600
+                    "
+                  >
+                    <Network size={19} strokeWidth={2} />
+                  </div>
+
+                  <div>
+                    <h3 className="text-xl font-bold">
+                      Challenge Clusters
+                    </h3>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      Related problems connected into actionable groups.
+                    </p>
+                  </div>
+                </div>
+
+                <Link
+                  href="/government/clusters"
+                  className="
+                    hidden
+                    items-center
+                    gap-1
+                    text-xs
+                    font-semibold
+                    text-teal-600
+                    sm:inline-flex
+                  "
+                >
+                  View all
+                  <ArrowRight size={13} />
+                </Link>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                {clusters.map((cluster) => (
+                  <Link
+                    key={cluster.id}
+                    href="/government/clusters"
+                    className="
+                      group
+                      block
+                      rounded-xl
+                      border border-slate-100
+                      bg-slate-50
+                      p-4
+                      transition
+                      hover:border-teal-100
+                      hover:bg-teal-50/50
+                    "
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold text-teal-600">
+                          {cluster.id}
+                        </p>
+
+                        <p className="mt-1 font-semibold text-slate-800">
+                          {cluster.name}
+                        </p>
+                      </div>
+
+                      <span
+                        className={`
+                          rounded-full
+                          px-2.5 py-1
+                          text-[10px]
+                          font-bold
+                          ${
+                            cluster.status === "Critical"
+                              ? "bg-red-50 text-red-600"
+                              : "bg-green-50 text-green-600"
+                          }
+                        `}
+                      >
+                        {cluster.status}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 flex items-center gap-3">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200">
+                        <div
+                          className="h-full rounded-full bg-teal-600"
+                          style={{ width: cluster.progress }}
+                        />
+                      </div>
+
+                      <span className="text-xs font-bold text-slate-500">
+                        {cluster.progress}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {/* Solution Pipeline */}
+            <div
+              className="
+                rounded-2xl
+                border border-slate-200
+                bg-white
+                p-6
+              "
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div
+                    className="
+                      flex h-10 w-10
+                      shrink-0
+                      items-center justify-center
+                      rounded-xl
+                      bg-green-50
+                      text-green-600
+                    "
+                  >
+                    <Wrench size={19} strokeWidth={2} />
+                  </div>
+
+                  <div>
+                    <h3 className="text-xl font-bold">
+                      Solution Pipeline
+                    </h3>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      Track progress from reported challenge to resolution.
+                    </p>
+                  </div>
+                </div>
+
+                <Link
+                  href="/government/projects"
+                  className="
+                    hidden
+                    items-center
+                    gap-1
+                    text-xs
+                    font-semibold
+                    text-teal-600
+                    sm:inline-flex
+                  "
+                >
+                  View projects
+                  <ArrowRight size={13} />
+                </Link>
+              </div>
+
+              <div className="mt-8 grid grid-cols-5 gap-2">
+                {pipeline.map((stage, index) => (
+                  <div key={stage.label} className="relative text-center">
+                    <div
+                      className="
+                        mx-auto
+                        flex h-10 w-10
+                        items-center justify-center
+                        rounded-full
+                        bg-teal-600
+                        text-xs
+                        font-bold
+                        text-white
+                      "
+                    >
+                      {stage.number}
+                    </div>
+
+                    <p className="mt-3 text-[10px] font-semibold text-slate-600 sm:text-xs">
+                      {stage.label}
+                    </p>
+
+                    {index < pipeline.length - 1 && (
+                      <div
+                        className="
+                          absolute
+                          left-[calc(50%+22px)]
+                          top-5
+                          hidden
+                          h-px
+                          w-[calc(100%-12px)]
+                          bg-teal-200
+                          lg:block
+                        "
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-slate-500">
+                    Overall solution progress
+                  </span>
+
+                  <span className="font-bold text-teal-700">
+                    72%
+                  </span>
+                </div>
+
+                <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full w-[72%] rounded-full bg-teal-600" />
+                </div>
+              </div>
+
+              <div
+                className="
+                  mt-5
+                  flex
+                  items-center
+                  gap-2
+                  rounded-xl
+                  bg-green-50
+                  px-4 py-3
+                  text-xs
+                  font-medium
+                  text-green-700
+                "
+              >
+                <CheckCircle2 size={15} strokeWidth={2} />
+
+                <span>
+                  Active solutions are progressing through government
+                  workflows.
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+                      {/* =====================================================
+            IMPACT AT A GLANCE
+           ===================================================== */}
+
+        <section className="py-10">
+          <div>
+            <p className="font-semibold tracking-wide text-teal-600">
+              IMPACT AT A GLANCE
+            </p>
+
+            <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
+              Turning reports into measurable progress.
+            </h2>
+
+            <p className="mt-3 max-w-3xl text-slate-600">
+              A simple view of how SamadhanX is helping government teams
+              understand, prioritise and act on community needs.
+            </p>
+          </div>
+
+          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {stats.map((stat) => {
+              const Icon = stat.icon;
+
+              return (
+                <div
+                  key={stat.label}
+                  className="
+                    group
+                    rounded-2xl
+                    border border-slate-200
+                    bg-white
+                    p-6
+                    shadow-sm
+                    transition
+                    hover:-translate-y-1
+                    hover:border-teal-200
+                    hover:shadow-lg
+                  "
+                >
+                  <div className="flex items-center justify-between">
+                    <div
+                      className="
+                        flex h-11 w-11
+                        items-center justify-center
+                        rounded-xl
+                        bg-teal-50
+                        text-teal-600
+                        transition
+                        group-hover:bg-teal-100
+                      "
+                    >
+                      <Icon size={19} strokeWidth={2} />
+                    </div>
+
+                    <TrendingUp
+                      size={16}
+                      strokeWidth={2}
+                      className="text-slate-300"
+                    />
+                  </div>
+
+                  <p className="mt-5 text-3xl font-bold text-slate-900">
+                    {stat.value}
+                  </p>
+
+                  <p className="mt-1 font-semibold text-slate-800">
+                    {stat.label}
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    {stat.description}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+
+        {/* =====================================================
+            FINAL CTA
+           ===================================================== */}
+
+        <section className="pb-20 pt-6">
+          <div
+            className="
+              overflow-hidden
+              rounded-3xl
+              bg-teal-600
+              px-8 py-12
+              text-white
+              shadow-lg
+              md:px-14
+              md:py-14
+            "
+          >
+            <div
+              className="
+                flex
+                flex-col
+                items-start
+                justify-between
+                gap-8
+                md:flex-row
+                md:items-center
+              "
+            >
+              {/* CTA Content */}
+              <div className="max-w-2xl">
+                <div className="flex items-center gap-2">
+                  <Sparkles
+                    size={16}
+                    strokeWidth={2}
+                    className="text-teal-200"
+                  />
+
+                  <p className="text-sm font-semibold uppercase tracking-wider text-teal-100">
+                    TURN INSIGHT INTO ACTION
+                  </p>
+                </div>
+
+                <h2 className="mt-3 text-3xl font-bold leading-tight md:text-4xl">
+                  Every community challenge can become the beginning of a
+                  meaningful solution.
+                </h2>
+
+                <p className="mt-4 max-w-xl text-sm leading-6 text-teal-50 md:text-base">
+                  Use SamadhanX to understand what communities need,
+                  coordinate the right response and track progress towards
+                  real-world impact.
+                </p>
+              </div>
+
+              {/* CTA Buttons */}
+              <div className="flex shrink-0 flex-col gap-3 sm:flex-row md:flex-col lg:flex-row">
+                <Link
+  href="/government/problems"
+  className="
+    inline-flex
+    items-center
+    justify-center
+    gap-2
+    rounded-xl
+    bg-white
+    px-6 py-3.5
+    text-sm
+    font-bold
+    !text-slate-900
+    shadow-md
+    transition
+    hover:bg-slate-100
+    hover:!text-teal-700
+  "
+>
+  <span className="!text-slate-900">
+    Explore Challenges
+  </span>
+
+  <ArrowRight
+    size={17}
+    strokeWidth={2}
+    className="!text-slate-900"
+  />
+</Link>
+
+                <Link
+                  href="/government/projects"
+                  className="
+                    inline-flex
+                    items-center
+                    justify-center
+                    gap-2
+                    rounded-xl
+                    border
+                    border-white/40
+                    bg-teal-700
+                    px-6 py-3.5
+                    text-sm
+                    font-bold
+                    text-white
+                    shadow-sm
+                    transition
+                    hover:bg-teal-800
+                  "
+                >
+                  <FolderKanban size={17} strokeWidth={2} />
+                  View Solutions
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+
+                      {/* =====================================================
+            FOOTER — FULL WIDTH & COMPACT M1 STYLE
+           ===================================================== */}
+
+        <footer className="w-full border-t border-slate-800 bg-slate-950 text-white">
+          <div
+            className="
+              flex
+              w-full
+              flex-col
+              gap-4
+              px-6
+              py-5
+              sm:flex-row
+              sm:items-center
+              sm:justify-between
+            "
+          >
+
+            {/* LEFT */}
+            <div className="flex items-center gap-3">
+              <div
+                className="
+                  flex h-9 w-9
+                  items-center justify-center
+                  rounded-lg
+                  bg-teal-600
+                  text-base
+                  font-bold
+                "
+              >
+                S
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold">
+                  SamadhanX
+                </p>
+
+                <p className="text-xs text-slate-400">
+                  Ideas → Action → Impact
+                </p>
+              </div>
+            </div>
+
+
+            {/* CENTER */}
+            <div className="text-center text-xs text-slate-500">
+              © 2026 SamadhanX. Government Innovation Workspace.
+            </div>
+
+
+            {/* RIGHT */}
+            <div className="flex items-center gap-5 text-xs text-slate-400">
+
+              <Link
+                href="/government/problems"
+                className="
+                  transition-colors
+                  duration-200
+                  hover:text-teal-400
+                "
+              >
+                Challenges
+              </Link>
+
+              <Link
+                href="/government/map"
+                className="
+                  transition-colors
+                  duration-200
+                  hover:text-teal-400
+                "
+              >
+                Impact Map
+              </Link>
 
               <Link
                 href="/government/projects"
-                className="rounded-lg bg-teal-50 px-3 py-2 text-xs font-bold text-teal-700"
+                className="
+                  transition-colors
+                  duration-200
+                  hover:text-teal-400
+                "
               >
-                Open Pipeline
+                Solutions
               </Link>
+
             </div>
 
-            <div className="mt-7 grid grid-cols-5 gap-2">
-              {[
-                ["1", "Reported"],
-                ["2", "Verified"],
-                ["1", "Assigned"],
-                ["3", "Execution"],
-                ["1", "Resolved"],
-              ].map(([number, label], index) => (
-                <div key={label} className="text-center">
-                  <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-teal-600 text-sm font-black text-white">
-                    {number}
-                  </div>
-
-                  <p className="mt-3 text-xs font-bold text-slate-700">
-                    {label}
-                  </p>
-
-                  {index < 4 && (
-                    <div className="hidden lg:block" />
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-8 h-2 overflow-hidden rounded-full bg-slate-100">
-              <div className="h-full w-[72%] rounded-full bg-teal-600" />
-            </div>
-
-            <p className="mt-3 text-center text-xs font-semibold text-slate-500">
-              72% of active solutions are progressing through the pipeline
-            </p>
           </div>
-        </section>
-
-        {/* FOOTER */}
-        <footer className="py-8 text-center text-xs text-slate-400">
-          SamadhanX • Government Administration • M2 Government Management
         </footer>
-      </div>
+      
     </main>
   );
 }
