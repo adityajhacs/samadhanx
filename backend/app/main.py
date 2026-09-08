@@ -11,6 +11,7 @@ from app.routers.projects import router as projects_router
 from app.routers.project_members import router as project_members_router
 from app.routers.industry import router as industry_router
 from app.routers.collaborations import router as collaborations_router
+from app.routers.dashboard import router as dashboard_router
 
 app = FastAPI(
     title="SamadhanX API",
@@ -26,6 +27,7 @@ app.include_router(projects_router)
 app.include_router(project_members_router)
 app.include_router(industry_router)
 app.include_router(collaborations_router)
+app.include_router(dashboard_router)
 
 @app.get("/health")
 def health():
