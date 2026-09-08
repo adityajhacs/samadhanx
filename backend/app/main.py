@@ -1,6 +1,11 @@
 from fastapi import FastAPI
 
+from app.models.problem import Problem
 from app.routers.universities import router as universities_router
+from app.routers.solutions import (
+    router as solutions_router,
+    problem_solutions_router,
+)
 
 
 app = FastAPI(
@@ -11,7 +16,8 @@ app = FastAPI(
 
 
 app.include_router(universities_router)
-
+app.include_router(solutions_router)
+app.include_router(problem_solutions_router)
 
 @app.get("/health")
 def health():
