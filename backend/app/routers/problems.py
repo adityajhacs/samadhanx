@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, require_role
 from app.models.user import User
 
 from app.core.database import get_db
@@ -44,7 +43,7 @@ def get_problem(
 def create_problem(
     problem: ProblemCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_role("citizen"))
 ):
     new_problem = Problem(
         citizen_id=current_user.id,
