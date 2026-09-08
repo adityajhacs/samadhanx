@@ -1,12 +1,16 @@
 from fastapi import FastAPI
 
 from app.models.problem import Problem
+from app.models.user import User
 from app.routers.universities import router as universities_router
 from app.routers.solutions import (
     router as solutions_router,
     problem_solutions_router,
 )
-
+from app.routers.projects import router as projects_router
+from app.routers.project_members import router as project_members_router
+from app.routers.industry import router as industry_router
+from app.routers.collaborations import router as collaborations_router
 
 app = FastAPI(
     title="SamadhanX API",
@@ -18,6 +22,10 @@ app = FastAPI(
 app.include_router(universities_router)
 app.include_router(solutions_router)
 app.include_router(problem_solutions_router)
+app.include_router(projects_router)
+app.include_router(project_members_router)
+app.include_router(industry_router)
+app.include_router(collaborations_router)
 
 @app.get("/health")
 def health():
