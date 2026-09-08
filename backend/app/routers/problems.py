@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 from sqlalchemy import text
 from app.services.ai.analysis_service import analyze_and_save_problem
+from app.services.ai.analysis_service import analyze_and_save_problem
+from app.services.ai.root_cause_service import analyze_and_save_root_cause
 from app.core.database import get_db
 from app.models.problem import Problem
 from app.schemas.ai import AIAnalysisResponse
@@ -19,7 +21,23 @@ router = APIRouter(
     tags=["Problems"]
 )
 
+@router.post("/{problem_id}/root-cause")
+def analyze_problem_root_cause(
+    problem_id: UUID,
+    db: Session = Depends(get_db)
+):
+    analysis = analyze_and_save_root_cause(
+        problem_id=problem_id,
+        db=db
+    )
 
+    if not analysis:
+        raise HTTPException(
+            status_code=404,
+            detail="Problem not found"
+        )
+
+    return analysis
 @router.get("/", response_model=list[ProblemResponse])
 def get_problems(db: Session = Depends(get_db)):
     problems = db.query(Problem).all()
