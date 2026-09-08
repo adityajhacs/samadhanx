@@ -3,10 +3,10 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 from sqlalchemy import text
 from app.services.ai.analysis_service import analyze_and_save_problem
-from app.services.ai.analysis_service import analyze_and_save_problem
 from app.services.ai.root_cause_service import analyze_and_save_root_cause
 from app.core.database import get_db
 from app.models.problem import Problem
+from app.services.ai.university_matching import match_universities
 from app.schemas.ai import AIAnalysisResponse
 from app.services.ai.embedding import generate_embedding
 from app.schemas.problem import (
@@ -208,3 +208,23 @@ def get_similar_problems(
         }
         for row in result
     ]
+@router.get("/{problem_id}/universities")
+def get_matching_universities(
+    problem_id: UUID,
+    db: Session = Depends(get_db)
+):
+    matches = match_universities(
+        problem_id=problem_id,
+        db=db
+    )
+
+    if not matches:
+        raise HTTPException(
+            status_code=404,
+            detail="No matching universities found"
+        )
+
+    return {
+        "problem_id": problem_id,
+        "universities": matches
+    }
