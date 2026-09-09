@@ -1,22 +1,22 @@
 from unittest.mock import patch
 
 from app.core.database import SessionLocal
-from app.services.ai.solution_embeddings import generate_solution_embeddings
+from app.services.ai.university_embeddings import generate_university_embeddings
 
 
-def test_generate_solution_embeddings():
+def test_generate_university_embeddings():
     db = SessionLocal()
 
     mock_embedding = [0.1] * 768
 
     try:
         with patch(
-            "app.services.ai.solution_embeddings.generate_embedding"
+            "app.services.ai.university_embeddings.generate_embedding"
         ) as mock_generate_embedding:
 
             mock_generate_embedding.return_value = mock_embedding
 
-            generate_solution_embeddings(db)
+            generate_university_embeddings(db)
 
             assert mock_generate_embedding.call_count >= 0
 
@@ -25,10 +25,10 @@ def test_generate_solution_embeddings():
                     text_argument = call.args[0]
 
                     assert isinstance(text_argument, str)
-                    assert "Solution:" in text_argument
-                    assert "Prototype Status:" in text_argument
-                    assert "Estimated Cost:" in text_argument
-                    assert "Funding Received:" in text_argument
+                    assert "University:" in text_argument
+                    assert "Expertise Areas:" in text_argument
+                    assert "District:" in text_argument
+                    assert "Department:" in text_argument
 
     finally:
         db.close()

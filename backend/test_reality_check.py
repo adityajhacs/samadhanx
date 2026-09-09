@@ -1,5 +1,5 @@
 from unittest.mock import patch
-
+from pytest import raises
 from app.services.ai.reality_check import analyze_reality_check
 
 
@@ -69,3 +69,21 @@ def test_analyze_reality_check():
     assert "maintenance" in result.uncertainty_notes.lower()
 
     mock_create.assert_called_once()
+    
+
+
+def test_analyze_reality_check_rejects_empty_input():
+    with raises(ValueError, match="cannot be empty"):
+        analyze_reality_check("")
+
+
+def test_analyze_reality_check_rejects_non_string_input():
+    with raises(ValueError, match="must be a string"):
+        analyze_reality_check(None)
+
+
+def test_analyze_reality_check_rejects_oversized_input():
+    huge_solution = "A" * 10001
+
+    with raises(ValueError, match="too long"):
+        analyze_reality_check(huge_solution)

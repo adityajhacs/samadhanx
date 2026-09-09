@@ -1,4 +1,5 @@
 from unittest.mock import patch
+from pytest import raises
 
 from app.services.ai.solution_recommendation import (
     explain_solution_recommendation
@@ -55,3 +56,57 @@ def test_explain_solution_recommendation():
     assert "water" in result.relevance_explanation.lower()
 
     mock_create.assert_called_once()
+
+
+def test_explain_solution_recommendation_rejects_empty_problem():
+    with raises(ValueError, match="Problem cannot be empty"):
+        explain_solution_recommendation(
+            problem="",
+            solution="Solar water ATM",
+            similarity=0.59
+        )
+
+
+def test_explain_solution_recommendation_rejects_non_string_problem():
+    with raises(ValueError, match="Problem must be a string"):
+        explain_solution_recommendation(
+            problem=None,
+            solution="Solar water ATM",
+            similarity=0.59
+        )
+
+
+def test_explain_solution_recommendation_rejects_empty_solution():
+    with raises(ValueError, match="Solution cannot be empty"):
+        explain_solution_recommendation(
+            problem="Unreliable drinking water",
+            solution="",
+            similarity=0.59
+        )
+
+
+def test_explain_solution_recommendation_rejects_non_string_solution():
+    with raises(ValueError, match="Solution must be a string"):
+        explain_solution_recommendation(
+            problem="Unreliable drinking water",
+            solution=None,
+            similarity=0.59
+        )
+
+
+def test_explain_solution_recommendation_rejects_invalid_similarity():
+    with raises(ValueError, match="Similarity must be a number"):
+        explain_solution_recommendation(
+            problem="Unreliable drinking water",
+            solution="Solar water ATM",
+            similarity="0.59"
+        )
+
+
+def test_explain_solution_recommendation_rejects_out_of_range_similarity():
+    with raises(ValueError, match="Similarity must be between 0 and 1"):
+        explain_solution_recommendation(
+            problem="Unreliable drinking water",
+            solution="Solar water ATM",
+            similarity=1.5
+        )

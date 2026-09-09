@@ -1,5 +1,7 @@
 from unittest.mock import patch
 
+from pytest import raises
+
 from app.services.ai.analysis import analyze_problem
 
 
@@ -45,3 +47,20 @@ def test_analyze_problem():
     assert "water supply" in result.keywords
 
     mock_create.assert_called_once()
+
+
+def test_analyze_problem_rejects_empty_input():
+    with raises(ValueError, match="cannot be empty"):
+        analyze_problem("")
+
+
+def test_analyze_problem_rejects_non_string_input():
+    with raises(ValueError, match="must be a string"):
+        analyze_problem(None)
+
+
+def test_analyze_problem_rejects_oversized_input():
+    huge_problem = "A" * 10001
+
+    with raises(ValueError, match="too long"):
+        analyze_problem(huge_problem)

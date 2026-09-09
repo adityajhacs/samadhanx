@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field
-from google import genai
 from dotenv import load_dotenv
+from google import genai
+from pydantic import BaseModel, Field, ValidationError
 
 from app.services.ai.prompts import SYSTEM_PROMPT
 
@@ -20,6 +20,17 @@ class PilotFeedbackAnalysis(BaseModel):
 
 
 def analyze_pilot_feedback(feedback: str) -> PilotFeedbackAnalysis:
+    # Input validation
+    if not isinstance(feedback, str):
+        raise ValueError("Pilot feedback must be a string.")
+
+    feedback = feedback.strip()
+
+    if not feedback:
+        raise ValueError("Pilot feedback cannot be empty.")
+
+    if len(feedback) > 10000:
+        raise ValueError("Pilot feedback is too long.")
 
     prompt = f"""
 {SYSTEM_PROMPT}
@@ -57,16 +68,33 @@ Field Pilot Feedback:
 {feedback}
 """
 
-    interaction = client.interactions.create(
-        model="gemini-3.6-flash",
-        input=prompt,
-        response_format={
-            "type": "text",
-            "mime_type": "application/json",
-            "schema": PilotFeedbackAnalysis.model_json_schema(),
-        },
-    )
+    try:
+        interaction = client.interactions.create(
+            model="gemini-3.6-flash",
+            input=prompt,
+            response_format={
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": PilotFeedbackAnalysis.model_json_schema(),
+            },
+        )
 
-    return PilotFeedbackAnalysis.model_validate_json(
-        interaction.output_text
-    )
+        if not interaction.output_text:
+            raise ValueError("AI returned an empty response.")
+
+        return PilotFeedbackAnalysis.model_validate_json(
+            interaction.output_text
+        )
+
+    except ValidationError as exc:
+        raise ValueError(
+            "AI returned an invalid pilot analysis format."
+        ) from exc
+
+    except ValueError:
+        raise
+
+    except Exception as exc:
+        raise RuntimeError(
+            "AI pilot analysis service is temporarily unavailable."
+        ) from exc

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from google import genai
 from dotenv import load_dotenv
 
@@ -23,6 +23,34 @@ def explain_solution_recommendation(
     solution: str,
     similarity: float
 ) -> SolutionRecommendation:
+
+    # Input validation
+    if not isinstance(problem, str):
+        raise ValueError("Problem must be a string.")
+
+    if not isinstance(solution, str):
+        raise ValueError("Solution must be a string.")
+
+    if not isinstance(similarity, (int, float)):
+        raise ValueError("Similarity must be a number.")
+
+    problem = problem.strip()
+    solution = solution.strip()
+
+    if not problem:
+        raise ValueError("Problem cannot be empty.")
+
+    if not solution:
+        raise ValueError("Solution cannot be empty.")
+
+    if len(problem) > 10000:
+        raise ValueError("Problem is too long.")
+
+    if len(solution) > 10000:
+        raise ValueError("Solution is too long.")
+
+    if not 0 <= similarity <= 1:
+        raise ValueError("Similarity must be between 0 and 1.")
 
     prompt = f"""
 {SYSTEM_PROMPT}
@@ -68,16 +96,33 @@ Embedding Similarity:
 {similarity}
 """
 
-    interaction = client.interactions.create(
-        model="gemini-3.6-flash",
-        input=prompt,
-        response_format={
-            "type": "text",
-            "mime_type": "application/json",
-            "schema": SolutionRecommendation.model_json_schema(),
-        },
-    )
+    try:
+        interaction = client.interactions.create(
+            model="gemini-3.6-flash",
+            input=prompt,
+            response_format={
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": SolutionRecommendation.model_json_schema(),
+            },
+        )
 
-    return SolutionRecommendation.model_validate_json(
-        interaction.output_text
-    )
+        if not interaction.output_text:
+            raise ValueError("AI returned an empty response.")
+
+        return SolutionRecommendation.model_validate_json(
+            interaction.output_text
+        )
+
+    except ValidationError as exc:
+        raise ValueError(
+            "AI returned an invalid Solution Recommendation format."
+        ) from exc
+
+    except ValueError:
+        raise
+
+    except Exception as exc:
+        raise RuntimeError(
+            "AI Solution Recommendation service is temporarily unavailable."
+        ) from exc

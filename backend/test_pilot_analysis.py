@@ -1,5 +1,5 @@
 from unittest.mock import patch
-
+from pytest import raises
 from app.services.ai.pilot_analysis import analyze_pilot_feedback
 
 
@@ -49,3 +49,21 @@ def test_analyze_pilot_feedback():
     assert "maintenance" in result.pilot_insight.lower()
 
     mock_create.assert_called_once()
+    from pytest import raises
+
+
+def test_analyze_pilot_feedback_rejects_empty_input():
+    with raises(ValueError, match="cannot be empty"):
+        analyze_pilot_feedback("")
+
+
+def test_analyze_pilot_feedback_rejects_non_string_input():
+    with raises(ValueError, match="must be a string"):
+        analyze_pilot_feedback(None)
+
+
+def test_analyze_pilot_feedback_rejects_oversized_input():
+    huge_feedback = "A" * 10001
+
+    with raises(ValueError, match="too long"):
+        analyze_pilot_feedback(huge_feedback)

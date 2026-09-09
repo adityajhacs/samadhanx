@@ -1,5 +1,5 @@
 from unittest.mock import patch
-
+from pytest import raises
 from app.services.ai.resource_optimization import optimize_resources
 
 
@@ -106,3 +106,56 @@ def test_optimize_resources():
     assert "balance" in result.overall_recommendation.lower()
 
     mock_create.assert_called_once()
+
+
+def test_optimize_resources_rejects_empty_problem():
+    with raises(ValueError, match="Problem cannot be empty"):
+        optimize_resources(
+            problem="",
+            solutions="Solution 1: Water Tank"
+        )
+        
+
+
+def test_optimize_resources_rejects_non_string_problem():
+    with raises(ValueError, match="Problem must be a string"):
+        optimize_resources(
+            problem=None,
+            solutions="Solution 1: Water Tank"
+        )
+
+
+def test_optimize_resources_rejects_empty_solutions():
+    with raises(ValueError, match="Solutions cannot be empty"):
+        optimize_resources(
+            problem="Unreliable drinking water access",
+            solutions=""
+        )
+
+
+def test_optimize_resources_rejects_non_string_solutions():
+    with raises(ValueError, match="Solutions must be a string"):
+        optimize_resources(
+            problem="Unreliable drinking water access",
+            solutions=None
+        )
+
+
+def test_optimize_resources_rejects_oversized_problem():
+    huge_problem = "A" * 10001
+
+    with raises(ValueError, match="Problem is too long"):
+        optimize_resources(
+            problem=huge_problem,
+            solutions="Solution 1: Water Tank"
+        )
+
+
+def test_optimize_resources_rejects_oversized_solutions():
+    huge_solutions = "A" * 10001
+
+    with raises(ValueError, match="Solutions are too long"):
+        optimize_resources(
+            problem="Unreliable drinking water access",
+            solutions=huge_solutions
+        )

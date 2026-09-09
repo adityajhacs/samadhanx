@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from google import genai
 from dotenv import load_dotenv
 from sqlalchemy import text
@@ -22,23 +22,33 @@ class ClusterAnalysis(BaseModel):
         description="Possible common root cause inferred from the problems"
     )
 
+
 def analyze_problem_cluster(
     problems: list[dict]
 ) -> ClusterAnalysis:
+
+    if not isinstance(problems, list):
+        raise ValueError("Problems must be a list.")
+
+    if not problems:
+        raise ValueError("Problems cannot be empty.")
 
     problem_text = "\n\n".join(
         [
             f"""
 Problem {index}:
-Title: {problem['title']}
-Description: {problem['description']}
-District: {problem['district']}
-Category: {problem['category']}
-Severity Score: {problem['severity_score']}
+Title: {problem.get('title', '')}
+Description: {problem.get('description', '')}
+District: {problem.get('district', '')}
+Category: {problem.get('category', '')}
+Severity Score: {problem.get('severity_score', '')}
 """
             for index, problem in enumerate(problems, start=1)
         ]
     )
+
+    if len(problem_text) > 10000:
+        raise ValueError("Problems are too long.")
 
     prompt = f"""
 {SYSTEM_PROMPT}
@@ -62,19 +72,37 @@ Problems in this cluster:
 {problem_text}
 """
 
-    interaction = client.interactions.create(
-        model="gemini-3.6-flash",
-        input=prompt,
-        response_format={
-            "type": "text",
-            "mime_type": "application/json",
-            "schema": ClusterAnalysis.model_json_schema(),
-        },
-    )
+    try:
+        interaction = client.interactions.create(
+            model="gemini-3.6-flash",
+            input=prompt,
+            response_format={
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": ClusterAnalysis.model_json_schema(),
+            },
+        )
 
-    return ClusterAnalysis.model_validate_json(
-        interaction.output_text
-    )
+        if not interaction.output_text:
+            raise ValueError("AI returned an empty response.")
+
+        return ClusterAnalysis.model_validate_json(
+            interaction.output_text
+        )
+
+    except ValidationError as exc:
+        raise ValueError(
+            "AI returned an invalid cluster analysis format."
+        ) from exc
+
+    except ValueError:
+        raise
+
+    except Exception as exc:
+        raise RuntimeError(
+            "Cluster analysis service is temporarily unavailable."
+        ) from exc
+
 
 def analyze_and_save_cluster(
     cluster_id: UUID,

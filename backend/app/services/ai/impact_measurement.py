@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from google import genai
 from dotenv import load_dotenv
 
@@ -21,6 +21,18 @@ class ImpactMeasurementAnalysis(BaseModel):
 
 
 def analyze_impact_metrics(metrics: str) -> ImpactMeasurementAnalysis:
+
+    # Input validation
+    if not isinstance(metrics, str):
+        raise ValueError("Impact metrics must be a string.")
+
+    metrics = metrics.strip()
+
+    if not metrics:
+        raise ValueError("Impact metrics cannot be empty.")
+
+    if len(metrics) > 10000:
+        raise ValueError("Impact metrics are too long.")
 
     prompt = f"""
 {SYSTEM_PROMPT}
@@ -57,16 +69,33 @@ Raw Impact Metrics:
 {metrics}
 """
 
-    interaction = client.interactions.create(
-        model="gemini-3.6-flash",
-        input=prompt,
-        response_format={
-            "type": "text",
-            "mime_type": "application/json",
-            "schema": ImpactMeasurementAnalysis.model_json_schema(),
-        },
-    )
+    try:
+        interaction = client.interactions.create(
+            model="gemini-3.6-flash",
+            input=prompt,
+            response_format={
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": ImpactMeasurementAnalysis.model_json_schema(),
+            },
+        )
 
-    return ImpactMeasurementAnalysis.model_validate_json(
-        interaction.output_text
-    )
+        if not interaction.output_text:
+            raise ValueError("AI returned an empty response.")
+
+        return ImpactMeasurementAnalysis.model_validate_json(
+            interaction.output_text
+        )
+
+    except ValidationError as exc:
+        raise ValueError(
+            "AI returned an invalid Impact Measurement format."
+        ) from exc
+
+    except ValueError:
+        raise
+
+    except Exception as exc:
+        raise RuntimeError(
+            "AI Impact Measurement service is temporarily unavailable."
+        ) from exc
