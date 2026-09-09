@@ -132,18 +132,34 @@ def analyze_problem_with_ai(
     problem_id: UUID,
     db: Session = Depends(get_db)
 ):
-    analysis = analyze_and_save_problem(
-        problem_id=problem_id,
-        db=db
-    )
-
-    if not analysis:
-        raise HTTPException(
-            status_code=404,
-            detail="Problem not found"
+    try:
+        analysis = analyze_and_save_problem(
+            problem_id=problem_id,
+            db=db
         )
 
-    return analysis
+        if not analysis:
+            raise HTTPException(
+                status_code=404,
+                detail="Problem not found"
+            )
+
+        return analysis
+
+    except HTTPException:
+        raise
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc)
+        ) from exc
+
+    except RuntimeError:
+        raise HTTPException(
+            status_code=503,
+            detail="AI analysis service is temporarily unavailable."
+        )
 
 @router.get("/{problem_id}/similar")
 def get_similar_problems(
