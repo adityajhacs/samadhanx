@@ -13,7 +13,7 @@ class RegisterRequest(BaseModel):
 
 
 class AuthResponse(BaseModel):
-    access_token: str
+    access_token: str | None = None
     refresh_token: str | None = None
     token_type: str = "bearer"
 

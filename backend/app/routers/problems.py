@@ -1,3 +1,5 @@
+import uuid
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.auth import get_current_user, require_role
@@ -5,11 +7,12 @@ from app.models.user import User
 
 from app.core.database import get_db
 from app.models.problem import Problem
+from app.models.problem_ai_analysis import ProblemAIAnalysis
 from app.schemas.problem import ProblemCreate, ProblemUpdate, ProblemResponse
 from app.services.ai.analysis import analyze_problem
 
 router = APIRouter(
-    prefix="/problems",
+    prefix="/api/problems",
     tags=["Problems"]
 )
 
@@ -87,3 +90,56 @@ def update_problem(
     db.refresh(problem)
 
     return problem
+
+@router.post("/{problem_id}/analyze")
+def analyze_problem_endpoint(
+    problem_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    problem = db.query(Problem).filter(
+        Problem.id == problem_id
+    ).first()
+
+    if not problem:
+        return {"error": "Problem not found"}
+
+    result = analyze_problem(problem.description)
+
+    existing_analysis = db.query(ProblemAIAnalysis).filter(
+        ProblemAIAnalysis.problem_id == problem.id
+    ).first()
+
+    if existing_analysis:
+        existing_analysis.subcategory = result.subcategory
+        existing_analysis.severity_level = result.severity_level
+        existing_analysis.affected_sector = result.affected_sector
+        existing_analysis.estimated_affected_people = result.estimated_affected_people
+        existing_analysis.root_cause = result.root_cause
+        existing_analysis.ai_summary = result.ai_summary
+        existing_analysis.keywords = result.keywords
+        existing_analysis.created_at = datetime.now(timezone.utc)
+
+        db.commit()
+        db.refresh(existing_analysis)
+
+        return result
+
+    analysis = ProblemAIAnalysis(
+        id=uuid.uuid4(),
+        problem_id=problem.id,
+        subcategory=result.subcategory,
+        severity_level=result.severity_level,
+        affected_sector=result.affected_sector,
+        estimated_affected_people=result.estimated_affected_people,
+        root_cause=result.root_cause,
+        ai_summary=result.ai_summary,
+        keywords=result.keywords,
+        created_at=datetime.now(timezone.utc),
+    )
+
+    db.add(analysis)
+    db.commit()
+    db.refresh(analysis)
+
+    return result

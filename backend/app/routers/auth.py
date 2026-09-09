@@ -21,6 +21,39 @@ router = APIRouter(
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
+@router.post("/register", response_model=AuthResponse)
+def register(data: RegisterRequest):
+    response = httpx.post(
+        f"{SUPABASE_URL}/auth/v1/signup",
+        headers={
+            "apikey": SUPABASE_KEY,
+            "Content-Type": "application/json",
+        },
+        json={
+            "email": data.email,
+            "password": data.password,
+            "data": {
+                "full_name": data.full_name
+            },
+        },
+        timeout=10,
+    )
+
+    if response.status_code not in (200, 201):
+        print("Supabase registration error:", response.text)
+
+        raise HTTPException(
+           status_code=response.status_code,
+           detail=response.text
+        )
+    result = response.json()
+
+    return {
+        "access_token": result.get("access_token"),
+        "refresh_token": result.get("refresh_token"),
+        "token_type": "bearer",
+    }
+
 @router.post("/login", response_model=AuthResponse)
 def login(data: LoginRequest):
     response = httpx.post(
