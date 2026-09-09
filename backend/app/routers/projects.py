@@ -12,7 +12,8 @@ from app.schemas.project import (
     ProjectUpdate,
     ProjectResponse,
 )
-
+from app.core.auth import get_current_user
+from app.models.user import User
 
 router = APIRouter(
     prefix="/api/projects",
@@ -62,6 +63,7 @@ def get_project(
 def create_project(
     project_data: ProjectCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     if project_data.problem_id:
         problem = (
@@ -90,13 +92,13 @@ def create_project(
             )
 
     project = Project(
-        problem_id=project_data.problem_id,
-        solution_id=project_data.solution_id,
-        title=project_data.title,
-        description=project_data.description,
-        status=project_data.status,
-    )
-
+    problem_id=project_data.problem_id,
+    solution_id=project_data.solution_id,
+    title=project_data.title,
+    description=project_data.description,
+    status=project_data.status,
+    created_by=current_user.id,
+)
     db.add(project)
     db.commit()
     db.refresh(project)

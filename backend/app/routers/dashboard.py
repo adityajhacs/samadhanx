@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+import uuid
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -10,7 +11,11 @@ from app.schemas.dashboard import (
     DashboardOverviewResponse,
     ProjectStatusResponse,
     CollaborationSummaryResponse,
+    IndustryPartnerSummaryResponse,
+    ProjectDashboardResponse,
+    ProjectDashboardListResponse,
 )
+from app.models.project_member import ProjectMember
 router = APIRouter(
     prefix="/api/dashboard",
     tags=["Dashboard"],
@@ -150,5 +155,123 @@ def get_collaboration_summary(
         "pending_collaborations": pending_collaborations,
         "approved_collaborations": approved_collaborations,
         "active_collaborations": active_collaborations,
+        "total_funding": float(total_funding),
+    }
+
+@router.get(
+    "/industry-partners",
+    response_model=IndustryPartnerSummaryResponse,
+)
+def get_industry_partner_summary(
+    db: Session = Depends(get_db),
+):
+    total_industry_partners = (
+        db.query(IndustryPartner).count()
+    )
+
+    return {
+        "total_industry_partners": total_industry_partners,
+    }
+@router.get(
+    "/projects",
+    response_model=ProjectDashboardListResponse,
+)
+def get_projects_dashboard(
+    db: Session = Depends(get_db),
+):
+    projects = (
+        db.query(Project)
+        .order_by(Project.title)
+        .all()
+    )
+
+    result = []
+
+    for project in projects:
+        team_size = (
+            db.query(ProjectMember)
+            .filter(ProjectMember.project_id == project.id)
+            .count()
+        )
+
+        collaborations = (
+            db.query(Collaboration)
+            .filter(Collaboration.project_id == project.id)
+            .count()
+        )
+
+        total_funding = (
+            db.query(
+                func.coalesce(
+                    func.sum(Collaboration.amount),
+                    0
+                )
+            )
+            .filter(Collaboration.project_id == project.id)
+            .scalar()
+        )
+
+        result.append({
+            "id": str(project.id),
+            "title": project.title,
+            "status": project.status,
+            "team_size": team_size,
+            "collaborations": collaborations,
+            "total_funding": float(total_funding),
+        })
+
+    return {
+        "projects": result
+    }
+
+@router.get(
+    "/projects/{project_id}",
+    response_model=ProjectDashboardResponse,
+)
+def get_project_dashboard(
+    project_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id)
+        .first()
+    )
+
+    if not project:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found",
+        )
+
+    team_size = (
+        db.query(ProjectMember)
+        .filter(ProjectMember.project_id == project_id)
+        .count()
+    )
+
+    collaborations = (
+        db.query(Collaboration)
+        .filter(Collaboration.project_id == project_id)
+        .count()
+    )
+
+    total_funding = (
+        db.query(
+            func.coalesce(
+                func.sum(Collaboration.amount),
+                0
+            )
+        )
+        .filter(Collaboration.project_id == project_id)
+        .scalar()
+    )
+
+    return {
+        "id": str(project.id),
+        "title": project.title,
+        "status": project.status,
+        "team_size": team_size,
+        "collaborations": collaborations,
         "total_funding": float(total_funding),
     }

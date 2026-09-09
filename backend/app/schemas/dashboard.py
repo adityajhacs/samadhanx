@@ -25,3 +25,17 @@ class CollaborationSummaryResponse(BaseModel):
     approved_collaborations: int
     active_collaborations: int
     total_funding: float
+
+class IndustryPartnerSummaryResponse(BaseModel):
+    total_industry_partners: int
+
+class ProjectDashboardResponse(BaseModel):
+    id: str
+    title: str
+    status: str | None
+    team_size: int
+    collaborations: int
+    total_funding: float
+
+class ProjectDashboardListResponse(BaseModel):
+    projects: list[ProjectDashboardResponse]
