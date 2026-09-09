@@ -2,6 +2,9 @@ import httpx
 import jwt
 import json
 
+from cryptography.hazmat.primitives.asymmetric import ec
+import base64
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
@@ -55,9 +58,14 @@ def get_current_user(
             )
 
         # Convert JWKS key into a usable public key
-        public_key = jwt.algorithms.ECAlgorithm.from_jwk(
-            json.dumps(key)
-        )
+        x = base64.urlsafe_b64decode(key["x"] + "==")
+        y = base64.urlsafe_b64decode(key["y"] + "==")
+
+        public_key = ec.EllipticCurvePublicNumbers(
+              int.from_bytes(x, "big"),
+              int.from_bytes(y, "big"),
+              ec.SECP256R1()
+        ).public_key()
 
         # Verify JWT
         payload = jwt.decode(

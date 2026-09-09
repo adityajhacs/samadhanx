@@ -3,7 +3,7 @@ from app.routers import problems
 from app.core.auth import get_current_user
 
 from app.models.user import User
-from app.models.problem import Problem
+from app.routers import problems, auth
 from app.models.university import University
 from app.models.solution import Solution
 from app.models.problem_ai_analysis import ProblemAIAnalysis
@@ -25,3 +25,4 @@ def auth_test(current_user=Depends(get_current_user)):
 
 
 app.include_router(problems.router)
+app.include_router(auth.router)

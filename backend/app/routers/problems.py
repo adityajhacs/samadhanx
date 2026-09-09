@@ -6,7 +6,7 @@ from app.models.user import User
 from app.core.database import get_db
 from app.models.problem import Problem
 from app.schemas.problem import ProblemCreate, ProblemUpdate, ProblemResponse
-
+from app.services.ai.analysis import analyze_problem
 
 router = APIRouter(
     prefix="/problems",
