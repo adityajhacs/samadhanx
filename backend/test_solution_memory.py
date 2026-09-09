@@ -9,31 +9,29 @@ PROBLEM_ID = UUID(
 )
 
 
-db = SessionLocal()
+def test_find_similar_solutions():
+    db = SessionLocal()
 
-try:
-    results = find_similar_solutions(
-        problem_id=PROBLEM_ID,
-        db=db,
-        limit=5
-    )
+    try:
+        results = find_similar_solutions(
+            problem_id=PROBLEM_ID,
+            db=db,
+            limit=5
+        )
 
-    print("\nSolution Memory Recommendations:")
+        assert results is not None
+        assert isinstance(results, list)
 
-    for result in results:
-        similarity = result["similarity"]
+        if results:
+            first_result = results[0]
 
-        if similarity >= 0.75:
-            recommendation = "Strongly Recommended"
-        elif similarity >= 0.55:
-            recommendation = "Related Solution"
-        else:
-            recommendation = "Not Recommended"
+            assert "similarity" in first_result
+            assert "id" in first_result
+            assert "solution_title" in first_result
 
-        print({
-            **result,
-            "recommendation": recommendation
-        })
+            similarity = first_result["similarity"]
 
-finally:
-    db.close()
+            assert 0 <= similarity <= 1
+
+    finally:
+        db.close()
