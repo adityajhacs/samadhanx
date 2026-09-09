@@ -12,7 +12,8 @@ from app.schemas.solution import (
     SolutionUpdate,
     SolutionResponse,
 )
-
+from app.core.auth import get_current_user
+from app.models.user import User
 
 # ============================================================
 # Solutions Router
@@ -33,10 +34,24 @@ problem_solutions_router = APIRouter(
     tags=["Solutions"],
 )
 
+ALLOWED_SOLUTION_WRITE_ROLES = {
+    "CITIZEN",
+    "UNIVERSITY",
+    "STUDENT",
+    "FACULTY",
+    "INDUSTRY",
+    "GOVERNMENT",
+    "ADMIN",
+}
 
 # ============================================================
 # GET /api/solutions
-# Get all solutions
+# Get all solutions with optional filters
+#
+# Supported filters:
+# ?problem_id=
+# ?university_id=
+# ?prototype_status=
 # ============================================================
 
 @router.get(
@@ -44,9 +59,41 @@ problem_solutions_router = APIRouter(
     response_model=list[SolutionResponse]
 )
 def get_solutions(
+    problem_id: uuid.UUID | None = None,
+    university_id: uuid.UUID | None = None,
+    prototype_status: str | None = None,
     db: Session = Depends(get_db),
 ):
-    solutions = db.query(Solution).all()
+    query = db.query(Solution)
+
+    # --------------------------------------------------------
+    # Filter by problem
+    # --------------------------------------------------------
+
+    if problem_id:
+        query = query.filter(
+            Solution.problem_id == problem_id
+        )
+
+    # --------------------------------------------------------
+    # Filter by university
+    # --------------------------------------------------------
+
+    if university_id:
+        query = query.filter(
+            Solution.university_id == university_id
+        )
+
+    # --------------------------------------------------------
+    # Filter by prototype status
+    # --------------------------------------------------------
+
+    if prototype_status:
+        query = query.filter(
+            Solution.prototype_status == prototype_status
+        )
+
+    solutions = query.all()
 
     return solutions
 
@@ -92,7 +139,13 @@ def get_solution(
 def create_solution(
     solution_data: SolutionCreate,
     db: Session = Depends(get_db),
-):
+    current_user: User = Depends(get_current_user),
+):  
+    if current_user.role not in ALLOWED_SOLUTION_WRITE_ROLES:
+         raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+           detail="You are not authorized to create a solution",
+      )
     # --------------------------------------------------------
     # Check whether the problem exists
     # --------------------------------------------------------
@@ -158,7 +211,13 @@ def update_solution(
     solution_id: uuid.UUID,
     solution_data: SolutionUpdate,
     db: Session = Depends(get_db),
-):
+    current_user: User = Depends(get_current_user),
+):  
+    if current_user.role not in ALLOWED_SOLUTION_WRITE_ROLES:
+       raise HTTPException(
+          status_code=status.HTTP_403_FORBIDDEN,
+          detail="You are not authorized to update a solution",
+        )
     # --------------------------------------------------------
     # Check whether the solution exists
     # --------------------------------------------------------

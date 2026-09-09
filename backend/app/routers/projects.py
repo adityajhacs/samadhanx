@@ -1,19 +1,21 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.auth import get_current_user
 from app.models.project import Project
 from app.models.problem import Problem
 from app.models.solution import Solution
+from app.models.university import University
+from app.models.user import User
 from app.schemas.project import (
     ProjectCreate,
     ProjectUpdate,
     ProjectResponse,
 )
-from app.core.auth import get_current_user
-from app.models.user import User
+
 
 router = APIRouter(
     prefix="/api/projects",
@@ -21,16 +23,76 @@ router = APIRouter(
 )
 
 
+# ============================================================
+# GET PROJECTS WITH FILTERS
+# ============================================================
+
 @router.get(
     "",
     response_model=list[ProjectResponse]
 )
 def get_projects(
+    status_filter: str | None = Query(
+        default=None,
+        alias="status"
+    ),
+    district: str | None = None,
+    university_id: uuid.UUID | None = None,
+    problem_id: uuid.UUID | None = None,
     db: Session = Depends(get_db),
 ):
-    projects = db.query(Project).all()
+    query = db.query(Project)
+
+    # Filter by project status
+    if status_filter:
+        query = query.filter(
+            Project.status == status_filter
+        )
+
+    # Filter by problem
+    if problem_id:
+        query = query.filter(
+            Project.problem_id == problem_id
+        )
+
+    # Filter by university
+    if university_id:
+        query = (
+            query
+            .join(
+                Solution,
+                Project.solution_id == Solution.id
+            )
+            .filter(
+                Solution.university_id == university_id
+            )
+        )
+
+    # Filter by district
+    if district:
+        query = (
+            query
+            .join(
+                Solution,
+                Project.solution_id == Solution.id
+            )
+            .join(
+                University,
+                Solution.university_id == University.id
+            )
+            .filter(
+                University.district == district
+            )
+        )
+
+    projects = query.all()
+
     return projects
 
+
+# ============================================================
+# GET SINGLE PROJECT
+# ============================================================
 
 @router.get(
     "/{project_id}",
@@ -54,6 +116,10 @@ def get_project(
 
     return project
 
+
+# ============================================================
+# CREATE PROJECT
+# ============================================================
 
 @router.post(
     "",
@@ -92,19 +158,24 @@ def create_project(
             )
 
     project = Project(
-    problem_id=project_data.problem_id,
-    solution_id=project_data.solution_id,
-    title=project_data.title,
-    description=project_data.description,
-    status=project_data.status,
-    created_by=current_user.id,
-)
+        problem_id=project_data.problem_id,
+        solution_id=project_data.solution_id,
+        title=project_data.title,
+        description=project_data.description,
+        status=project_data.status,
+        created_by=current_user.id,
+    )
+
     db.add(project)
     db.commit()
     db.refresh(project)
 
     return project
 
+
+# ============================================================
+# UPDATE PROJECT
+# ============================================================
 
 @router.patch(
     "/{project_id}",
@@ -114,6 +185,7 @@ def update_project(
     project_id: uuid.UUID,
     project_data: ProjectUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     project = (
         db.query(Project)
@@ -127,6 +199,16 @@ def update_project(
             detail="Project not found",
         )
 
+    # Only project owner or ADMIN can modify
+    if (
+        project.created_by != current_user.id
+        and current_user.role != "ADMIN"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to modify this project",
+        )
+
     update_data = project_data.model_dump(
         exclude_unset=True
     )
@@ -137,7 +219,9 @@ def update_project(
     ):
         problem = (
             db.query(Problem)
-            .filter(Problem.id == update_data["problem_id"])
+            .filter(
+                Problem.id == update_data["problem_id"]
+            )
             .first()
         )
 
@@ -153,7 +237,9 @@ def update_project(
     ):
         solution = (
             db.query(Solution)
-            .filter(Solution.id == update_data["solution_id"])
+            .filter(
+                Solution.id == update_data["solution_id"]
+            )
             .first()
         )
 

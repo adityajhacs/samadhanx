@@ -20,7 +20,10 @@ router = APIRouter(
     prefix="/api/dashboard",
     tags=["Dashboard"],
 )
-
+project_dashboard_router = APIRouter(
+    prefix="/api/projects",
+    tags=["Dashboard"],
+)
 
 @router.get(
     "/overview",
@@ -229,6 +232,57 @@ def get_projects_dashboard(
     response_model=ProjectDashboardResponse,
 )
 def get_project_dashboard(
+    project_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id)
+        .first()
+    )
+
+    if not project:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found",
+        )
+
+    team_size = (
+        db.query(ProjectMember)
+        .filter(ProjectMember.project_id == project_id)
+        .count()
+    )
+
+    collaborations = (
+        db.query(Collaboration)
+        .filter(Collaboration.project_id == project_id)
+        .count()
+    )
+
+    total_funding = (
+        db.query(
+            func.coalesce(
+                func.sum(Collaboration.amount),
+                0
+            )
+        )
+        .filter(Collaboration.project_id == project_id)
+        .scalar()
+    )
+
+    return {
+        "id": str(project.id),
+        "title": project.title,
+        "status": project.status,
+        "team_size": team_size,
+        "collaborations": collaborations,
+        "total_funding": float(total_funding),
+    }
+@project_dashboard_router.get(
+    "/{project_id}/dashboard",
+    response_model=ProjectDashboardResponse,
+)
+def get_project_dashboard_by_project(
     project_id: uuid.UUID,
     db: Session = Depends(get_db),
 ):
