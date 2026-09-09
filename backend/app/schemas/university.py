@@ -13,3 +13,10 @@ class UniversityResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class ProblemAcceptRequest(BaseModel):
+    message: str | None = None
+
+
+class ProblemRejectRequest(BaseModel):
+    reason: str

@@ -3,12 +3,12 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models.user import User
 from app.core.auth import get_current_user
 from app.core.database import get_db
 from app.models.collaboration import Collaboration
-from app.models.project import Project
 from app.models.industry_partner import IndustryPartner
+from app.models.project import Project
+from app.models.user import User
 from app.schemas.collaboration import (
     CollaborationCreate,
     CollaborationUpdate,
@@ -25,24 +25,50 @@ project_collaborations_router = APIRouter(
     prefix="/api/projects",
     tags=["Collaborations"],
 )
+
+
+# ============================================================
+# HELPER — GET PROJECT
+# ============================================================
+
+def get_project_or_404(
+    project_id: uuid.UUID,
+    db: Session,
+):
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id)
+        .first()
+    )
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found",
+        )
+
+    return project
+
+
 # ============================================================
 # GET ALL COLLABORATIONS
+# GET /api/collaborations
 # ============================================================
 
 @router.get(
     "",
-    response_model=list[CollaborationResponse]
+    response_model=list[CollaborationResponse],
 )
 def get_collaborations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    collaborations = db.query(Collaboration).all()
-    return collaborations
+    return db.query(Collaboration).all()
 
 
 # ============================================================
 # GET SINGLE COLLABORATION
+# GET /api/collaborations/{collaboration_id}
 # ============================================================
 
 @router.get(
@@ -71,6 +97,7 @@ def get_collaboration(
 
 # ============================================================
 # CREATE COLLABORATION
+# POST /api/collaborations
 # ============================================================
 
 @router.post(
@@ -83,23 +110,21 @@ def create_collaboration(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    project = (
-        db.query(Project)
-        .filter(Project.id == collaboration_data.project_id)
-        .first()
+    project = get_project_or_404(
+        collaboration_data.project_id,
+        db,
     )
 
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
-        )
+    # University / project owner / admin can request
+    allowed_roles = ["UNIVERSITY", "FACULTY", "STUDENT", "ADMIN"]
 
-    # Only project owner or ADMIN can create collaborations
-    if project.created_by != current_user.id and current_user.role != "ADMIN":
+    if (
+        current_user.role not in allowed_roles
+        and project.created_by != current_user.id
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to modify this project",
+            detail="You are not authorized to request collaboration",
         )
 
     partner = (
@@ -122,7 +147,7 @@ def create_collaboration(
         industry_partner_id=collaboration_data.industry_partner_id,
         collaboration_type=collaboration_data.collaboration_type,
         amount=collaboration_data.amount,
-        status=collaboration_data.status,
+        status="REQUESTED",
         description=collaboration_data.description,
     )
 
@@ -132,8 +157,9 @@ def create_collaboration(
 
     return collaboration
 
+
 # ============================================================
-# CREATE COLLABORATION FOR A PROJECT
+# CREATE COLLABORATION FOR PROJECT
 # POST /api/projects/{project_id}/collaborations
 # ============================================================
 
@@ -148,45 +174,28 @@ def create_project_collaboration(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # --------------------------------------------------------
-    # Check project
-    # --------------------------------------------------------
-
-    project = (
-        db.query(Project)
-        .filter(Project.id == project_id)
-        .first()
+    project = get_project_or_404(
+        project_id,
+        db,
     )
 
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
-        )
-
-    # --------------------------------------------------------
-    # Make sure request body project_id matches URL project_id
-    # --------------------------------------------------------
-
+    # URL project_id and body project_id must match
     if collaboration_data.project_id != project_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Project ID in request body does not match URL",
         )
 
-    # --------------------------------------------------------
-    # Only project owner or ADMIN can create collaboration
-    # --------------------------------------------------------
+    allowed_roles = ["UNIVERSITY", "FACULTY", "STUDENT", "ADMIN"]
 
-    if project.created_by != current_user.id and current_user.role != "ADMIN":
+    if (
+        current_user.role not in allowed_roles
+        and project.created_by != current_user.id
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to modify this project",
+            detail="You are not authorized to request collaboration",
         )
-
-    # --------------------------------------------------------
-    # Check industry partner
-    # --------------------------------------------------------
 
     partner = (
         db.query(IndustryPartner)
@@ -203,16 +212,12 @@ def create_project_collaboration(
             detail="Industry partner not found",
         )
 
-    # --------------------------------------------------------
-    # Create collaboration
-    # --------------------------------------------------------
-
     collaboration = Collaboration(
         project_id=project_id,
         industry_partner_id=collaboration_data.industry_partner_id,
         collaboration_type=collaboration_data.collaboration_type,
         amount=collaboration_data.amount,
-        status=collaboration_data.status,
+        status="REQUESTED",
         description=collaboration_data.description,
     )
 
@@ -221,8 +226,41 @@ def create_project_collaboration(
     db.refresh(collaboration)
 
     return collaboration
+
+
+# ============================================================
+# GET PROJECT COLLABORATIONS
+# GET /api/projects/{project_id}/collaborations
+# ============================================================
+
+@project_collaborations_router.get(
+    "/{project_id}/collaborations",
+    response_model=list[CollaborationResponse],
+)
+def get_project_collaborations(
+    project_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    get_project_or_404(
+        project_id,
+        db,
+    )
+
+    collaborations = (
+        db.query(Collaboration)
+        .filter(
+            Collaboration.project_id == project_id
+        )
+        .all()
+    )
+
+    return collaborations
+
+
 # ============================================================
 # UPDATE COLLABORATION
+# PATCH /api/collaborations/{collaboration_id}
 # ============================================================
 
 @router.patch(
@@ -247,31 +285,74 @@ def update_collaboration(
             detail="Collaboration not found",
         )
 
-    project = (
-        db.query(Project)
-        .filter(Project.id == collaboration.project_id)
-        .first()
+    project = get_project_or_404(
+        collaboration.project_id,
+        db,
     )
-
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
-        )
-
-    # Only project owner or ADMIN can update collaborations
-    if project.created_by != current_user.id and current_user.role != "ADMIN":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to modify this project",
-        )
 
     update_data = collaboration_data.model_dump(
         exclude_unset=True
     )
 
+    # --------------------------------------------------------
+    # STATUS UPDATE
+    # --------------------------------------------------------
+
+    if "status" in update_data:
+
+        new_status = update_data["status"]
+
+        # Industry / Admin can change collaboration status
+        if current_user.role not in ["INDUSTRY", "ADMIN"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only industry partner or admin can update collaboration status",
+            )
+
+        # MVP status flow
+        allowed_statuses = {
+            "REQUESTED",
+            "UNDER_REVIEW",
+            "ACCEPTED",
+            "REJECTED",
+            "COMPLETED",
+        }
+
+        if new_status not in allowed_statuses:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Invalid collaboration status",
+            )
+
+    # --------------------------------------------------------
+    # OTHER FIELD UPDATES
+    # --------------------------------------------------------
+
+    non_status_update = any(
+        field != "status"
+        for field in update_data
+    )
+
+    if non_status_update:
+        if (
+            project.created_by != current_user.id
+            and current_user.role != "ADMIN"
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not authorized to modify this collaboration",
+            )
+
+    # --------------------------------------------------------
+    # APPLY UPDATE
+    # --------------------------------------------------------
+
     for field, value in update_data.items():
-        setattr(collaboration, field, value)
+        setattr(
+            collaboration,
+            field,
+            value,
+        )
 
     db.commit()
     db.refresh(collaboration)
@@ -281,6 +362,7 @@ def update_collaboration(
 
 # ============================================================
 # DELETE COLLABORATION
+# DELETE /api/collaborations/{collaboration_id}
 # ============================================================
 
 @router.delete(
@@ -304,23 +386,18 @@ def delete_collaboration(
             detail="Collaboration not found",
         )
 
-    project = (
-        db.query(Project)
-        .filter(Project.id == collaboration.project_id)
-        .first()
+    project = get_project_or_404(
+        collaboration.project_id,
+        db,
     )
 
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
-        )
-
-    # Only project owner or ADMIN can delete collaborations
-    if project.created_by != current_user.id and current_user.role != "ADMIN":
+    if (
+        project.created_by != current_user.id
+        and current_user.role != "ADMIN"
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to modify this project",
+            detail="You are not authorized to delete this collaboration",
         )
 
     db.delete(collaboration)

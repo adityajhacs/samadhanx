@@ -4,16 +4,20 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.auth import get_current_user
+
 from app.models.solution import Solution
 from app.models.problem import Problem
 from app.models.university import University
+from app.models.project import Project
+from app.models.user import User
+
 from app.schemas.solution import (
     SolutionCreate,
     SolutionUpdate,
     SolutionResponse,
 )
-from app.core.auth import get_current_user
-from app.models.user import User
+
 
 # ============================================================
 # Solutions Router
@@ -34,6 +38,7 @@ problem_solutions_router = APIRouter(
     tags=["Solutions"],
 )
 
+
 ALLOWED_SOLUTION_WRITE_ROLES = {
     "CITIZEN",
     "UNIVERSITY",
@@ -44,6 +49,7 @@ ALLOWED_SOLUTION_WRITE_ROLES = {
     "ADMIN",
 }
 
+
 # ============================================================
 # GET /api/solutions
 # Get all solutions with optional filters
@@ -51,6 +57,7 @@ ALLOWED_SOLUTION_WRITE_ROLES = {
 # Supported filters:
 # ?problem_id=
 # ?university_id=
+# ?project_id=
 # ?prototype_status=
 # ============================================================
 
@@ -61,33 +68,31 @@ ALLOWED_SOLUTION_WRITE_ROLES = {
 def get_solutions(
     problem_id: uuid.UUID | None = None,
     university_id: uuid.UUID | None = None,
+    project_id: uuid.UUID | None = None,
     prototype_status: str | None = None,
     db: Session = Depends(get_db),
 ):
     query = db.query(Solution)
 
-    # --------------------------------------------------------
     # Filter by problem
-    # --------------------------------------------------------
-
     if problem_id:
         query = query.filter(
             Solution.problem_id == problem_id
         )
 
-    # --------------------------------------------------------
     # Filter by university
-    # --------------------------------------------------------
-
     if university_id:
         query = query.filter(
             Solution.university_id == university_id
         )
 
-    # --------------------------------------------------------
-    # Filter by prototype status
-    # --------------------------------------------------------
+    # Filter by project
+    if project_id:
+        query = query.filter(
+            Solution.project_id == project_id
+        )
 
+    # Filter by prototype status
     if prototype_status:
         query = query.filter(
             Solution.prototype_status == prototype_status
@@ -140,19 +145,26 @@ def create_solution(
     solution_data: SolutionCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):  
-    if current_user.role not in ALLOWED_SOLUTION_WRITE_ROLES:
-         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-           detail="You are not authorized to create a solution",
-      )
+):
     # --------------------------------------------------------
-    # Check whether the problem exists
+    # Check permission
+    # --------------------------------------------------------
+
+    if current_user.role not in ALLOWED_SOLUTION_WRITE_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to create a solution",
+        )
+
+    # --------------------------------------------------------
+    # Check whether problem exists
     # --------------------------------------------------------
 
     problem = (
         db.query(Problem)
-        .filter(Problem.id == solution_data.problem_id)
+        .filter(
+            Problem.id == solution_data.problem_id
+        )
         .first()
     )
 
@@ -163,12 +175,14 @@ def create_solution(
         )
 
     # --------------------------------------------------------
-    # Check whether the university exists
+    # Check whether university exists
     # --------------------------------------------------------
 
     university = (
         db.query(University)
-        .filter(University.id == solution_data.university_id)
+        .filter(
+            University.id == solution_data.university_id
+        )
         .first()
     )
 
@@ -179,12 +193,46 @@ def create_solution(
         )
 
     # --------------------------------------------------------
+    # Check whether project exists
+    # --------------------------------------------------------
+
+    if solution_data.project_id:
+
+        project = (
+            db.query(Project)
+            .filter(
+                Project.id == solution_data.project_id
+            )
+            .first()
+        )
+
+        if not project:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project not found",
+            )
+
+        # ----------------------------------------------------
+        # Make sure project belongs to the same problem
+        # ----------------------------------------------------
+
+        if (
+            project.problem_id
+            and project.problem_id != solution_data.problem_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Project is not linked to this problem",
+            )
+
+    # --------------------------------------------------------
     # Create solution
     # --------------------------------------------------------
 
     solution = Solution(
         problem_id=solution_data.problem_id,
         university_id=solution_data.university_id,
+        project_id=solution_data.project_id,
         solution_title=solution_data.solution_title,
         prototype_status=solution_data.prototype_status,
         estimated_cost=solution_data.estimated_cost,
@@ -212,19 +260,26 @@ def update_solution(
     solution_data: SolutionUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):  
-    if current_user.role not in ALLOWED_SOLUTION_WRITE_ROLES:
-       raise HTTPException(
-          status_code=status.HTTP_403_FORBIDDEN,
-          detail="You are not authorized to update a solution",
-        )
+):
     # --------------------------------------------------------
-    # Check whether the solution exists
+    # Check permission
+    # --------------------------------------------------------
+
+    if current_user.role not in ALLOWED_SOLUTION_WRITE_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to update a solution",
+        )
+
+    # --------------------------------------------------------
+    # Check whether solution exists
     # --------------------------------------------------------
 
     solution = (
         db.query(Solution)
-        .filter(Solution.id == solution_id)
+        .filter(
+            Solution.id == solution_id
+        )
         .first()
     )
 
@@ -235,7 +290,7 @@ def update_solution(
         )
 
     # --------------------------------------------------------
-    # Get only fields that were actually provided
+    # Get only provided fields
     # --------------------------------------------------------
 
     update_data = solution_data.model_dump(
@@ -243,8 +298,7 @@ def update_solution(
     )
 
     # --------------------------------------------------------
-    # If problem_id is being updated,
-    # check whether the new problem exists
+    # Validate problem
     # --------------------------------------------------------
 
     if (
@@ -253,7 +307,9 @@ def update_solution(
     ):
         problem = (
             db.query(Problem)
-            .filter(Problem.id == update_data["problem_id"])
+            .filter(
+                Problem.id == update_data["problem_id"]
+            )
             .first()
         )
 
@@ -264,8 +320,7 @@ def update_solution(
             )
 
     # --------------------------------------------------------
-    # If university_id is being updated,
-    # check whether the new university exists
+    # Validate university
     # --------------------------------------------------------
 
     if (
@@ -274,7 +329,10 @@ def update_solution(
     ):
         university = (
             db.query(University)
-            .filter(University.id == update_data["university_id"])
+            .filter(
+                University.id
+                == update_data["university_id"]
+            )
             .first()
         )
 
@@ -285,11 +343,57 @@ def update_solution(
             )
 
     # --------------------------------------------------------
-    # Update provided fields
+    # Validate project
+    # --------------------------------------------------------
+
+    if (
+        "project_id" in update_data
+        and update_data["project_id"] is not None
+    ):
+        project = (
+            db.query(Project)
+            .filter(
+                Project.id
+                == update_data["project_id"]
+            )
+            .first()
+        )
+
+        if not project:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project not found",
+            )
+
+        # ----------------------------------------------------
+        # Check project and problem compatibility
+        # ----------------------------------------------------
+
+        new_problem_id = update_data.get(
+            "problem_id",
+            solution.problem_id
+        )
+
+        if (
+            project.problem_id
+            and new_problem_id
+            and project.problem_id != new_problem_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Project is not linked to this problem",
+            )
+
+    # --------------------------------------------------------
+    # Update fields
     # --------------------------------------------------------
 
     for field, value in update_data.items():
-        setattr(solution, field, value)
+        setattr(
+            solution,
+            field,
+            value
+        )
 
     db.commit()
     db.refresh(solution)
@@ -310,9 +414,71 @@ def get_problem_solutions(
     problem_id: uuid.UUID,
     db: Session = Depends(get_db),
 ):
+    # Check problem exists
+    problem = (
+        db.query(Problem)
+        .filter(
+            Problem.id == problem_id
+        )
+        .first()
+    )
+
+    if not problem:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Problem not found",
+        )
+
     solutions = (
         db.query(Solution)
-        .filter(Solution.problem_id == problem_id)
+        .filter(
+            Solution.problem_id == problem_id
+        )
+        .all()
+    )
+
+    return solutions
+
+
+# ============================================================
+# GET /api/projects/{project_id}/solutions
+# Get all solutions for a project
+# ============================================================
+
+project_solutions_router = APIRouter(
+    prefix="/api/projects",
+    tags=["Solutions"],
+)
+
+
+@project_solutions_router.get(
+    "/{project_id}/solutions",
+    response_model=list[SolutionResponse]
+)
+def get_project_solutions(
+    project_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    # Check project exists
+    project = (
+        db.query(Project)
+        .filter(
+            Project.id == project_id
+        )
+        .first()
+    )
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found",
+        )
+
+    solutions = (
+        db.query(Solution)
+        .filter(
+            Solution.project_id == project_id
+        )
         .all()
     )
 

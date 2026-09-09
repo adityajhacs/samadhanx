@@ -30,6 +30,12 @@ class Solution(Base):
         nullable=True
     )
 
+    project_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("projects.id"),
+        nullable=True
+    )
+
     solution_title: Mapped[str] = mapped_column(
         Text,
         nullable=False

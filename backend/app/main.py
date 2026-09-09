@@ -9,6 +9,7 @@ from app.routers.universities import (
 from app.routers.solutions import (
     router as solutions_router,
     problem_solutions_router,
+    project_solutions_router,
 )
 from app.routers.projects import router as projects_router
 from app.routers.project_members import (
@@ -22,6 +23,28 @@ from app.routers.dashboard import (
     router as dashboard_router,
     project_dashboard_router,
 )
+from app.models.university_problem_interest import UniversityProblemInterest
+from app.routers.reality_check import router as reality_check_router
+from app.routers.solution_memory import router as solution_memory_router
+from app.routers.solution_recommendation import (
+    router as solution_recommendation_router
+)
+from app.routers.cluster_analysis import (
+    router as cluster_analysis_router,
+)
+from app.routers.impact_measurement import (
+    router as impact_measurement_router,
+)
+from app.routers.problem_analysis import (
+    router as problem_analysis_router,
+)
+from app.routers.root_cause import (
+    router as root_cause_router,
+)
+from app.routers.pilot_analysis import router as pilot_analysis_router
+from app.routers.resource_optimization import (
+    router as resource_optimization_router,
+)
 
 app = FastAPI(
     title="SamadhanX API",
@@ -34,6 +57,7 @@ app.include_router(universities_router)
 app.include_router(problem_university_router)
 app.include_router(solutions_router)
 app.include_router(problem_solutions_router)
+app.include_router(project_solutions_router)
 app.include_router(projects_router)
 app.include_router(project_members_router)
 app.include_router(project_members_project_router)
@@ -44,6 +68,16 @@ app.include_router(
 )
 app.include_router(dashboard_router)
 app.include_router(project_dashboard_router)
+app.include_router(reality_check_router)
+app.include_router(solution_memory_router)
+app.include_router(solution_recommendation_router)
+app.include_router(pilot_analysis_router) 
+app.include_router(cluster_analysis_router)
+app.include_router(impact_measurement_router)
+app.include_router(resource_optimization_router)
+app.include_router(problem_analysis_router)
+app.include_router(root_cause_router)
+
 @app.get("/health")
 def health():
     return {

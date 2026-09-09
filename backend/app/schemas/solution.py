@@ -18,7 +18,11 @@ PROTOTYPE_STATUSES = [
 class SolutionCreate(BaseModel):
     problem_id: uuid.UUID
     university_id: uuid.UUID
-    solution_title: str = Field(min_length=1)
+    project_id: uuid.UUID | None = None
+
+    solution_title: str = Field(
+        min_length=1
+    )
 
     prototype_status: Literal[
         "IDEA",
@@ -42,6 +46,8 @@ class SolutionCreate(BaseModel):
 class SolutionUpdate(BaseModel):
     problem_id: uuid.UUID | None = None
     university_id: uuid.UUID | None = None
+    project_id: uuid.UUID | None = None
+
     solution_title: str | None = Field(
         default=None,
         min_length=1
@@ -68,12 +74,17 @@ class SolutionUpdate(BaseModel):
 
 class SolutionResponse(BaseModel):
     id: uuid.UUID
+
     problem_id: uuid.UUID | None
     university_id: uuid.UUID | None
+    project_id: uuid.UUID | None
+
     solution_title: str
     prototype_status: str | None
     estimated_cost: Decimal | None
     funding_received: Decimal | None
     created_at: datetime | None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True
+    )
