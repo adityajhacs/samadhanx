@@ -71,9 +71,12 @@ export default function Home() {
               Help
             </a>
 
-            <button className="rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-teal-700">
+            <a
+              href="/problems#report"
+              className="rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700"
+            >
               Get Started
-            </button>
+            </a>
           </div>
 
           <button
@@ -262,9 +265,12 @@ export default function Home() {
               </p>
             </div>
 
-            <button className="shrink-0 rounded-xl bg-white px-6 py-3.5 font-bold text-teal-600 shadow-lg hover:bg-teal-50">
+            <a
+              href="/problems#report"
+              className="rounded-xl bg-white px-6 py-4 font-semibold text-teal-600 shadow-sm transition hover:bg-slate-50"
+            >
               Submit a Problem
-            </button>
+            </a>
           </div>
         </div>
       </section>
