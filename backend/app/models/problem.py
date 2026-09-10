@@ -14,15 +14,15 @@ class Problem(Base):
     __tablename__ = "problems"
 
     id: Mapped[uuid.UUID] = mapped_column(
-    UUID(as_uuid=True),
-    primary_key=True,
-    server_default=text("gen_random_uuid()")
-)
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()")
+    )
 
     citizen_id: Mapped[uuid.UUID] = mapped_column(
-    UUID(as_uuid=True),
-    ForeignKey("users.id")
-)
+        UUID(as_uuid=True),
+        ForeignKey("users.id")
+    )
 
     title: Mapped[str] = mapped_column(Text)
 
@@ -35,14 +35,14 @@ class Problem(Base):
     severity_score: Mapped[int] = mapped_column(Integer)
 
     embedding: Mapped[list[float] | None] = mapped_column(
-    Vector(768),
-    nullable=True
-)
+        Vector(768),
+        nullable=True
+    )
 
     status: Mapped[str] = mapped_column(
-    Text,
-    server_default=text("'Pending'")
-)
+        Text,
+        server_default=text("'Pending'")
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True)

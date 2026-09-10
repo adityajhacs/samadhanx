@@ -1,15 +1,17 @@
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from app.core.auth import get_current_user, require_role
-from app.models.user import User
 
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.core.auth import get_current_user, require_role
 from app.core.database import get_db
 from app.models.problem import Problem
 from app.models.problem_ai_analysis import ProblemAIAnalysis
+from app.models.user import User
 from app.schemas.problem import ProblemCreate, ProblemUpdate, ProblemResponse
 from app.services.ai.analysis import analyze_problem
+
 
 router = APIRouter(
     prefix="/api/problems",
@@ -37,7 +39,10 @@ def get_problem(
     ).first()
 
     if not problem:
-        return {"error": "Problem not found"}
+        raise HTTPException(
+            status_code=404,
+            detail="Problem not found"
+        )
 
     return problem
 
@@ -79,7 +84,10 @@ def update_problem(
     ).first()
 
     if not problem:
-        return {"error": "Problem not found"}
+        raise HTTPException(
+            status_code=404,
+            detail="Problem not found"
+        )
 
     update_data = problem_data.model_dump(exclude_unset=True)
 
@@ -90,6 +98,7 @@ def update_problem(
     db.refresh(problem)
 
     return problem
+
 
 @router.post("/{problem_id}/analyze")
 def analyze_problem_endpoint(
@@ -102,7 +111,10 @@ def analyze_problem_endpoint(
     ).first()
 
     if not problem:
-        return {"error": "Problem not found"}
+        raise HTTPException(
+            status_code=404,
+            detail="Problem not found"
+        )
 
     result = analyze_problem(problem.description)
 
@@ -114,7 +126,9 @@ def analyze_problem_endpoint(
         existing_analysis.subcategory = result.subcategory
         existing_analysis.severity_level = result.severity_level
         existing_analysis.affected_sector = result.affected_sector
-        existing_analysis.estimated_affected_people = result.estimated_affected_people
+        existing_analysis.estimated_affected_people = (
+            result.estimated_affected_people
+        )
         existing_analysis.root_cause = result.root_cause
         existing_analysis.ai_summary = result.ai_summary
         existing_analysis.keywords = result.keywords

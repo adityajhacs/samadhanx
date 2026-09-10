@@ -1,5 +1,3 @@
-import os
-
 from dotenv import load_dotenv
 from google import genai
 from pydantic import ValidationError
@@ -53,7 +51,11 @@ Analyze this citizen-reported civic problem:
         )
 
     except ValidationError as exc:
-        raise ValueError("AI returned an invalid response format.") from exc
+        raise ValueError(
+            "AI returned an invalid response format."
+        ) from exc
 
     except Exception as exc:
-        raise RuntimeError("AI analysis failed.") from exc
+        raise RuntimeError(
+            "AI analysis failed."
+        ) from exc

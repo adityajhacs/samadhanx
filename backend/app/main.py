@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -199,4 +198,3 @@ def health():
         "status": "ok",
         "service": "SamadhanX API",
     }
-
