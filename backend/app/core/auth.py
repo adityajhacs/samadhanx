@@ -69,12 +69,13 @@ def get_current_user(
 
         # Verify JWT
         payload = jwt.decode(
-            token,
-            public_key,
-            algorithms=["ES256"],
-            issuer=JWT_ISSUER,
-            audience="authenticated"
-        )
+             token,
+             public_key,
+             algorithms=["ES256"],
+             issuer=JWT_ISSUER,
+             audience="authenticated",
+             leeway=60
+      )
 
         # Get Supabase Auth user ID
         auth_id = payload.get("sub")

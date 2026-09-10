@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user, require_role
@@ -11,7 +11,7 @@ from app.models.problem_ai_analysis import ProblemAIAnalysis
 from app.models.user import User
 from app.schemas.problem import ProblemCreate, ProblemUpdate, ProblemResponse
 from app.services.ai.analysis import analyze_problem
-
+from app.services.storage import upload_file
 
 router = APIRouter(
     prefix="/api/problems",
@@ -157,3 +157,63 @@ def analyze_problem_endpoint(
     db.refresh(analysis)
 
     return result
+
+@router.post("/upload")
+async def upload_problem_file(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_role("citizen")),
+):
+    if file.content_type is None:
+        raise HTTPException(
+            status_code=400,
+            detail="File type could not be detected."
+        )
+
+    if file.content_type.startswith("image/"):
+        bucket = "problem-images"
+
+    elif file.content_type.startswith("video/"):
+        bucket = "problem-videos"
+
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Only image and video files are allowed."
+        )
+
+    file_bytes = await file.read()
+
+    max_size = (
+        300 * 1024
+        if file.content_type.startswith("image/")
+        else 300 * 1024 * 1024
+    )
+
+    if len(file_bytes) > max_size:
+        raise HTTPException(
+            status_code=400,
+            detail="File size exceeds the allowed limit."
+        )
+
+    try:
+        url = upload_file(
+            file_bytes=file_bytes,
+            filename=file.filename or "upload",
+            content_type=file.content_type,
+            bucket=bucket,
+        )
+
+        return {
+            "url": url,
+            "type": "image"
+            if file.content_type.startswith("image/")
+            else "video",
+        }
+
+    except Exception as error:
+        print("File upload error:", error)
+
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to upload file."
+        )

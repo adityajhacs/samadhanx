@@ -1,25 +1,95 @@
 "use client";
+
 import { Check, ThumbsUp } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  getSupportCount,
+  supportProblem,
+  submitFeedback,
+} from "@/lib/api/engagement";
 
 export default function ProblemActions({
+  problemId,
   supporters,
 }: {
+  problemId: string;
   supporters: number;
 }) {
   const [supported, setSupported] = useState(false);
+  const [supportCount, setSupportCount] = useState(supporters);
+  const [supportLoading, setSupportLoading] = useState(false);
+  const [supportError, setSupportError] = useState("");
+
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackError, setFeedbackError] = useState("");
 
-  const currentSupporters = supporters + (supported ? 1 : 0);
+  useEffect(() => {
+    async function loadSupportCount() {
+      try {
+        const response = await getSupportCount(problemId);
+        setSupportCount(response.supporters);
+        setSupported(response.supported);
+      } catch (error) {
+        console.error("Failed to load support count:", error);
+      }
+    }
 
-  const handleFeedback = (e: React.FormEvent) => {
+    loadSupportCount();
+  }, [problemId]);
+
+  const handleSupport = async () => {
+    if (supported || supportLoading) {
+      return;
+    }
+
+    setSupportLoading(true);
+    setSupportError("");
+
+    try {
+      const response = await supportProblem(problemId);
+
+      setSupported(true);
+      setSupportCount(response.supporters);
+    } catch (error) {
+      setSupportError(
+        error instanceof Error
+          ? error.message
+          : "Failed to support this problem."
+      );
+    } finally {
+      setSupportLoading(false);
+    }
+  };
+
+  const handleFeedback = async (
+    e: React.FormEvent<HTMLFormElement>
+  ) => {
     e.preventDefault();
 
-    if (feedback.trim()) {
+    if (!feedback.trim() || feedbackLoading) {
+      return;
+    }
+
+    setFeedbackLoading(true);
+    setFeedbackError("");
+    setSubmitted(false);
+
+    try {
+      await submitFeedback(problemId, feedback);
+
       setSubmitted(true);
       setFeedback("");
+    } catch (error) {
+      setFeedbackError(
+        error instanceof Error
+          ? error.message
+          : "Failed to submit feedback."
+      );
+    } finally {
+      setFeedbackLoading(false);
     }
   };
 
@@ -36,21 +106,37 @@ export default function ProblemActions({
         </p>
 
         <button
-          onClick={() => setSupported(!supported)}
+          onClick={handleSupport}
+          disabled={supported || supportLoading}
           className={`mt-5 w-full rounded-xl px-5 py-3 font-semibold transition ${
             supported
-              ? "bg-emerald-600 text-white hover:bg-emerald-700"
+              ? "cursor-default bg-emerald-600 text-white"
               : "bg-teal-600 text-white hover:bg-teal-700"
           }`}
         >
           <span className="flex items-center justify-center gap-2">
-            {supported ? <Check size={17} /> : <ThumbsUp size={17} />}
-            {supported ? "Supported" : "Support Problem"}
-        </span>
+            {supported ? (
+              <Check size={17} />
+            ) : (
+              <ThumbsUp size={17} />
+            )}
+
+            {supportLoading
+              ? "Supporting..."
+              : supported
+                ? "Supported"
+                : "Support Problem"}
+          </span>
         </button>
 
+        {supportError && (
+          <p className="mt-3 text-center text-sm font-medium text-red-600">
+            {supportError}
+          </p>
+        )}
+
         <p className="mt-3 text-center text-sm text-slate-500">
-          {currentSupporters} citizens support this problem
+          {supportCount} citizens support this problem
         </p>
       </div>
 
@@ -68,17 +154,25 @@ export default function ProblemActions({
           onClick={() => {
             setFeedbackOpen(!feedbackOpen);
             setSubmitted(false);
+            setFeedbackError("");
           }}
           className="mt-5 w-full rounded-xl border border-teal-600 px-5 py-3 font-semibold text-teal-600 transition hover:bg-teal-50"
         >
-          {feedbackOpen ? "Close Feedback" : "Share Feedback"}
+          {feedbackOpen
+            ? "Close Feedback"
+            : "Share Feedback"}
         </button>
 
         {feedbackOpen && (
-          <form onSubmit={handleFeedback} className="mt-5">
+          <form
+            onSubmit={handleFeedback}
+            className="mt-5"
+          >
             <textarea
               value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
+              onChange={(e) =>
+                setFeedback(e.target.value)
+              }
               placeholder="Write your feedback here..."
               rows={4}
               required
@@ -87,14 +181,23 @@ export default function ProblemActions({
 
             <button
               type="submit"
-              className="mt-3 w-full rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white hover:bg-teal-700"
+              disabled={feedbackLoading}
+              className="mt-3 w-full rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              Submit Feedback
+              {feedbackLoading
+                ? "Submitting..."
+                : "Submit Feedback"}
             </button>
 
             {submitted && (
               <p className="mt-3 text-center text-sm font-medium text-emerald-600">
                 ✓ Feedback submitted successfully!
+              </p>
+            )}
+
+            {feedbackError && (
+              <p className="mt-3 text-center text-sm font-medium text-red-600">
+                {feedbackError}
               </p>
             )}
           </form>

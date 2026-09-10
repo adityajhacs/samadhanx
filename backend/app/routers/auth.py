@@ -33,7 +33,8 @@ def register(data: RegisterRequest):
             "email": data.email,
             "password": data.password,
             "data": {
-                "full_name": data.full_name
+                "full_name": data.full_name,
+                "role": data.role
             },
         },
         timeout=10,
@@ -47,6 +48,7 @@ def register(data: RegisterRequest):
            detail=response.text
         )
     result = response.json()
+    print("SUPABASE REGISTER RESULT:", result)
 
     return {
         "access_token": result.get("access_token"),

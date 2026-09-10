@@ -75,7 +75,7 @@ from app.routers.impact_measurement import (
 from app.routers.resource_optimization import (
     router as resource_optimization_router,
 )
-
+from app.routers import engagement
 
 # --------------------------------------------------
 # FastAPI Application
@@ -186,7 +186,7 @@ app.include_router(reality_check_router)
 app.include_router(pilot_analysis_router)
 app.include_router(impact_measurement_router)
 app.include_router(resource_optimization_router)
-
+app.include_router(engagement.router)
 
 # --------------------------------------------------
 # Health Check
