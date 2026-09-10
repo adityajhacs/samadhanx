@@ -126,6 +126,7 @@ function districtStyle(selected: boolean): PathOptions {
 }
 
 export default function JharkhandProblemMap() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [geoData, setGeoData] = useState<any>(null);
   const [selectedDistrict, setSelectedDistrict] =
     useState("All");
