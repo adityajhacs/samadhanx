@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from google import genai
 from dotenv import load_dotenv
+
 
 from app.services.ai.prompts import SYSTEM_PROMPT
 
@@ -32,6 +33,28 @@ def optimize_resources(
     problem: str,
     solutions: str
 ) -> ResourceOptimizationAnalysis:
+
+    # Input validation
+    if not isinstance(problem, str):
+        raise ValueError("Problem must be a string.")
+
+    if not isinstance(solutions, str):
+        raise ValueError("Solutions must be a string.")
+
+    problem = problem.strip()
+    solutions = solutions.strip()
+
+    if not problem:
+        raise ValueError("Problem cannot be empty.")
+
+    if not solutions:
+        raise ValueError("Solutions cannot be empty.")
+
+    if len(problem) > 10000:
+        raise ValueError("Problem is too long.")
+
+    if len(solutions) > 10000:
+        raise ValueError("Solutions are too long.")
 
     prompt = f"""
 {SYSTEM_PROMPT}
@@ -78,16 +101,83 @@ Proposed Solutions:
 {solutions}
 """
 
-    interaction = client.interactions.create(
-        model="gemini-3.6-flash",
-        input=prompt,
-        response_format={
-            "type": "text",
-            "mime_type": "application/json",
-            "schema": ResourceOptimizationAnalysis.model_json_schema(),
-        },
-    )
+    try:
+        interaction = client.interactions.create(
+            model="gemini-3.6-flash",
+            input=prompt,
+            response_format={
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": ResourceOptimizationAnalysis.model_json_schema(),
+            },
+        )
 
-    return ResourceOptimizationAnalysis.model_validate_json(
-        interaction.output_text
-    )
+        if not interaction.output_text:
+            raise ValueError("AI returned an empty response.")
+
+        return ResourceOptimizationAnalysis.model_validate_json(
+            interaction.output_text
+        )
+
+    except ValidationError as exc:
+        raise ValueError(
+            "AI returned an invalid Resource Optimization format."
+        ) from exc
+
+    except ValueError:
+        raise
+
+    except Exception as exc:
+        raise RuntimeError(
+            "AI Resource Optimization service is temporarily unavailable."
+        ) from exc
+    def test_optimize_resources_rejects_empty_problem():
+     with raises(ValueError, match="Problem cannot be empty"):
+        optimize_resources(
+            problem="",
+            solutions="Solution 1: Water Tank"
+        )
+
+
+def test_optimize_resources_rejects_non_string_problem():
+    with raises(ValueError, match="Problem must be a string"):
+        optimize_resources(
+            problem=None,
+            solutions="Solution 1: Water Tank"
+        )
+
+
+def test_optimize_resources_rejects_empty_solutions():
+    with raises(ValueError, match="Solutions cannot be empty"):
+        optimize_resources(
+            problem="Unreliable drinking water access",
+            solutions=""
+        )
+
+
+def test_optimize_resources_rejects_non_string_solutions():
+    with raises(ValueError, match="Solutions must be a string"):
+        optimize_resources(
+            problem="Unreliable drinking water access",
+            solutions=None
+        )
+
+
+def test_optimize_resources_rejects_oversized_problem():
+    huge_problem = "A" * 10001
+
+    with raises(ValueError, match="Problem is too long"):
+        optimize_resources(
+            problem=huge_problem,
+            solutions="Solution 1: Water Tank"
+        )
+
+
+def test_optimize_resources_rejects_oversized_solutions():
+    huge_solutions = "A" * 10001
+
+    with raises(ValueError, match="Solutions are too long"):
+        optimize_resources(
+            problem="Unreliable drinking water access",
+            solutions=huge_solutions
+        )

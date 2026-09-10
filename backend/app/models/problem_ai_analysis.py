@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Text, Integer, DateTime, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, ARRAY
+from sqlalchemy import Text, Integer, DateTime, ForeignKey, ARRAY
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -18,7 +18,8 @@ class ProblemAIAnalysis(Base):
 
     problem_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("problems.id")
+        ForeignKey("problems.id"),
+        nullable=False
     )
 
     subcategory: Mapped[str] = mapped_column(Text)

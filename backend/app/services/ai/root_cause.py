@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from google import genai
 from dotenv import load_dotenv
 
@@ -36,6 +36,18 @@ class RootCauseAnalysis(BaseModel):
 
 def analyze_root_cause(problem: str) -> RootCauseAnalysis:
 
+    # Input validation
+    if not isinstance(problem, str):
+        raise ValueError("Problem must be a string.")
+
+    problem = problem.strip()
+
+    if not problem:
+        raise ValueError("Problem cannot be empty.")
+
+    if len(problem) > 10000:
+        raise ValueError("Problem is too long.")
+
     prompt = f"""
 {SYSTEM_PROMPT}
 
@@ -66,16 +78,33 @@ Citizen Problem:
 {problem}
 """
 
-    interaction = client.interactions.create(
-        model="gemini-3.6-flash",
-        input=prompt,
-        response_format={
-            "type": "text",
-            "mime_type": "application/json",
-            "schema": RootCauseAnalysis.model_json_schema(),
-        },
-    )
+    try:
+        interaction = client.interactions.create(
+            model="gemini-3.6-flash",
+            input=prompt,
+            response_format={
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": RootCauseAnalysis.model_json_schema(),
+            },
+        )
 
-    return RootCauseAnalysis.model_validate_json(
-        interaction.output_text
-    )
+        if not interaction.output_text:
+            raise ValueError("AI returned an empty response.")
+
+        return RootCauseAnalysis.model_validate_json(
+            interaction.output_text
+        )
+
+    except ValidationError as exc:
+        raise ValueError(
+            "AI returned an invalid Root Cause analysis format."
+        ) from exc
+
+    except ValueError:
+        raise
+
+    except Exception as exc:
+        raise RuntimeError(
+            "AI Root Cause service is temporarily unavailable."
+        ) from exc

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from google import genai
 from dotenv import load_dotenv
 
@@ -27,6 +27,18 @@ class RealityCheckAnalysis(BaseModel):
 
 
 def analyze_reality_check(solution: str) -> RealityCheckAnalysis:
+
+    # Input validation
+    if not isinstance(solution, str):
+        raise ValueError("Solution must be a string.")
+
+    solution = solution.strip()
+
+    if not solution:
+        raise ValueError("Solution cannot be empty.")
+
+    if len(solution) > 10000:
+        raise ValueError("Solution is too long.")
 
     prompt = f"""
 {SYSTEM_PROMPT}
@@ -63,16 +75,33 @@ Proposed Solution:
 {solution}
 """
 
-    interaction = client.interactions.create(
-        model="gemini-3.6-flash",
-        input=prompt,
-        response_format={
-            "type": "text",
-            "mime_type": "application/json",
-            "schema": RealityCheckAnalysis.model_json_schema(),
-        },
-    )
+    try:
+        interaction = client.interactions.create(
+            model="gemini-3.6-flash",
+            input=prompt,
+            response_format={
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": RealityCheckAnalysis.model_json_schema(),
+            },
+        )
 
-    return RealityCheckAnalysis.model_validate_json(
-        interaction.output_text
-    )
+        if not interaction.output_text:
+            raise ValueError("AI returned an empty response.")
+
+        return RealityCheckAnalysis.model_validate_json(
+            interaction.output_text
+        )
+
+    except ValidationError as exc:
+        raise ValueError(
+            "AI returned an invalid RealityCheck format."
+        ) from exc
+
+    except ValueError:
+        raise
+
+    except Exception as exc:
+        raise RuntimeError(
+            "AI RealityCheck service is temporarily unavailable."
+        ) from exc

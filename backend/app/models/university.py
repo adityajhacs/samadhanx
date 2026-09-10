@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Text, DateTime
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import Text, TIMESTAMP
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -16,12 +17,32 @@ class University(Base):
         primary_key=True
     )
 
-    name: Mapped[str] = mapped_column(Text)
-
-    expertise_areas: Mapped[list[str]] = mapped_column(
-        ARRAY(Text)
+    name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False
     )
 
+    expertise_area: Mapped[list[str] | None] = mapped_column(
+    "expertise_areas",
+    ARRAY(Text),
+    nullable=True
+)
+    district: Mapped[str | None] = mapped_column(
+    Text,
+    nullable=True
+)
+
+    department: Mapped[str | None] = mapped_column(
+    Text,
+    nullable=True
+)
+
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True)
+        TIMESTAMP(timezone=True),
+        nullable=False
+    )
+
+    embedding: Mapped[list[float] | None] = mapped_column(
+        Vector(1536),
+        nullable=True
     )
