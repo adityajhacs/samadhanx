@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+
 import {
   CheckCircle2,
   Clock3,
@@ -11,7 +13,6 @@ import {
   X,
   ArrowRight,
 } from "lucide-react";
-
 type Solution = {
   id: number;
   title: string;
@@ -433,14 +434,13 @@ export default function UniversitySolutionsPage() {
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setSelectedSolution(solution)}
-                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-teal-400 px-4 py-3 text-sm font-bold text-teal-600 transition hover:bg-teal-600 hover:text-white"
-                  >
-                    View Solution
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
+                 <Link
+  href={`/university/solutions/${solution.id}`}
+  className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-teal-400 px-4 py-3 text-sm font-bold text-teal-600 transition hover:bg-teal-600 hover:text-white"
+>
+  View Solution
+  <ArrowRight className="h-4 w-4" />
+</Link>
                 </div>
               </div>
             </div>

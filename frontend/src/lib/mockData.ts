@@ -19,11 +19,12 @@ export type ClusterStatus = "Critical" | "Active";
 
 export type SolutionStage =
   | "Reported"
-  | "Verified"
-  | "Assigned"
-  | "In Execution"
-  | "Resolved";
-
+  | "AI Analyzed"
+  | "University Matched"
+  | "Solution Proposed"
+  | "Project In Progress"
+  | "Pilot / Validation"
+  | "Impact / Deployment";
 
 // ============================================================
 // PROBLEM
@@ -397,12 +398,12 @@ export interface Solution {
   problemTitle: string;
   category: ProblemCategory;
   location: string;
-  department: string;
+  university: string;
   currentStage: SolutionStage;
   progress: number;
-  assignedTeam: string;
-  estimatedCompletion: string;
-  action: string;
+  solutionTitle: string;
+  description: string;
+  supportRequired: string;
   impact: string;
 }
 
@@ -413,13 +414,15 @@ export const solutions: Solution[] = [
     problemTitle: "Major Road Damage",
     category: "Roads",
     location: "Central Delhi",
-    department: "Public Works Department",
-    currentStage: "Verified",
+    university: "Birla Institute of Technology, Mesra",
+    currentStage: "University Matched",
     progress: 35,
-    assignedTeam: "PWD Road Maintenance Team",
-    estimatedCompletion: "08 Sep 2026",
-    action: "Road inspection and pothole repair",
-    impact: "Improves road safety and reduces accident risk.",
+    solutionTitle: "Smart Road Damage Detection & Repair Planning",
+    description:
+      "A technology-assisted approach for identifying road damage and planning targeted repair interventions.",
+    supportRequired: "Civil Engineering, AI & Infrastructure",
+    impact:
+      "Improves road safety and enables faster, data-driven infrastructure intervention.",
   },
 
   {
@@ -428,13 +431,15 @@ export const solutions: Solution[] = [
     problemTitle: "Drinking Water Shortage",
     category: "Water",
     location: "Lucknow",
-    department: "Jal Nigam",
-    currentStage: "In Execution",
+    university: "National Institute of Technology, Jamshedpur",
+    currentStage: "Project In Progress",
     progress: 70,
-    assignedTeam: "Lucknow Water Response Team",
-    estimatedCompletion: "06 Sep 2026",
-    action: "Restore supply and inspect water distribution network",
-    impact: "Restores reliable drinking-water access.",
+    solutionTitle: "Smart Water Distribution Monitoring",
+    description:
+      "A monitoring system to identify supply disruptions and improve water distribution management.",
+    supportRequired: "Water Engineering, IoT & Field Testing",
+    impact:
+      "Improves reliability of drinking-water supply and reduces distribution losses.",
   },
 
   {
@@ -443,13 +448,15 @@ export const solutions: Solution[] = [
     problemTitle: "Street Light Failure",
     category: "Electricity",
     location: "Jaipur",
-    department: "Jaipur Municipal Corporation",
-    currentStage: "Reported",
+    university: "Central University of Jharkhand",
+    currentStage: "AI Analyzed",
     progress: 15,
-    assignedTeam: "Electrical Field Team",
-    estimatedCompletion: "10 Sep 2026",
-    action: "Field verification and electrical inspection",
-    impact: "Improves public-area visibility and safety.",
+    solutionTitle: "Smart Street Lighting Monitoring",
+    description:
+      "An intelligent monitoring approach for identifying recurring street-light failures and prioritizing maintenance.",
+    supportRequired: "Electrical Engineering & IoT",
+    impact:
+      "Improves public-area visibility, safety and maintenance response.",
   },
 
   {
@@ -458,13 +465,15 @@ export const solutions: Solution[] = [
     problemTitle: "Garbage Collection Issue",
     category: "Sanitation",
     location: "Bhopal",
-    department: "Municipal Corporation",
-    currentStage: "Resolved",
+    university: "Birla Institute of Technology, Mesra",
+    currentStage: "Impact / Deployment",
     progress: 100,
-    assignedTeam: "Bhopal Sanitation Team",
-    estimatedCompletion: "Completed",
-    action: "Additional collection vehicle deployed",
-    impact: "Restored regular waste collection.",
+    solutionTitle: "Optimized Waste Collection Planning",
+    description:
+      "A data-driven waste collection approach designed to improve collection coverage and route efficiency.",
+    supportRequired: "Data Analytics, Urban Planning & Deployment",
+    impact:
+      "Improves waste collection reliability and reduces missed collection points.",
   },
 
   {
@@ -473,13 +482,15 @@ export const solutions: Solution[] = [
     problemTitle: "Water Pipeline Leakage",
     category: "Water",
     location: "Kanpur",
-    department: "Water Supply Department",
-    currentStage: "In Execution",
+    university: "National Institute of Technology, Jamshedpur",
+    currentStage: "Pilot / Validation",
     progress: 65,
-    assignedTeam: "Pipeline Repair Team",
-    estimatedCompletion: "07 Sep 2026",
-    action: "Replace damaged pipeline section",
-    impact: "Reduces water loss and supply disruption.",
+    solutionTitle: "Pipeline Leakage Detection System",
+    description:
+      "A prototype-based approach for detecting pipeline leakage and identifying damaged sections.",
+    supportRequired: "Civil Engineering, Sensors & Field Testing",
+    impact:
+      "Reduces water loss and improves reliability of the water distribution network.",
   },
 
   {
@@ -488,13 +499,15 @@ export const solutions: Solution[] = [
     problemTitle: "Broken Footpath",
     category: "Roads",
     location: "Indore",
-    department: "Public Works Department",
-    currentStage: "Assigned",
+    university: "Birla Institute of Technology, Mesra",
+    currentStage: "Solution Proposed",
     progress: 40,
-    assignedTeam: "Indore Civil Works Team",
-    estimatedCompletion: "12 Sep 2026",
-    action: "Repair damaged pedestrian pathway",
-    impact: "Improves pedestrian accessibility and safety.",
+    solutionTitle: "Accessible Pedestrian Pathway Design",
+    description:
+      "A proposed redesign approach focused on safer and more accessible pedestrian infrastructure.",
+    supportRequired: "Civil Engineering, Accessibility & Urban Design",
+    impact:
+      "Improves pedestrian accessibility and reduces safety risks.",
   },
 
   {
@@ -503,13 +516,15 @@ export const solutions: Solution[] = [
     problemTitle: "Transformer Fault",
     category: "Electricity",
     location: "Patna",
-    department: "Electricity Board",
-    currentStage: "Verified",
+    university: "National Institute of Technology, Jamshedpur",
+    currentStage: "University Matched",
     progress: 30,
-    assignedTeam: "Patna Power Response Team",
-    estimatedCompletion: "07 Sep 2026",
-    action: "Transformer inspection and replacement",
-    impact: "Restores stable electricity supply.",
+    solutionTitle: "Predictive Transformer Fault Monitoring",
+    description:
+      "A monitoring and predictive maintenance concept for identifying transformer faults before major failures.",
+    supportRequired: "Electrical Engineering, IoT & Power Systems",
+    impact:
+      "Improves electricity reliability and reduces unexpected transformer failures.",
   },
 
   {
@@ -518,16 +533,17 @@ export const solutions: Solution[] = [
     problemTitle: "Drainage Blockage",
     category: "Sanitation",
     location: "Pune",
-    department: "Pune Municipal Corporation",
-    currentStage: "In Execution",
+    university: "Central University of Jharkhand",
+    currentStage: "Project In Progress",
     progress: 75,
-    assignedTeam: "Drainage Maintenance Team",
-    estimatedCompletion: "06 Sep 2026",
-    action: "Clear blocked drainage and repair damaged section",
-    impact: "Reduces water accumulation and flooding risk.",
+    solutionTitle: "Smart Drainage Monitoring & Maintenance",
+    description:
+      "A technology-assisted drainage monitoring approach for identifying blockage-prone locations.",
+    supportRequired: "Environmental Engineering, Sensors & Field Pilot",
+    impact:
+      "Reduces water accumulation and lowers the risk of local flooding.",
   },
 ];
-
 
 // ============================================================
 // PIPELINE STAGES
@@ -541,26 +557,74 @@ export const solutionStages: {
   {
     id: "Reported",
     label: "Reported",
-    description: "Citizen submits a problem",
+    description: "Citizen challenge is submitted",
   },
   {
-    id: "Verified",
-    label: "Verified",
-    description: "Government verifies the issue",
+    id: "AI Analyzed",
+    label: "AI Analyzed",
+    description: "AI evaluates category, priority and root cause",
   },
   {
-    id: "Assigned",
-    label: "Assigned",
-    description: "Responsible department assigned",
+    id: "University Matched",
+    label: "University Matched",
+    description: "Suitable universities are recommended by AI",
   },
   {
-    id: "In Execution",
-    label: "In Execution",
-    description: "Solution work is underway",
+    id: "Solution Proposed",
+    label: "Solution Proposed",
+    description: "University proposes a solution",
   },
   {
-    id: "Resolved",
-    label: "Resolved",
-    description: "Problem successfully completed",
+    id: "Project In Progress",
+    label: "Project In Progress",
+    description: "Solution is developed and tested",
+  },
+  {
+    id: "Pilot / Validation",
+    label: "Pilot / Validation",
+    description: "Solution is validated through field testing",
+  },
+  {
+    id: "Impact / Deployment",
+    label: "Impact / Deployment",
+    description: "Successful solution is deployed and impact is measured",
+  },
+];
+export interface MatchedUniversity {
+  id: string;
+  name: string;
+  location: string;
+  expertise: string;
+  matchScore: number;
+  reason: string;
+}
+
+export const matchedUniversities: MatchedUniversity[] = [
+  {
+    id: "UNI-001",
+    name: "Birla Institute of Technology, Mesra",
+    location: "Ranchi, Jharkhand",
+    expertise: "Infrastructure, Engineering & Technology",
+    matchScore: 94,
+    reason:
+      "Strong expertise in engineering and infrastructure-related research.",
+  },
+  {
+    id: "UNI-002",
+    name: "National Institute of Technology, Jamshedpur",
+    location: "Jamshedpur, Jharkhand",
+    expertise: "Civil Engineering & Smart Infrastructure",
+    matchScore: 89,
+    reason:
+      "Relevant civil engineering expertise and applied research capabilities.",
+  },
+  {
+    id: "UNI-003",
+    name: "Central University of Jharkhand",
+    location: "Ranchi, Jharkhand",
+    expertise: "Environmental Studies & Public Policy",
+    matchScore: 81,
+    reason:
+      "Relevant interdisciplinary expertise for community-focused problem solving.",
   },
 ];

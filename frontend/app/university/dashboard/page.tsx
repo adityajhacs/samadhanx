@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   FolderKanban,
   GraduationCap,
+  Handshake,
   Lightbulb,
   Users,
 } from "lucide-react";
@@ -356,7 +357,73 @@ export default function UniversityDashboard() {
             </div>
           </a>
         </div>
+{/* ================= INDUSTRY SUPPORT ================= */}
+<section className="mt-10 rounded-2xl border border-teal-200 bg-white p-6 shadow-sm">
+  <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+    <div className="flex items-start gap-4">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-teal-50">
+        <Handshake className="h-6 w-6 text-teal-700" />
+      </div>
 
+      <div>
+        <div className="flex flex-wrap items-center gap-3">
+          <h3 className="text-xl font-bold text-slate-900">
+            Industry Support
+          </h3>
+
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+            Active
+          </span>
+        </div>
+
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+          Connect your university projects with industry partners for
+          funding, mentorship, hardware, testing and field deployment.
+        </p>
+      </div>
+    </div>
+
+    <a
+      href="/university/industry"
+      className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-teal-800"
+    >
+      Find Industry Partners
+      <ArrowRight className="h-4 w-4" />
+    </a>
+  </div>
+
+  <div className="mt-6 grid gap-4 sm:grid-cols-3">
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-medium text-slate-500">
+        Active Collaborations
+      </p>
+
+      <p className="mt-1 text-2xl font-black text-slate-900">
+        2
+      </p>
+    </div>
+
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-medium text-slate-500">
+        Support Received
+      </p>
+
+      <p className="mt-1 text-2xl font-black text-slate-900">
+        ₹2.4L
+      </p>
+    </div>
+
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-medium text-slate-500">
+        Requests Pending
+      </p>
+
+      <p className="mt-1 text-2xl font-black text-slate-900">
+        3
+      </p>
+    </div>
+  </div>
+</section>
         {/* ================= BOTTOM CTA ================= */}
         <div className="mt-10 overflow-hidden rounded-3xl bg-teal-600 p-7 text-white shadow-sm md:p-9">
           <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">

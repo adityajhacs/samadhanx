@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   MapPin,
   Search,
@@ -21,13 +22,32 @@ import {
 } from "@/lib/mockData";
 
 export default function GovernmentProblemsPage() {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [category, setCategory] =
     useState<"All" | ProblemCategory>("All");
   const [status, setStatus] =
     useState<"All" | ProblemStatus>("All");
+
+  // NEW: District filter
+  const [district, setDistrict] = useState("All");
+
+  // NEW: Severity filter
+  // Severity is represented by the existing "priority" field
+  const [severity, setSeverity] =
+    useState<"All" | Problem["priority"]>("All");
+
   const [selectedProblem, setSelectedProblem] =
     useState<Problem | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const problemsPerPage = 5;
+  // NEW: Get unique districts from shared mock data
+  const districts = useMemo(() => {
+    return Array.from(
+      new Set(problems.map((problem) => problem.district))
+    ).sort();
+  }, []);
 
   const filteredProblems = useMemo(() => {
     return problems.filter((problem) => {
@@ -42,10 +62,38 @@ export default function GovernmentProblemsPage() {
       const matchesStatus =
         status === "All" || problem.status === status;
 
-      return matchesSearch && matchesCategory && matchesStatus;
-    });
-  }, [search, category, status]);
+      // NEW: District matching
+      const matchesDistrict =
+        district === "All" || problem.district === district;
 
+      // NEW: Severity matching using priority
+      const matchesSeverity =
+        severity === "All" || problem.priority === severity;
+
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesStatus &&
+        matchesDistrict &&
+        matchesSeverity
+      );
+    });
+  }, [search, category, status, district, severity]);
+ useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCurrentPage(1);
+  }, [search, category, status, district, severity]);
+
+  const totalPages = Math.ceil(
+    filteredProblems.length / problemsPerPage
+  );
+
+  const startIndex = (currentPage - 1) * problemsPerPage;
+
+  const paginatedProblems = filteredProblems.slice(
+    startIndex,
+    startIndex + problemsPerPage
+  );
   const critical = problems.filter(
     (problem) => problem.status === "Critical"
   ).length;
@@ -66,200 +114,202 @@ export default function GovernmentProblemsPage() {
     <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
 
-     {/* HEADER */}
+        {/* HEADER */}
 
-<section className="relative overflow-hidden rounded-3xl border border-teal-800 bg-gradient-to-r from-teal-800 via-teal-700 to-teal-600 px-6 py-7 text-white shadow-md sm:px-8">
+        <section className="relative overflow-hidden rounded-3xl border border-teal-800 bg-gradient-to-r from-teal-800 via-teal-700 to-teal-600 px-6 py-7 text-white shadow-md sm:px-8">
 
-  {/* Decorative circles */}
-  <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-teal-500/20" />
-  <div className="pointer-events-none absolute -bottom-20 left-1/3 h-40 w-40 rounded-full bg-teal-400/10" />
+          {/* Decorative circles */}
+          <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-teal-500/20" />
+          <div className="pointer-events-none absolute -bottom-20 left-1/3 h-40 w-40 rounded-full bg-teal-400/10" />
 
-  <div className="relative flex flex-col justify-between gap-7 lg:flex-row lg:items-center">
+          <div className="relative flex flex-col justify-between gap-7 lg:flex-row lg:items-center">
 
-    {/* LEFT */}
+            {/* LEFT */}
 
-    <div className="max-w-xl">
+            <div className="max-w-xl">
 
-      <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4">
 
-        {/* Icon */}
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-white ring-1 ring-white/20">
-          <ClipboardList size={22} strokeWidth={2} />
-        </div>
+                {/* Icon */}
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-white ring-1 ring-white/20">
+                  <ClipboardList size={22} strokeWidth={2} />
+                </div>
 
-        <div>
+                <div>
 
-          <p className="text-xs font-bold uppercase tracking-[0.17em] text-teal-100">
-            GOVERNMENT WORKSPACE
-          </p>
+                  <p className="text-xs font-bold uppercase tracking-[0.17em] text-teal-100">
+                    GOVERNMENT WORKSPACE
+                  </p>
 
-          <h1 className="mt-1 text-3xl font-bold tracking-tight text-white">
-            Issue Management
-          </h1>
+                  <h1 className="mt-1 text-3xl font-bold tracking-tight text-white">
+                    Issue Management
+                  </h1>
 
-        </div>
+                </div>
 
-      </div>
+              </div>
 
-      <p className="mt-4 max-w-lg text-sm leading-6 text-teal-50">
-        Review, prioritise and track citizen-reported issues
-        across locations and public service categories.
-      </p>
+              <p className="mt-4 max-w-lg text-sm leading-6 text-teal-50">
+                Review, prioritise and track citizen-reported issues
+                across locations and public service categories.
+              </p>
 
-    </div>
+            </div>
 
 
-    {/* RIGHT — STATUS BUTTONS */}
+            {/* RIGHT — STATUS BUTTONS */}
 
-    <div className="relative grid w-full grid-cols-2 gap-3 sm:w-auto sm:min-w-[360px]">
+            <div className="relative grid w-full grid-cols-2 gap-3 sm:w-auto sm:min-w-[360px]">
 
-      {/* CRITICAL */}
-      <button
-        onClick={() => setStatus("Critical")}
-        className={`
-          group rounded-2xl border p-4 text-left
-          transition-all duration-200
-          hover:-translate-y-0.5 hover:shadow-lg
-          ${
-            status === "Critical"
-              ? "border-red-300 bg-red-50 shadow-md"
-              : "border-white/20 bg-white/95 hover:bg-white"
-          }
-        `}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100 text-red-600">
-            <AlertCircle size={15} strokeWidth={2} />
+              {/* CRITICAL */}
+              <button
+                onClick={() => setStatus("Critical")}
+                className={`
+                  group rounded-2xl border p-4 text-left
+                  transition-all duration-200
+                  hover:-translate-y-0.5 hover:shadow-lg
+                  ${
+                    status === "Critical"
+                      ? "border-red-300 bg-red-50 shadow-md"
+                      : "border-white/20 bg-white/95 hover:bg-white"
+                  }
+                `}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100 text-red-600">
+                    <AlertCircle size={15} strokeWidth={2} />
+                  </div>
+
+                  <span className="text-lg font-bold text-slate-900">
+                    {critical}
+                  </span>
+                </div>
+
+                <p className="mt-2 text-xs font-semibold text-slate-700">
+                  Critical
+                </p>
+
+                <p className="mt-0.5 text-[10px] text-slate-400">
+                  Immediate attention
+                </p>
+              </button>
+
+
+              {/* IN PROGRESS */}
+              <button
+                onClick={() => setStatus("In Progress")}
+                className={`
+                  group rounded-2xl border p-4 text-left
+                  transition-all duration-200
+                  hover:-translate-y-0.5 hover:shadow-lg
+                  ${
+                    status === "In Progress"
+                      ? "border-teal-300 bg-teal-50 shadow-md"
+                      : "border-white/20 bg-white/95 hover:bg-white"
+                  }
+                `}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-100 text-teal-700">
+                    <Clock3 size={15} strokeWidth={2} />
+                  </div>
+
+                  <span className="text-lg font-bold text-slate-900">
+                    {inProgress}
+                  </span>
+                </div>
+
+                <p className="mt-2 text-xs font-semibold text-slate-700">
+                  In Progress
+                </p>
+
+                <p className="mt-0.5 text-[10px] text-slate-400">
+                  Currently handled
+                </p>
+              </button>
+
+
+              {/* PENDING */}
+              <button
+                onClick={() => setStatus("Pending")}
+                className={`
+                  group rounded-2xl border p-4 text-left
+                  transition-all duration-200
+                  hover:-translate-y-0.5 hover:shadow-lg
+                  ${
+                    status === "Pending"
+                      ? "border-amber-300 bg-amber-50 shadow-md"
+                      : "border-white/20 bg-white/95 hover:bg-white"
+                  }
+                `}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+                    <Clock3 size={15} strokeWidth={2} />
+                  </div>
+
+                  <span className="text-lg font-bold text-slate-900">
+                    {pending}
+                  </span>
+                </div>
+
+                <p className="mt-2 text-xs font-semibold text-slate-700">
+                  Pending
+                </p>
+
+                <p className="mt-0.5 text-[10px] text-slate-400">
+                  Awaiting action
+                </p>
+              </button>
+
+
+              {/* RESOLVED */}
+              <button
+                onClick={() => setStatus("Resolved")}
+                className={`
+                  group rounded-2xl border p-4 text-left
+                  transition-all duration-200
+                  hover:-translate-y-0.5 hover:shadow-lg
+                  ${
+                    status === "Resolved"
+                      ? "border-emerald-300 bg-emerald-50 shadow-md"
+                      : "border-white/20 bg-white/95 hover:bg-white"
+                  }
+                `}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
+                    <CheckCircle2 size={15} strokeWidth={2} />
+                  </div>
+
+                  <span className="text-lg font-bold text-slate-900">
+                    {resolved}
+                  </span>
+                </div>
+
+                <p className="mt-2 text-xs font-semibold text-slate-700">
+                  Resolved
+                </p>
+
+                <p className="mt-0.5 text-[10px] text-slate-400">
+                  Successfully completed
+                </p>
+              </button>
+
+            </div>
+
           </div>
 
-          <span className="text-lg font-bold text-slate-900">
-            {critical}
-          </span>
-        </div>
-
-        <p className="mt-2 text-xs font-semibold text-slate-700">
-          Critical
-        </p>
-
-        <p className="mt-0.5 text-[10px] text-slate-400">
-          Immediate attention
-        </p>
-      </button>
+        </section>
 
 
-      {/* IN PROGRESS */}
-      <button
-        onClick={() => setStatus("In Progress")}
-        className={`
-          group rounded-2xl border p-4 text-left
-          transition-all duration-200
-          hover:-translate-y-0.5 hover:shadow-lg
-          ${
-            status === "In Progress"
-              ? "border-teal-300 bg-teal-50 shadow-md"
-              : "border-white/20 bg-white/95 hover:bg-white"
-          }
-        `}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-100 text-teal-700">
-            <Clock3 size={15} strokeWidth={2} />
-          </div>
-
-          <span className="text-lg font-bold text-slate-900">
-            {inProgress}
-          </span>
-        </div>
-
-        <p className="mt-2 text-xs font-semibold text-slate-700">
-          In Progress
-        </p>
-
-        <p className="mt-0.5 text-[10px] text-slate-400">
-          Currently handled
-        </p>
-      </button>
-
-
-      {/* PENDING */}
-      <button
-        onClick={() => setStatus("Pending")}
-        className={`
-          group rounded-2xl border p-4 text-left
-          transition-all duration-200
-          hover:-translate-y-0.5 hover:shadow-lg
-          ${
-            status === "Pending"
-              ? "border-amber-300 bg-amber-50 shadow-md"
-              : "border-white/20 bg-white/95 hover:bg-white"
-          }
-        `}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
-            <Clock3 size={15} strokeWidth={2} />
-          </div>
-
-          <span className="text-lg font-bold text-slate-900">
-            {pending}
-          </span>
-        </div>
-
-        <p className="mt-2 text-xs font-semibold text-slate-700">
-          Pending
-        </p>
-
-        <p className="mt-0.5 text-[10px] text-slate-400">
-          Awaiting action
-        </p>
-      </button>
-
-
-      {/* RESOLVED */}
-      <button
-        onClick={() => setStatus("Resolved")}
-        className={`
-          group rounded-2xl border p-4 text-left
-          transition-all duration-200
-          hover:-translate-y-0.5 hover:shadow-lg
-          ${
-            status === "Resolved"
-              ? "border-emerald-300 bg-emerald-50 shadow-md"
-              : "border-white/20 bg-white/95 hover:bg-white"
-          }
-        `}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
-            <CheckCircle2 size={15} strokeWidth={2} />
-          </div>
-
-          <span className="text-lg font-bold text-slate-900">
-            {resolved}
-          </span>
-        </div>
-
-        <p className="mt-2 text-xs font-semibold text-slate-700">
-          Resolved
-        </p>
-
-        <p className="mt-0.5 text-[10px] text-slate-400">
-          Successfully completed
-        </p>
-      </button>
-
-    </div>
-
-  </div>
-
-</section>
         {/* =====================================================
             FILTERS
            ===================================================== */}
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
-          <div className="grid gap-4 lg:grid-cols-[1fr_200px_200px_auto]">
+          <div className="grid gap-4 lg:grid-cols-[1fr_180px_180px_180px_180px_auto]">
 
             {/* SEARCH */}
 
@@ -343,6 +393,60 @@ export default function GovernmentProblemsPage() {
             </div>
 
 
+            {/* NEW: DISTRICT */}
+
+            <div>
+
+              <label className="mb-2 block text-xs font-bold text-slate-600">
+                District
+              </label>
+
+              <select
+                value={district}
+                onChange={(e) => setDistrict(e.target.value)}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-teal-400 focus:bg-white"
+              >
+                <option value="All">All</option>
+
+                {districts.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+
+              </select>
+
+            </div>
+
+
+            {/* NEW: SEVERITY */}
+
+            <div>
+
+              <label className="mb-2 block text-xs font-bold text-slate-600">
+                Severity
+              </label>
+
+              <select
+                value={severity}
+                onChange={(e) =>
+                  setSeverity(
+                    e.target.value as
+                      | "All"
+                      | Problem["priority"]
+                  )
+                }
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-teal-400 focus:bg-white"
+              >
+                <option value="All">All</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+
+            </div>
+
+
             {/* RESET */}
 
             <button
@@ -350,6 +454,8 @@ export default function GovernmentProblemsPage() {
                 setSearch("");
                 setCategory("All");
                 setStatus("All");
+                setDistrict("All");
+                setSeverity("All");
               }}
               className="inline-flex h-11 items-center justify-center gap-2 self-end rounded-xl border border-slate-200 px-5 text-xs font-bold text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
             >
@@ -458,7 +564,7 @@ export default function GovernmentProblemsPage() {
 
               <tbody>
 
-                {filteredProblems.map((problem) => (
+                {paginatedProblems.map((problem) => (
 
                   <tr
                     key={problem.id}
@@ -526,9 +632,9 @@ export default function GovernmentProblemsPage() {
                     <td className="px-6 py-4 text-right">
 
                       <button
-                        onClick={() => setSelectedProblem(problem)}
-                        className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-teal-700"
-                      >
+  onClick={() => router.push(`/government/problems/${problem.id}`)}
+  className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-teal-700"
+>
                         <Eye
                           size={14}
                           strokeWidth={2}
@@ -549,7 +655,63 @@ export default function GovernmentProblemsPage() {
           </div>
 
 
-          {/* EMPTY STATE */}
+                    {/* PAGINATION */}
+
+          {filteredProblems.length > 0 && (
+            <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-200 px-6 py-4 sm:flex-row">
+
+              <p className="text-xs text-slate-500">
+                Showing{" "}
+                <span className="font-bold text-slate-800">
+                  {startIndex + 1}
+                </span>
+                {" - "}
+                <span className="font-bold text-slate-800">
+                  {Math.min(
+                    startIndex + problemsPerPage,
+                    filteredProblems.length
+                  )}
+                </span>{" "}
+                of{" "}
+                <span className="font-bold text-slate-800">
+                  {filteredProblems.length}
+                </span>
+              </p>
+
+              <div className="flex items-center gap-2">
+
+                <button
+                  onClick={() =>
+                    setCurrentPage((page) =>
+                      Math.max(page - 1, 1)
+                    )
+                  }
+                  disabled={currentPage === 1}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Previous
+                </button>
+
+                <span className="rounded-lg bg-teal-50 px-3 py-2 text-xs font-bold text-teal-700">
+                  Page {currentPage} of {totalPages}
+                </span>
+
+                <button
+                  onClick={() =>
+                    setCurrentPage((page) =>
+                      Math.min(page + 1, totalPages)
+                    )
+                  }
+                  disabled={currentPage === totalPages}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Next
+                </button>
+
+              </div>
+
+            </div>
+          )}
 
           {filteredProblems.length === 0 && (
 
@@ -665,8 +827,18 @@ export default function GovernmentProblemsPage() {
                 />
 
                 <InfoBox
+                  title="District"
+                  value={selectedProblem.district}
+                />
+
+                <InfoBox
                   title="Category"
                   value={selectedProblem.category}
+                />
+
+                <InfoBox
+                  title="Severity"
+                  value={selectedProblem.priority}
                 />
 
                 <InfoBox
@@ -726,74 +898,75 @@ export default function GovernmentProblemsPage() {
         </div>
 
       )}
+
       {/* FOOTER */}
 
-<footer className="w-full border-t border-slate-800 bg-black text-white">
+      <footer className="w-full border-t border-slate-800 bg-black text-white">
 
-  <div className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-5 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-5 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
 
-    {/* LEFT — LOGO + TAGLINE */}
+          {/* LEFT — LOGO + TAGLINE */}
 
-    <div className="flex items-center gap-3 lg:min-w-[280px]">
+          <div className="flex items-center gap-3 lg:min-w-[280px]">
 
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-600 text-sm font-bold text-white">
-        S
-      </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-600 text-sm font-bold text-white">
+              S
+            </div>
 
-      <div>
-        <p className="text-sm font-bold tracking-tight">
-          SamadhanX
-        </p>
+            <div>
+              <p className="text-sm font-bold tracking-tight">
+                SamadhanX
+              </p>
 
-        <p className="mt-0.5 text-[10px] text-slate-400">
-          Ideas → Action → Impact
-        </p>
-      </div>
+              <p className="mt-0.5 text-[10px] text-slate-400">
+                Ideas → Action → Impact
+              </p>
+            </div>
 
-    </div>
-
-
-    {/* CENTER — COPYRIGHT */}
-
-    <div className="text-center">
-
-      <p className="text-[11px] font-medium text-slate-400">
-        © 2026 SamadhanX. Government Innovation Workspace.
-      </p>
-
-    </div>
+          </div>
 
 
-    {/* RIGHT — LINKS */}
+          {/* CENTER — COPYRIGHT */}
 
-    <div className="flex items-center justify-center gap-5 lg:min-w-[280px] lg:justify-end">
+          <div className="text-center">
 
-      <a
-        href="#"
-        className="text-[11px] font-medium text-slate-400 transition hover:text-teal-400"
-      >
-        Challenges
-      </a>
+            <p className="text-[11px] font-medium text-slate-400">
+              © 2026 SamadhanX. Government Innovation Workspace.
+            </p>
 
-      <a
-        href="#"
-        className="text-[11px] font-medium text-slate-400 transition hover:text-teal-400"
-      >
-        Impact Map
-      </a>
+          </div>
 
-      <a
-        href="#"
-        className="text-[11px] font-medium text-slate-400 transition hover:text-teal-400"
-      >
-        Solutions
-      </a>
 
-    </div>
+          {/* RIGHT — LINKS */}
 
-  </div>
+          <div className="flex items-center justify-center gap-5 lg:min-w-[280px] lg:justify-end">
 
-</footer>
+            <a
+              href="#"
+              className="text-[11px] font-medium text-slate-400 transition hover:text-teal-400"
+            >
+              Challenges
+            </a>
+
+            <a
+              href="#"
+              className="text-[11px] font-medium text-slate-400 transition hover:text-teal-400"
+            >
+              Impact Map
+            </a>
+
+            <a
+              href="#"
+              className="text-[11px] font-medium text-slate-400 transition hover:text-teal-400"
+            >
+              Solutions
+            </a>
+
+          </div>
+
+        </div>
+
+      </footer>
 
     </main>
   );
