@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
+import type { ComponentType } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -1284,7 +1285,10 @@ function InfoRow({
   label,
   value,
 }: {
-  icon: typeof Building2;
+  icon: ComponentType<{
+  size?: number;
+  className?: string;
+}>;
   label: string;
   value: string;
 }) {

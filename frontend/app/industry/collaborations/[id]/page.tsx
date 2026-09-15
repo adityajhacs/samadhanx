@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -58,433 +59,96 @@ type CollaborationDetail = {
   }[];
 };
 
-const collaborations: CollaborationDetail[] = [
-  {
-    id: "COL-001",
-    projectId: "PRJ-001",
-    project: "Smart Road Monitoring Pilot",
-    problem: "Road damage and delayed maintenance reporting",
-    university: "Birla Institute of Technology, Mesra",
-    location: "Ranchi, Jharkhand",
-    supportType: "Technical Support",
-    status: "Active",
-    commitment: "₹8.5L",
-    progress: 72,
-    submitted: "18 Aug 2026",
-    overview:
-      "A university-led smart road monitoring solution that uses image-based damage detection, geo-tagged reporting and a maintenance dashboard to help identify and prioritize road defects.",
-    supportScope:
-      "Industry support is focused on computer vision guidance, engineering expertise, testing infrastructure and field validation for the road monitoring prototype.",
-    universityRole:
-      "Develop the prototype, train and validate the detection workflow, manage research activities and coordinate field implementation.",
-    industryRole:
-      "Provide technical mentorship, testing infrastructure, engineering feedback and support for field validation.",
-    governmentRole:
-      "Validate the civic requirement, provide deployment context and monitor the project's progress and impact.",
-    nextAction:
-      "Complete the field validation cycle and submit performance results for the next milestone review.",
-    milestones: [
-      {
-        title: "Problem & Requirements",
-        description: "Challenge requirements and field conditions documented.",
-        status: "Completed",
-        date: "20 Aug 2026",
-      },
-      {
-        title: "Prototype Development",
-        description: "Initial damage detection and reporting workflow completed.",
-        status: "Completed",
-        date: "30 Aug 2026",
-      },
-      {
-        title: "Field Validation",
-        description: "Testing prototype on selected road segments.",
-        status: "Current",
-        date: "Sep 2026",
-      },
-      {
-        title: "Pilot Evaluation",
-        description: "Measure accuracy, reporting speed and operational usefulness.",
-        status: "Upcoming",
-        date: "Oct 2026",
-      },
-    ],
-    activity: [
-      {
-        title: "Technical support confirmed",
-        description: "Industry partner accepted the technical support scope.",
-        date: "02 Sep 2026",
-        completed: true,
-      },
-      {
-        title: "Prototype review completed",
-        description: "Initial prototype reviewed with the university team.",
-        date: "04 Sep 2026",
-        completed: true,
-      },
-      {
-        title: "Field validation started",
-        description: "Selected road segments moved into testing.",
-        date: "07 Sep 2026",
-        completed: true,
-      },
-      {
-        title: "Next milestone review",
-        description: "Performance results will be reviewed after field testing.",
-        date: "15 Sep 2026",
-        completed: false,
-      },
-    ],
-  },
+const statusMap: Record<string, CollaborationStatus> = {
+  REQUESTED: "Pending Review",
+  UNDER_REVIEW: "Under Discussion",
+  ACCEPTED: "Active",
+  COMPLETED: "Completed",
+  REJECTED: "Pending Review",
+};
 
-  {
-    id: "COL-002",
-    projectId: "PRJ-002",
-    project: "Community Water Monitoring",
-    problem: "Irregular water supply and quality monitoring",
-    university: "NIT Jamshedpur",
-    location: "Jamshedpur, Jharkhand",
-    supportType: "Field Pilot",
-    status: "Active",
-    commitment: "₹6.2L",
-    progress: 58,
-    submitted: "14 Aug 2026",
-    overview:
-      "A community water monitoring prototype combining low-cost sensors with citizen reporting to create a clearer picture of local water availability and basic quality indicators.",
-    supportScope:
-      "Industry support covers pilot infrastructure, field testing, sensor deployment guidance and operational feedback.",
-    universityRole:
-      "Develop the monitoring system, analyse readings and coordinate technical validation.",
-    industryRole:
-      "Provide field infrastructure, testing support and operational expertise.",
-    governmentRole:
-      "Coordinate community-level deployment requirements and monitor service improvement.",
-    nextAction:
-      "Complete pilot installation and collect the first validation dataset.",
-    milestones: [
-      {
-        title: "System Design",
-        description: "Monitoring architecture and reporting requirements defined.",
-        status: "Completed",
-        date: "22 Aug 2026",
-      },
-      {
-        title: "Prototype Assembly",
-        description: "Initial sensor and reporting setup prepared.",
-        status: "Completed",
-        date: "31 Aug 2026",
-      },
-      {
-        title: "Community Pilot",
-        description: "Deploy monitoring setup at selected locations.",
-        status: "Current",
-        date: "Sep 2026",
-      },
-      {
-        title: "Pilot Evaluation",
-        description: "Review reliability and usefulness of collected data.",
-        status: "Upcoming",
-        date: "Oct 2026",
-      },
-    ],
-    activity: [
-      {
-        title: "Pilot partnership confirmed",
-        description: "Field pilot support approved.",
-        date: "28 Aug 2026",
-        completed: true,
-      },
-      {
-        title: "Deployment locations shortlisted",
-        description: "Initial community locations identified.",
-        date: "02 Sep 2026",
-        completed: true,
-      },
-      {
-        title: "Pilot installation underway",
-        description: "Sensor deployment and reporting setup in progress.",
-        date: "08 Sep 2026",
-        completed: false,
-      },
-    ],
-  },
+type ApiCollaboration = {
+  id: string;
+  project_id: string | null;
+  industry_partner_id: string | null;
+  collaboration_type: string | null;
+  amount: number | null;
+  status: string | null;
+  description: string | null;
+  created_at: string | null;
+};
 
-  {
-    id: "COL-003",
-    projectId: "PRJ-003",
-    project: "Rural Sanitation Deployment",
-    problem: "Limited sanitation infrastructure in rural areas",
-    university: "Central University of Jharkhand",
-    location: "Dhanbad, Jharkhand",
-    supportType: "Funding",
-    status: "Under Discussion",
-    commitment: "₹12L",
-    progress: 81,
-    submitted: "25 Aug 2026",
-    overview:
-      "A low-cost modular sanitation solution designed for communities where conventional sanitation infrastructure is difficult or expensive to deploy.",
-    supportScope:
-      "The proposed partnership focuses on funding deployment preparation, manufacturing support and community-level validation.",
-    universityRole:
-      "Lead solution design, research validation and community assessment.",
-    industryRole:
-      "Evaluate funding proposal and support scaling, manufacturing and deployment planning.",
-    governmentRole:
-      "Validate community requirements and monitor deployment outcomes.",
-    nextAction:
-      "Finalize the support proposal and agree on deployment milestones.",
-    milestones: [
-      {
-        title: "Community Assessment",
-        description: "Sanitation requirements and deployment constraints documented.",
-        status: "Completed",
-        date: "18 Aug 2026",
-      },
-      {
-        title: "Solution Prototype",
-        description: "Modular sanitation design prepared.",
-        status: "Completed",
-        date: "26 Aug 2026",
-      },
-      {
-        title: "Industry Review",
-        description: "Funding and deployment proposal under discussion.",
-        status: "Current",
-        date: "Sep 2026",
-      },
-      {
-        title: "Deployment Preparation",
-        description: "Prepare manufacturing and community rollout plan.",
-        status: "Upcoming",
-        date: "Oct 2026",
-      },
-    ],
-    activity: [
-      {
-        title: "Funding proposal submitted",
-        description: "Industry support proposal submitted for review.",
-        date: "25 Aug 2026",
-        completed: true,
-      },
-      {
-        title: "Project review completed",
-        description: "Initial project and impact requirements reviewed.",
-        date: "03 Sep 2026",
-        completed: true,
-      },
-      {
-        title: "Funding terms discussion",
-        description: "Support scope and deployment requirements are being discussed.",
-        date: "09 Sep 2026",
-        completed: false,
-      },
-    ],
-  },
+type ApiProject = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string | null;
+};
 
-  {
-    id: "COL-004",
-    projectId: "PRJ-004",
-    project: "Solar Street Infrastructure",
-    problem: "Poor street lighting in selected communities",
-    university: "Birla Institute of Technology, Mesra",
-    location: "Bokaro, Jharkhand",
-    supportType: "Prototyping",
-    status: "Pending Review",
-    commitment: "₹4.5L",
-    progress: 34,
-    submitted: "29 Aug 2026",
-    overview:
-      "A solar-powered street lighting prototype with battery storage and remote health monitoring for locations where reliable grid connectivity is limited.",
-    supportScope:
-      "Industry collaboration focuses on hardware engineering, prototyping, battery optimisation and remote monitoring.",
-    universityRole:
-      "Design and test the system architecture and energy management workflow.",
-    industryRole:
-      "Provide hardware expertise, components and engineering validation.",
-    governmentRole:
-      "Identify suitable locations and evaluate deployment feasibility.",
-    nextAction:
-      "Complete technical review of the proposed prototype and confirm the prototyping scope.",
-    milestones: [
-      {
-        title: "Energy Requirements",
-        description: "Lighting and energy requirements documented.",
-        status: "Completed",
-        date: "01 Sep 2026",
-      },
-      {
-        title: "Hardware Design",
-        description: "Initial solar and battery architecture prepared.",
-        status: "Current",
-        date: "Sep 2026",
-      },
-      {
-        title: "Prototype Assembly",
-        description: "Build the first working hardware unit.",
-        status: "Upcoming",
-        date: "Oct 2026",
-      },
-      {
-        title: "Field Testing",
-        description: "Validate performance under outdoor conditions.",
-        status: "Upcoming",
-        date: "Nov 2026",
-      },
-    ],
-    activity: [
-      {
-        title: "Prototype proposal submitted",
-        description: "Hardware collaboration proposal submitted.",
-        date: "29 Aug 2026",
-        completed: true,
-      },
-      {
-        title: "Awaiting industry review",
-        description: "Technical scope is waiting for partner review.",
-        date: "09 Sep 2026",
-        completed: false,
-      },
-    ],
-  },
+const supportTypeMap: Record<string, string> = {
+  FUNDING: "Funding",
+  MENTORSHIP: "Mentorship",
+  HARDWARE: "Technical Support",
+  TESTING: "Testing",
+  PROTOTYPING: "Prototyping",
+};
 
-  {
-    id: "COL-005",
-    projectId: "PRJ-005",
-    project: "Citizen Complaint Analytics",
-    problem: "Recurring civic complaints across districts",
-    university: "NIT Jamshedpur",
-    location: "Hazaribagh, Jharkhand",
-    supportType: "Mentorship",
-    status: "Completed",
-    commitment: "₹3L",
-    progress: 100,
-    submitted: "05 Jul 2026",
-    overview:
-      "An analytics platform that groups recurring civic complaints, identifies district-level trends and helps stakeholders prioritise frequently reported community issues.",
-    supportScope:
-      "Industry mentorship covered analytics architecture, product design and translating data insights into decision-support workflows.",
-    universityRole:
-      "Develop the analytics workflow and validate the research approach.",
-    industryRole:
-      "Provide product and analytics mentorship.",
-    governmentRole:
-      "Validate use cases and assess how insights can support civic decision-making.",
-    nextAction:
-      "Completed. Project outcomes can be reviewed for future scaling opportunities.",
-    milestones: [
-      {
-        title: "Requirements",
-        description: "Analytics requirements documented.",
-        status: "Completed",
-        date: "12 Jul 2026",
-      },
-      {
-        title: "Analytics Prototype",
-        description: "Complaint categorisation and trend analysis implemented.",
-        status: "Completed",
-        date: "28 Jul 2026",
-      },
-      {
-        title: "Dashboard Validation",
-        description: "Decision-support views reviewed.",
-        status: "Completed",
-        date: "18 Aug 2026",
-      },
-      {
-        title: "Project Completion",
-        description: "Initial collaboration successfully completed.",
-        status: "Completed",
-        date: "30 Aug 2026",
-      },
-    ],
-    activity: [
-      {
-        title: "Mentorship accepted",
-        description: "Industry mentorship partnership started.",
-        date: "10 Jul 2026",
-        completed: true,
-      },
-      {
-        title: "Analytics review",
-        description: "Industry team reviewed the analytics workflow.",
-        date: "18 Aug 2026",
-        completed: true,
-      },
-      {
-        title: "Collaboration completed",
-        description: "Initial mentorship engagement completed.",
-        date: "30 Aug 2026",
-        completed: true,
-      },
-    ],
-  },
+const projectProgress: Record<string, number> = {
+  IDEA: 10,
+  VALIDATION: 20,
+  TEAM_FORMATION: 30,
+  SOLUTION_DESIGN: 40,
+  PROTOTYPE: 60,
+  FIELD_PILOT: 75,
+  DEPLOYED: 90,
+  IMPACT_MEASUREMENT: 100,
+};
 
-  {
-    id: "COL-006",
-    projectId: "PRJ-006",
-    project: "Low-Cost Road Repair Material",
-    problem: "High cost of conventional road repair materials",
-    university: "Birla Institute of Technology, Mesra",
-    location: "Deoghar, Jharkhand",
-    supportType: "Testing",
-    status: "Pending Review",
-    commitment: "₹2.75L",
-    progress: 21,
-    submitted: "01 Sep 2026",
-    overview:
-      "A research prototype exploring locally available and recycled material combinations for a potentially lower-cost road repair solution.",
-    supportScope:
-      "Industry collaboration focuses on laboratory testing, material performance evaluation and cost comparison.",
-    universityRole:
-      "Develop material mixes and conduct research experiments.",
-    industryRole:
-      "Provide testing infrastructure and engineering expertise.",
-    governmentRole:
-      "Define road maintenance requirements and evaluate practical deployment conditions.",
-    nextAction:
-      "Review the proposed testing plan and approve the initial validation scope.",
-    milestones: [
-      {
-        title: "Material Research",
-        description: "Candidate material combinations identified.",
-        status: "Completed",
-        date: "04 Sep 2026",
-      },
-      {
-        title: "Testing Plan",
-        description: "Strength and durability testing methodology prepared.",
-        status: "Current",
-        date: "Sep 2026",
-      },
-      {
-        title: "Laboratory Testing",
-        description: "Prepare and test material samples.",
-        status: "Upcoming",
-        date: "Oct 2026",
-      },
-      {
-        title: "Cost Comparison",
-        description: "Compare performance and estimated material costs.",
-        status: "Upcoming",
-        date: "Nov 2026",
-      },
-    ],
-    activity: [
-      {
-        title: "Testing request submitted",
-        description: "Industry testing support requested.",
-        date: "01 Sep 2026",
-        completed: true,
-      },
-      {
-        title: "Testing methodology shared",
-        description: "University team shared the proposed testing workflow.",
-        date: "06 Sep 2026",
-        completed: false,
-      },
-    ],
-  },
-];
+function formatAmount(amount: number | null) {
+  return amount == null ? "—" : `₹${amount.toLocaleString("en-IN")}`;
+}
+
+function formatDate(date: string | null) {
+  if (!date) return "—";
+  return new Date(date).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+async function getApiData<T>(path: string): Promise<T> {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("auth_token") ||
+        localStorage.getItem("token") ||
+        sessionStorage.getItem("auth_token") ||
+        sessionStorage.getItem("token")
+      : null;
+
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`;
+    try {
+      const body = await response.json();
+      if (body?.detail) message = body.detail;
+    } catch {
+      // Keep the fallback message.
+    }
+    throw new Error(message);
+  }
+
+  return response.json();
+}
 
 const statusOrder: CollaborationStatus[] = [
   "Pending Review",
@@ -495,10 +159,192 @@ const statusOrder: CollaborationStatus[] = [
 
 export default function CollaborationDetailPage() {
   const params = useParams<{ id: string }>();
+  const collaborationId = Array.isArray(params?.id) ? params.id[0] : params?.id;
 
-  const collaboration =
-    collaborations.find((item) => item.id === params.id) ??
-    collaborations[0];
+  const [collaboration, setCollaboration] =
+    useState<CollaborationDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      if (!collaborationId) {
+        setError("Collaboration ID is missing.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError("");
+
+        const apiCollaboration = await getApiData<ApiCollaboration>(
+          `/api/collaborations/${encodeURIComponent(collaborationId)}`
+        );
+
+        let project: ApiProject | null = null;
+
+        if (apiCollaboration.project_id) {
+          try {
+            project = await getApiData<ApiProject>(
+              `/api/projects/${encodeURIComponent(apiCollaboration.project_id)}`
+            );
+          } catch (projectError) {
+            console.warn("Project details could not be loaded:", projectError);
+          }
+        }
+
+        const mappedStatus =
+          statusMap[apiCollaboration.status ?? ""] ?? "Pending Review";
+
+        const mapped: CollaborationDetail = {
+          id: apiCollaboration.id,
+          projectId: apiCollaboration.project_id ?? "",
+          project: project?.title ?? "Untitled Project",
+          problem:
+            project?.description ??
+            apiCollaboration.description ??
+            "No project description available",
+          university: "University information unavailable",
+          location: "Location unavailable",
+          supportType:
+            supportTypeMap[apiCollaboration.collaboration_type ?? ""] ??
+            "Technical Support",
+          status: mappedStatus,
+          commitment: formatAmount(apiCollaboration.amount),
+          progress: projectProgress[project?.status ?? ""] ?? 0,
+          submitted: formatDate(apiCollaboration.created_at),
+          overview:
+            project?.description ??
+            apiCollaboration.description ??
+            "No collaboration overview available.",
+          supportScope:
+            apiCollaboration.description ??
+            "No additional collaboration scope has been provided.",
+          universityRole:
+            "The university team is responsible for solution development and project execution.",
+          industryRole:
+            "The industry partner provides the agreed support, expertise and validation.",
+          governmentRole:
+            "Government stakeholders can provide deployment context and oversight where applicable.",
+          nextAction:
+            mappedStatus === "Completed"
+              ? "Completed. Review outcomes for future scaling opportunities."
+              : "Review the collaboration scope and continue with the next project milestone.",
+          milestones: [
+            {
+              title: "Collaboration Submitted",
+              description: "The collaboration proposal was submitted.",
+              status: "Completed",
+              date: formatDate(apiCollaboration.created_at),
+            },
+            {
+              title: "Current Project Stage",
+              description:
+                project?.status
+                  ? `Project is currently at the ${project.status.replaceAll("_", " ").toLowerCase()} stage.`
+                  : "Current project stage is not available.",
+              status: mappedStatus === "Completed" ? "Completed" : "Current",
+              date: "Current",
+            },
+            {
+              title: "Next Milestone",
+              description:
+                mappedStatus === "Completed"
+                  ? "Review completed outcomes and identify future opportunities."
+                  : "Continue execution and submit progress for the next review.",
+              status: mappedStatus === "Completed" ? "Completed" : "Upcoming",
+              date: "Upcoming",
+            },
+          ],
+          activity: [
+            {
+              title: "Collaboration created",
+              description:
+                apiCollaboration.description ??
+                "Collaboration record created successfully.",
+              date: formatDate(apiCollaboration.created_at),
+              completed: true,
+            },
+            {
+              title:
+                mappedStatus === "Completed"
+                  ? "Collaboration completed"
+                  : "Current collaboration status",
+              description:
+                mappedStatus === "Completed"
+                  ? "This collaboration has been marked completed."
+                  : `Current status: ${mappedStatus}.`,
+              date: "Current",
+              completed: mappedStatus === "Completed",
+            },
+          ],
+        };
+
+        if (!cancelled) setCollaboration(mapped);
+      } catch (err) {
+        console.error("Failed to load collaboration:", err);
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load collaboration."
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [collaborationId]);
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-teal-600" />
+          <p className="mt-4 text-sm font-semibold text-slate-700">
+            Loading collaboration...
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            Fetching partnership workspace
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (error || !collaboration) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
+        <div className="w-full max-w-lg rounded-2xl border border-rose-200 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+            <Handshake className="h-6 w-6" />
+          </div>
+          <h1 className="mt-4 text-lg font-bold text-slate-900">
+            Unable to load collaboration
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            {error || "The requested collaboration could not be found."}
+          </p>
+          <Link
+            href="/industry/collaborations"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-teal-800"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Collaborations
+          </Link>
+        </div>
+      </main>
+    );
+  }
 
   const currentIndex = statusOrder.indexOf(collaboration.status);
 

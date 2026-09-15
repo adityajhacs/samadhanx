@@ -1,7 +1,6 @@
+ "use client";
 
-"use client";
-
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -38,164 +37,17 @@ type Project = {
   description: string;
 };
 
-const projects: Project[] = [
-  {
-    id: "PRJ-001",
-    title: "Smart Road Monitoring Pilot",
-    problem: "Road damage and delayed maintenance reporting",
-    category: "Infrastructure",
-    university: "Birla Institute of Technology, Mesra",
-    location: "Ranchi, Jharkhand",
-    stage: "Pilot / Validation",
-    progress: 72,
-    support: "Technical Support",
-    description:
-      "A technology-assisted system for detecting road damage and improving maintenance response.",
-  },
-  {
-    id: "PRJ-002",
-    title: "Community Water Monitoring",
-    problem: "Irregular water supply and quality monitoring",
-    category: "Water",
-    university: "National Institute of Technology, Jamshedpur",
-    location: "Jamshedpur, Jharkhand",
-    stage: "Project In Progress",
-    progress: 58,
-    support: "Field Pilot",
-    description:
-      "A community-focused monitoring solution for tracking water availability and quality.",
-  },
-  {
-    id: "PRJ-003",
-    title: "Rural Sanitation Deployment",
-    problem: "Limited sanitation infrastructure in rural areas",
-    category: "Sanitation",
-    university: "Central University of Jharkhand",
-    location: "Dhanbad, Jharkhand",
-    stage: "Solution Proposed",
-    progress: 81,
-    support: "Funding",
-    description:
-      "A scalable sanitation solution designed for deployment in underserved rural communities.",
-  },
-  {
-    id: "PRJ-004",
-    title: "Solar Street Infrastructure",
-    problem: "Poor lighting in underserved community areas",
-    category: "Energy",
-    university: "Birla Institute of Technology, Mesra",
-    location: "Bokaro, Jharkhand",
-    stage: "Project In Progress",
-    progress: 34,
-    support: "Prototyping",
-    description:
-      "Solar-powered street infrastructure aimed at improving safety and reducing energy dependence.",
-  },
-  {
-    id: "PRJ-005",
-    title: "Citizen Complaint Analytics",
-    problem: "Difficulty identifying recurring civic issues",
-    category: "Governance",
-    university: "National Institute of Technology, Jamshedpur",
-    location: "Hazaribagh, Jharkhand",
-    stage: "Impact / Deployment",
-    progress: 100,
-    support: "Mentorship",
-    description:
-      "An analytics platform that identifies recurring citizen complaints and supports data-driven decisions.",
-  },
-  {
-    id: "PRJ-006",
-    title: "Low-Cost Road Repair Material",
-    problem: "High cost of road repair materials",
-    category: "Infrastructure",
-    university: "Birla Institute of Technology, Mesra",
-    location: "Deoghar, Jharkhand",
-    stage: "Solution Proposed",
-    progress: 21,
-    support: "Testing",
-    description:
-      "Research into affordable road repair materials suitable for local conditions.",
-  },
-  {
-    id: "PRJ-007",
-    title: "Smart Waste Collection Network",
-    problem: "Irregular waste collection in residential areas",
-    category: "Sanitation",
-    university: "Central University of Jharkhand",
-    location: "Ranchi, Jharkhand",
-    stage: "Project In Progress",
-    progress: 46,
-    support: "Technical Support",
-    description:
-      "A smart collection system designed to optimize waste pickup routes and schedules.",
-  },
-  {
-    id: "PRJ-008",
-    title: "Rural Solar Water Pumps",
-    problem: "Limited access to reliable irrigation power",
-    category: "Energy",
-    university: "National Institute of Technology, Jamshedpur",
-    location: "Dumka, Jharkhand",
-    stage: "Solution Proposed",
-    progress: 27,
-    support: "Funding",
-    description:
-      "Solar-powered irrigation infrastructure designed for small and marginal farmers.",
-  },
-  {
-    id: "PRJ-009",
-    title: "Digital Health Access Platform",
-    problem: "Limited access to basic healthcare services",
-    category: "Healthcare",
-    university: "Central University of Jharkhand",
-    location: "Hazaribagh, Jharkhand",
-    stage: "Pilot / Validation",
-    progress: 67,
-    support: "Field Pilot",
-    description:
-      "A digital platform connecting underserved communities with essential healthcare resources.",
-  },
-  {
-    id: "PRJ-010",
-    title: "Flood Risk Monitoring System",
-    problem: "Delayed flood alerts in vulnerable communities",
-    category: "Environment",
-    university: "Birla Institute of Technology, Mesra",
-    location: "Giridih, Jharkhand",
-    stage: "Project In Progress",
-    progress: 52,
-    support: "Testing",
-    description:
-      "A monitoring system designed to improve early warning and flood preparedness.",
-  },
-  {
-    id: "PRJ-011",
-    title: "Public Transport Tracking",
-    problem: "Limited visibility of local transport availability",
-    category: "Transport",
-    university: "National Institute of Technology, Jamshedpur",
-    location: "Jamshedpur, Jharkhand",
-    stage: "Impact / Deployment",
-    progress: 94,
-    support: "Technical Support",
-    description:
-      "A real-time transport monitoring solution for improving accessibility and reliability.",
-  },
-  {
-    id: "PRJ-012",
-    title: "Community Air Quality Network",
-    problem: "Limited local air quality monitoring",
-    category: "Environment",
-    university: "Central University of Jharkhand",
-    location: "Bokaro, Jharkhand",
-    stage: "Pilot / Validation",
-    progress: 63,
-    support: "Prototyping",
-    description:
-      "A distributed sensor network for monitoring local air quality and pollution patterns.",
-  },
-];
+type ApiProject = {
+  id: string;
+  problem_id: string | null;
+  solution_id: string | null;
+  title: string;
+  description: string | null;
+  status: string | null;
+  created_by: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
 
 const categoryOptions = [
   "All Categories",
@@ -229,6 +81,67 @@ const supportOptions = [
 
 const PROJECTS_PER_PAGE = 6;
 
+const statusToStage: Record<string, ProjectStage> = {
+  IDEA: "Solution Proposed",
+  VALIDATION: "Solution Proposed",
+  TEAM_FORMATION: "Project In Progress",
+  SOLUTION_DESIGN: "Project In Progress",
+  PROTOTYPE: "Project In Progress",
+  FIELD_PILOT: "Pilot / Validation",
+  DEPLOYED: "Impact / Deployment",
+  IMPACT_MEASUREMENT: "Impact / Deployment",
+};
+
+const statusToProgress: Record<string, number> = {
+  IDEA: 10,
+  VALIDATION: 20,
+  TEAM_FORMATION: 30,
+  SOLUTION_DESIGN: 40,
+  PROTOTYPE: 60,
+  FIELD_PILOT: 75,
+  DEPLOYED: 90,
+  IMPACT_MEASUREMENT: 100,
+};
+
+function mapApiProject(project: ApiProject): Project {
+  return {
+    id: project.id,
+    title: project.title,
+    problem: project.description ?? "No project description available.",
+    category: "Infrastructure",
+    university: "University information unavailable",
+    location: "Location unavailable",
+    stage: statusToStage[project.status ?? ""] ?? "Solution Proposed",
+    progress: statusToProgress[project.status ?? ""] ?? 0,
+    support: "Technical Support",
+    description:
+      project.description ?? "No project description available.",
+  };
+}
+
+async function getProjects(): Promise<Project[]> {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
+  const response = await fetch(`${baseUrl}/api/projects`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    let message = `Failed to load projects (${response.status})`;
+    try {
+      const body = await response.json();
+      if (body?.detail) message = body.detail;
+    } catch {}
+    throw new Error(message);
+  }
+
+  const data = (await response.json()) as ApiProject[];
+  return data.map(mapApiProject);
+}
+
 function getStageStyle(stage: ProjectStage) {
   switch (stage) {
     case "Solution Proposed":
@@ -251,7 +164,6 @@ function getSupportIcon(support: string) {
     case "Testing":
       return FlaskConical;
     case "Prototyping":
-      return Wrench;
     case "Technical Support":
       return Wrench;
     case "Field Pilot":
@@ -262,11 +174,42 @@ function getSupportIcon(support: string) {
 }
 
 export default function IndustryProjectsPage() {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All Categories");
   const [stage, setStage] = useState("All Stages");
   const [support, setSupport] = useState("All Support Types");
   const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProjects() {
+      try {
+        setLoading(true);
+        setError("");
+        const data = await getProjects();
+        if (!cancelled) setProjects(data);
+      } catch (err) {
+        console.error("Failed to load industry projects:", err);
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : "Failed to load projects."
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadProjects();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredProjects = useMemo(() => {
     const query = search.toLowerCase().trim();
@@ -279,28 +222,16 @@ export default function IndustryProjectsPage() {
         project.university.toLowerCase().includes(query) ||
         project.location.toLowerCase().includes(query);
 
-      const matchesCategory =
-        category === "All Categories" || project.category === category;
-
-      const matchesStage =
-        stage === "All Stages" || project.stage === stage;
-
-      const matchesSupport =
-        support === "All Support Types" || project.support === support;
-
       return (
         matchesSearch &&
-        matchesCategory &&
-        matchesStage &&
-        matchesSupport
+        (category === "All Categories" || project.category === category) &&
+        (stage === "All Stages" || project.stage === stage) &&
+        (support === "All Support Types" || project.support === support)
       );
     });
-  }, [search, category, stage, support]);
+  }, [projects, search, category, stage, support]);
 
-  const totalPages = Math.ceil(
-    filteredProjects.length / PROJECTS_PER_PAGE
-  );
-
+  const totalPages = Math.ceil(filteredProjects.length / PROJECTS_PER_PAGE);
   const visibleProjects = filteredProjects.slice(
     (currentPage - 1) * PROJECTS_PER_PAGE,
     currentPage * PROJECTS_PER_PAGE
@@ -329,6 +260,12 @@ export default function IndustryProjectsPage() {
     setSupport(value);
     resetPage();
   }
+
+  const activeProjects = projects.filter(
+    (project) =>
+      project.stage === "Project In Progress" ||
+      project.stage === "Pilot / Validation"
+  ).length;
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
@@ -438,14 +375,14 @@ export default function IndustryProjectsPage() {
 
             <div className="grid grid-cols-2 gap-3 sm:w-fit">
               <div className="rounded-2xl border border-teal-100 bg-white px-5 py-4 shadow-sm">
-                <p className="text-2xl font-bold text-teal-700">18</p>
+                <p className="text-2xl font-bold text-teal-700">{projects.length}</p>
                 <p className="mt-1 text-xs text-slate-500">
                   Available Projects
                 </p>
               </div>
 
               <div className="rounded-2xl border border-emerald-100 bg-white px-5 py-4 shadow-sm">
-                <p className="text-2xl font-bold text-emerald-700">7</p>
+                <p className="text-2xl font-bold text-emerald-700">{activeProjects}</p>
                 <p className="mt-1 text-xs text-slate-500">
                   Active Collaborations
                 </p>
@@ -550,7 +487,20 @@ export default function IndustryProjectsPage() {
           )}
         </div>
 
-        {visibleProjects.length === 0 ? (
+        {loading ? (
+          <div className="rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center">
+            <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-teal-600" />
+            <h3 className="mt-4 text-lg font-bold text-slate-900">Loading projects...</h3>
+            <p className="mt-2 text-sm text-slate-500">
+              Fetching projects from the SamadhanX backend.
+            </p>
+          </div>
+        ) : error ? (
+          <div className="rounded-2xl border border-rose-200 bg-white px-6 py-16 text-center">
+            <h3 className="text-lg font-bold text-slate-900">Unable to load projects</h3>
+            <p className="mx-auto mt-2 max-w-md text-sm text-rose-600">{error}</p>
+          </div>
+        ) : visibleProjects.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50 text-teal-600">
               <Search size={24} />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -19,7 +19,8 @@ type CollaborationStatus =
   | "Pending Review"
   | "Under Discussion"
   | "Active"
-  | "Completed";
+  | "Completed"
+  | "Declined";
 
 type Collaboration = {
   id: string;
@@ -34,80 +35,88 @@ type Collaboration = {
   contactRole: string;
 };
 
-const collaborations: Collaboration[] = [
-  {
-    id: "COL-001",
-    projectId: "PRJ-001",
-    project: "Smart Road Monitoring Pilot",
-    university: "Birla Institute of Technology, Mesra",
-    location: "Ranchi, Jharkhand",
-    status: "Active",
-    supportType: "Technical Support",
-    commitment: "₹8.5L",
-    contactPerson: "Dr. Ankit Kumar",
-    contactRole: "Project Coordinator",
-  },
-  {
-    id: "COL-002",
-    projectId: "PRJ-002",
-    project: "Community Water Monitoring",
-    university: "National Institute of Technology, Jamshedpur",
-    location: "Jamshedpur, Jharkhand",
-    status: "Active",
-    supportType: "Field Pilot",
-    commitment: "₹6.2L",
-    contactPerson: "Dr. Priya Singh",
-    contactRole: "Research Lead",
-  },
-  {
-    id: "COL-003",
-    projectId: "PRJ-003",
-    project: "Rural Sanitation Deployment",
-    university: "Central University of Jharkhand",
-    location: "Dhanbad, Jharkhand",
-    status: "Under Discussion",
-    supportType: "Funding",
-    commitment: "₹12L",
-    contactPerson: "Dr. Rakesh Verma",
-    contactRole: "Project Lead",
-  },
-  {
-    id: "COL-004",
-    projectId: "PRJ-004",
-    project: "Solar Street Infrastructure",
-    university: "Birla Institute of Technology, Mesra",
-    location: "Bokaro, Jharkhand",
-    status: "Pending Review",
-    supportType: "Prototyping",
-    commitment: "₹4.5L",
-    contactPerson: "Prof. Neha Sharma",
-    contactRole: "Technical Lead",
-  },
-  {
-    id: "COL-005",
-    projectId: "PRJ-005",
-    project: "Citizen Complaint Analytics",
-    university: "National Institute of Technology, Jamshedpur",
-    location: "Hazaribagh, Jharkhand",
-    status: "Completed",
-    supportType: "Mentorship",
-    commitment: "₹3L",
-    contactPerson: "Dr. Amit Raj",
-    contactRole: "Faculty Coordinator",
-  },
-  {
-    id: "COL-006",
-    projectId: "PRJ-006",
-    project: "Low-Cost Road Repair Material",
-    university: "Birla Institute of Technology, Mesra",
-    location: "Deoghar, Jharkhand",
-    status: "Pending Review",
-    supportType: "Testing",
-    commitment: "₹2.75L",
-    contactPerson: "Dr. Saurabh Mehta",
-    contactRole: "Research Coordinator",
-  },
-];
+type ApiCollaboration = {
+  id: string;
+  project_id: string | null;
+  industry_partner_id: string | null;
+  collaboration_type: string | null;
+  amount: number | null;
+  status: string | null;
+  description: string | null;
+  created_at: string | null;
+};
+
+type ApiProject = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string | null;
+};
+
+const statusMap: Record<string, CollaborationStatus> = {
+  REQUESTED: "Pending Review",
+  UNDER_REVIEW: "Under Discussion",
+  ACCEPTED: "Active",
+  COMPLETED: "Completed",
+  REJECTED: "Declined",
+};
+
+const supportTypeMap: Record<string, string> = {
+  FUNDING: "Funding",
+  MENTORSHIP: "Mentorship",
+  HARDWARE: "Technical Support",
+  TESTING: "Testing",
+  PROTOTYPING: "Prototyping",
+};
+
+function formatAmount(amount: number | null) {
+  if (amount === null || amount === undefined) return "Not specified";
+  return `₹${amount.toLocaleString("en-IN")}`;
+}
+
+function formatDate(value: string | null) {
+  if (!value) return "Not available";
+  return new Date(value).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+async function getApiData<T>(path: string): Promise<T> {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("auth_token") ||
+        localStorage.getItem("token") ||
+        sessionStorage.getItem("auth_token") ||
+        sessionStorage.getItem("token")
+      : null;
+
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    let detail = `Request failed with status ${response.status}`;
+    try {
+      const body = await response.json();
+      detail = body?.detail ?? detail;
+    } catch {
+      // Keep the generic HTTP error.
+    }
+    throw new Error(detail);
+  }
+
+  return response.json() as Promise<T>;
+}
 
 const purposes = [
   "Funding Discussion",
@@ -123,23 +132,126 @@ export default function ContactProjectTeamPage() {
 
   const collaborationId = String(params.id);
 
-  const collaboration =
-    collaborations.find((item) => item.id === collaborationId) ??
-    collaborations[0];
-
+  const [collaboration, setCollaboration] =
+    useState<Collaboration | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [purpose, setPurpose] = useState(purposes[0]);
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCollaboration() {
+      try {
+        setLoading(true);
+        setLoadError("");
+
+        const apiCollaboration = await getApiData<ApiCollaboration>(
+          `/api/collaborations/${collaborationId}`
+        );
+
+        let project: ApiProject | null = null;
+
+        if (apiCollaboration.project_id) {
+          try {
+            project = await getApiData<ApiProject>(
+              `/api/projects/${apiCollaboration.project_id}`
+            );
+          } catch (projectError) {
+            console.error("Failed to load project:", projectError);
+          }
+        }
+
+        const mapped: Collaboration = {
+          id: apiCollaboration.id,
+          projectId: apiCollaboration.project_id ?? "",
+          project: project?.title ?? "Untitled Project",
+          university: "University information unavailable",
+          location: "Location unavailable",
+          status:
+            statusMap[apiCollaboration.status ?? ""] ?? "Pending Review",
+          supportType:
+            supportTypeMap[apiCollaboration.collaboration_type ?? ""] ??
+            "Technical Support",
+          commitment: formatAmount(apiCollaboration.amount),
+          contactPerson: "Project Team",
+          contactRole: "Project Coordinator",
+        };
+
+        if (!cancelled) {
+          setCollaboration(mapped);
+        }
+      } catch (error) {
+        console.error("Failed to load collaboration:", error);
+
+        if (!cancelled) {
+          setLoadError(
+            error instanceof Error
+              ? error.message
+              : "Failed to load collaboration"
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadCollaboration();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [collaborationId]);
+
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!message.trim()) {
-      return;
-    }
+    if (!message.trim()) return;
 
+    // NOTE:
+    // The current FastAPI collaboration API does not expose a contact/message
+    // endpoint. Keep the UI success state for now; persistence will be wired
+    // once a dedicated messaging/contact API is added.
     setSent(true);
   };
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-100 px-6">
+        <div className="rounded-2xl border border-slate-200 bg-white px-8 py-7 text-center shadow-sm">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-teal-700" />
+          <p className="mt-4 text-sm font-semibold text-slate-800">
+            Loading collaboration...
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (loadError || !collaboration) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-100 px-6">
+        <div className="max-w-lg rounded-2xl border border-rose-200 bg-white p-8 text-center shadow-sm">
+          <h1 className="text-xl font-bold text-slate-900">
+            Collaboration unavailable
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            {loadError || "The requested collaboration could not be found."}
+          </p>
+          <Link
+            href="/industry/collaborations"
+            className="mt-6 inline-flex rounded-xl bg-teal-700 px-5 py-3 text-sm font-semibold text-white hover:bg-teal-800"
+          >
+            Back to Collaborations
+          </Link>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">

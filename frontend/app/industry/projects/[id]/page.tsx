@@ -1,8 +1,9 @@
-
 "use client";
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { getProject, type Project as ApiProject } from "@/lib/api/collaborations";
 import {
   ArrowLeft,
   ArrowRight,
@@ -47,500 +48,6 @@ type ProjectDetail = {
   funding: string;
 };
 
-const projects: ProjectDetail[] = [
-  {
-    id: "PRJ-001",
-    title: "Smart Road Monitoring Pilot",
-    problem: "Road damage and delayed maintenance reporting",
-    category: "Infrastructure",
-    university: "Birla Institute of Technology, Mesra",
-    location: "Ranchi, Jharkhand",
-    stage: "Pilot / Validation",
-    progress: 72,
-    support: ["Technical Support", "Testing", "Field Pilot"],
-    description:
-      "A technology-assisted system for detecting road damage and improving maintenance response.",
-    solution:
-      "The project combines field road-condition data, digital reporting, and technology-assisted damage identification so authorities can identify and prioritise road maintenance requirements faster.",
-    prototype:
-      "The team is developing a working road-monitoring prototype that captures road condition information, identifies common damage patterns, records the affected location, and generates structured information for maintenance planning.",
-    prototypeComponents: [
-      "Digital road condition reporting",
-      "Road damage identification",
-      "Location-based issue records",
-      "Damage severity and priority information",
-      "Government monitoring interface",
-    ],
-    howItWorks: [
-      "Road condition data is captured from field observations or digital inputs.",
-      "The system analyses the reported condition and identifies potential road damage.",
-      "The damaged location and issue details are recorded digitally.",
-      "The issue is classified based on severity and maintenance priority.",
-      "Government teams use the information to plan inspection and maintenance.",
-    ],
-    impact: [
-      "Faster identification of damaged roads",
-      "Reduced delay in maintenance reporting",
-      "Better prioritisation of road repair requirements",
-      "Improved visibility of road conditions",
-      "Better coordination between field teams and authorities",
-    ],
-    timeline: "6 months",
-    funding: "₹8.5 Lakh",
-  },
-
-  {
-    id: "PRJ-002",
-    title: "Community Water Monitoring",
-    problem: "Irregular water supply and quality monitoring",
-    category: "Water",
-    university: "National Institute of Technology, Jamshedpur",
-    location: "Jamshedpur, Jharkhand",
-    stage: "Project In Progress",
-    progress: 58,
-    support: ["Field Pilot", "Testing"],
-    description:
-      "A community-focused monitoring solution for tracking water availability and quality.",
-    solution:
-      "The project creates a structured water-monitoring system that combines community observations and sensor-based information to identify supply and quality issues.",
-    prototype:
-      "The prototype consists of a community water monitoring setup capable of recording water availability, basic quality indicators, location, and reporting history.",
-    prototypeComponents: [
-      "Water availability monitoring",
-      "Basic water quality sensing",
-      "Community reporting interface",
-      "Location-based water records",
-      "Water issue dashboard",
-    ],
-    howItWorks: [
-      "Water availability and quality information is collected from selected locations.",
-      "Sensor or community inputs are recorded by the monitoring system.",
-      "The system identifies locations with recurring water problems.",
-      "Issues are organised by location and type.",
-      "Authorities can use the information to plan inspection and intervention.",
-    ],
-    impact: [
-      "Better visibility of local water problems",
-      "Faster identification of supply interruptions",
-      "Improved water-quality monitoring",
-      "Community participation in reporting",
-      "Better planning of water interventions",
-    ],
-    timeline: "8 months",
-    funding: "₹6.2 Lakh",
-  },
-
-  {
-    id: "PRJ-003",
-    title: "Rural Sanitation Deployment",
-    problem: "Limited sanitation infrastructure in rural areas",
-    category: "Sanitation",
-    university: "Central University of Jharkhand",
-    location: "Dhanbad, Jharkhand",
-    stage: "Solution Proposed",
-    progress: 81,
-    support: ["Funding", "Field Pilot"],
-    description:
-      "A scalable sanitation solution designed for deployment in underserved rural communities.",
-    solution:
-      "The project proposes affordable and locally suitable sanitation infrastructure combined with community-level monitoring and maintenance practices.",
-    prototype:
-      "The prototype demonstrates a low-cost sanitation setup designed around rural requirements, easy maintenance, water efficiency, and community usability.",
-    prototypeComponents: [
-      "Low-cost sanitation unit",
-      "Water-efficient design",
-      "Waste management mechanism",
-      "Maintenance workflow",
-      "Community monitoring model",
-    ],
-    howItWorks: [
-      "A suitable sanitation design is selected based on local requirements.",
-      "The prototype is installed in a representative rural location.",
-      "Usage and maintenance requirements are monitored.",
-      "Community feedback is collected.",
-      "The design is refined before wider deployment.",
-    ],
-    impact: [
-      "Improved rural sanitation access",
-      "Better hygiene conditions",
-      "Lower infrastructure cost",
-      "Improved community participation",
-      "Scalable deployment model",
-    ],
-    timeline: "7 months",
-    funding: "₹12 Lakh",
-  },
-
-  {
-    id: "PRJ-004",
-    title: "Solar Street Infrastructure",
-    problem: "Poor lighting in underserved community areas",
-    category: "Energy",
-    university: "Birla Institute of Technology, Mesra",
-    location: "Bokaro, Jharkhand",
-    stage: "Project In Progress",
-    progress: 34,
-    support: ["Prototyping", "Testing"],
-    description:
-      "Solar-powered street infrastructure aimed at improving safety and reducing energy dependence.",
-    solution:
-      "The project uses solar-powered street lighting with efficient energy storage and monitoring to provide reliable lighting in underserved areas.",
-    prototype:
-      "The prototype consists of a solar street-light unit with a solar panel, battery storage, LED lighting, control electronics, and basic performance monitoring.",
-    prototypeComponents: [
-      "Solar panel system",
-      "Battery storage",
-      "Energy-efficient LED lighting",
-      "Automatic lighting control",
-      "Performance monitoring",
-    ],
-    howItWorks: [
-      "Solar panels collect energy during daylight.",
-      "Energy is stored in a battery system.",
-      "The lighting unit automatically operates during low-light conditions.",
-      "System performance and battery condition are monitored.",
-      "Field data is used to improve reliability and deployment design.",
-    ],
-    impact: [
-      "Improved community-area lighting",
-      "Lower dependence on grid electricity",
-      "Improved night-time safety",
-      "Reduced operating costs",
-      "Potential for rural scalability",
-    ],
-    timeline: "6 months",
-    funding: "₹4.5 Lakh",
-  },
-
-  {
-    id: "PRJ-005",
-    title: "Citizen Complaint Analytics",
-    problem: "Difficulty identifying recurring civic issues",
-    category: "Governance",
-    university: "National Institute of Technology, Jamshedpur",
-    location: "Hazaribagh, Jharkhand",
-    stage: "Impact / Deployment",
-    progress: 100,
-    support: ["Mentorship", "Technical Support"],
-    description:
-      "An analytics platform that identifies recurring citizen complaints and supports data-driven decisions.",
-    solution:
-      "The platform groups citizen complaints by issue, location, category, and recurrence so government teams can identify patterns and prioritise interventions.",
-    prototype:
-      "The prototype provides an analytics dashboard that converts large numbers of citizen complaints into visual trends, recurring issue groups, and location-based insights.",
-    prototypeComponents: [
-      "Complaint categorisation",
-      "Recurring issue detection",
-      "District-wise analytics",
-      "Trend visualisation",
-      "Government decision dashboard",
-    ],
-    howItWorks: [
-      "Citizen complaints enter the central reporting system.",
-      "Complaints are categorised and grouped.",
-      "Recurring issues and geographic patterns are identified.",
-      "Analytics are displayed through dashboards.",
-      "Government teams use the insights for targeted action.",
-    ],
-    impact: [
-      "Faster identification of recurring problems",
-      "Data-driven government decisions",
-      "Better resource prioritisation",
-      "Improved complaint monitoring",
-      "Greater visibility into community needs",
-    ],
-    timeline: "5 months",
-    funding: "₹3 Lakh",
-  },
-
-  {
-    id: "PRJ-006",
-    title: "Low-Cost Road Repair Material",
-    problem: "High cost of road repair materials",
-    category: "Infrastructure",
-    university: "Birla Institute of Technology, Mesra",
-    location: "Deoghar, Jharkhand",
-    stage: "Solution Proposed",
-    progress: 21,
-    support: ["Testing", "Prototyping"],
-    description:
-      "Research into affordable road repair materials suitable for local conditions.",
-    solution:
-      "The project explores alternative locally available materials and material combinations that can reduce road repair costs while maintaining suitable performance.",
-    prototype:
-      "The prototype consists of experimental road-repair material samples prepared with different compositions and tested for strength, durability, and suitability.",
-    prototypeComponents: [
-      "Alternative material mixtures",
-      "Laboratory test samples",
-      "Strength testing",
-      "Durability testing",
-      "Cost comparison model",
-    ],
-    howItWorks: [
-      "Locally suitable materials are identified.",
-      "Different material combinations are prepared.",
-      "Samples are tested under controlled conditions.",
-      "Performance is compared with conventional materials.",
-      "The most suitable composition is prepared for field testing.",
-    ],
-    impact: [
-      "Lower road repair costs",
-      "Better use of local materials",
-      "Potential reduction in maintenance expenditure",
-      "Improved repair accessibility",
-      "Scalable solution for rural roads",
-    ],
-    timeline: "9 months",
-    funding: "₹2.75 Lakh",
-  },
-
-  {
-    id: "PRJ-007",
-    title: "Smart Waste Collection Network",
-    problem: "Irregular waste collection in residential areas",
-    category: "Sanitation",
-    university: "Central University of Jharkhand",
-    location: "Ranchi, Jharkhand",
-    stage: "Project In Progress",
-    progress: 46,
-    support: ["Technical Support", "Field Pilot"],
-    description:
-      "A smart collection system designed to optimise waste pickup routes and schedules.",
-    solution:
-      "The system uses collection data and location information to help optimise waste pickup routes and identify areas where collection is delayed.",
-    prototype:
-      "The prototype combines smart waste-bin information, collection records, route planning, and a monitoring dashboard for municipal teams.",
-    prototypeComponents: [
-      "Smart bin monitoring",
-      "Collection status tracking",
-      "Route optimisation",
-      "Collection dashboard",
-      "Area-wise waste analytics",
-    ],
-    howItWorks: [
-      "Waste collection points are registered digitally.",
-      "Collection status is updated from field locations.",
-      "The system identifies pending or high-priority collection points.",
-      "Optimised routes are generated for collection teams.",
-      "Municipal teams monitor collection performance.",
-    ],
-    impact: [
-      "More regular waste collection",
-      "Reduced unnecessary collection trips",
-      "Cleaner residential areas",
-      "Better route utilisation",
-      "Improved municipal monitoring",
-    ],
-    timeline: "7 months",
-    funding: "₹5.4 Lakh",
-  },
-
-  {
-    id: "PRJ-008",
-    title: "Rural Solar Water Pumps",
-    problem: "Limited access to reliable irrigation power",
-    category: "Energy",
-    university: "National Institute of Technology, Jamshedpur",
-    location: "Dumka, Jharkhand",
-    stage: "Solution Proposed",
-    progress: 27,
-    support: ["Funding", "Technical Support"],
-    description:
-      "Solar-powered irrigation infrastructure designed for small and marginal farmers.",
-    solution:
-      "The project proposes solar-powered water pumping systems that can provide reliable irrigation without depending completely on conventional electricity supply.",
-    prototype:
-      "The prototype includes a solar-powered pump, energy controller, water delivery system, and basic monitoring mechanism designed for small agricultural plots.",
-    prototypeComponents: [
-      "Solar pumping unit",
-      "Solar power controller",
-      "Water delivery system",
-      "Energy monitoring",
-      "Irrigation control",
-    ],
-    howItWorks: [
-      "Solar panels generate electricity during daylight.",
-      "Generated power operates the irrigation pump.",
-      "Water is delivered to the agricultural field.",
-      "Power and pumping performance are monitored.",
-      "The system is evaluated under local farming conditions.",
-    ],
-    impact: [
-      "More reliable irrigation access",
-      "Lower electricity dependence",
-      "Reduced irrigation operating cost",
-      "Better support for small farmers",
-      "Cleaner agricultural energy use",
-    ],
-    timeline: "8 months",
-    funding: "₹7.2 Lakh",
-  },
-
-  {
-    id: "PRJ-009",
-    title: "Digital Health Access Platform",
-    problem: "Limited access to basic healthcare services",
-    category: "Healthcare",
-    university: "Central University of Jharkhand",
-    location: "Hazaribagh, Jharkhand",
-    stage: "Pilot / Validation",
-    progress: 67,
-    support: ["Field Pilot", "Technical Support"],
-    description:
-      "A digital platform connecting underserved communities with essential healthcare resources.",
-    solution:
-      "The platform brings basic healthcare information, service discovery, and digital access tools together to make healthcare resources easier to reach.",
-    prototype:
-      "The prototype provides a digital interface where community members can discover nearby healthcare resources, access basic information, and connect with relevant services.",
-    prototypeComponents: [
-      "Healthcare resource directory",
-      "Location-based service discovery",
-      "Digital health information",
-      "Community access interface",
-      "Service monitoring dashboard",
-    ],
-    howItWorks: [
-      "Healthcare resources are registered on the platform.",
-      "Community members search for relevant services.",
-      "The system provides location-based information.",
-      "Users can identify suitable healthcare resources.",
-      "Usage data helps improve service planning.",
-    ],
-    impact: [
-      "Improved healthcare accessibility",
-      "Better awareness of available services",
-      "Reduced information gaps",
-      "Better visibility of underserved areas",
-      "Improved healthcare planning",
-    ],
-    timeline: "6 months",
-    funding: "₹6.8 Lakh",
-  },
-
-  {
-    id: "PRJ-010",
-    title: "Flood Risk Monitoring System",
-    problem: "Delayed flood alerts in vulnerable communities",
-    category: "Environment",
-    university: "Birla Institute of Technology, Mesra",
-    location: "Giridih, Jharkhand",
-    stage: "Project In Progress",
-    progress: 52,
-    support: ["Testing", "Technical Support"],
-    description:
-      "A monitoring system designed to improve early warning and flood preparedness.",
-    solution:
-      "The system monitors environmental and water-level indicators to help identify increasing flood risk and provide earlier information to authorities.",
-    prototype:
-      "The prototype uses monitoring sensors and a central dashboard to track selected environmental indicators and generate risk information.",
-    prototypeComponents: [
-      "Water-level monitoring",
-      "Environmental sensors",
-      "Risk-level calculation",
-      "Alert mechanism",
-      "Monitoring dashboard",
-    ],
-    howItWorks: [
-      "Sensors collect environmental and water-level information.",
-      "The system continuously processes incoming measurements.",
-      "Risk levels are calculated from predefined conditions.",
-      "Potentially dangerous changes trigger alerts.",
-      "Authorities can use the information for preparedness actions.",
-    ],
-    impact: [
-      "Earlier flood-risk awareness",
-      "Improved emergency preparedness",
-      "Better monitoring of vulnerable locations",
-      "Faster information sharing",
-      "Potential reduction in response delays",
-    ],
-    timeline: "8 months",
-    funding: "₹5.9 Lakh",
-  },
-
-  {
-    id: "PRJ-011",
-    title: "Public Transport Tracking",
-    problem: "Limited visibility of local transport availability",
-    category: "Transport",
-    university: "National Institute of Technology, Jamshedpur",
-    location: "Jamshedpur, Jharkhand",
-    stage: "Impact / Deployment",
-    progress: 94,
-    support: ["Technical Support", "Field Pilot"],
-    description:
-      "A real-time transport monitoring solution for improving accessibility and reliability.",
-    solution:
-      "The platform provides real-time visibility into local transport availability and movement so commuters and authorities can better understand transport operations.",
-    prototype:
-      "The prototype combines vehicle location information, route data, estimated availability, and a user-facing transport tracking interface.",
-    prototypeComponents: [
-      "Vehicle location tracking",
-      "Route information",
-      "Transport availability",
-      "Estimated arrival information",
-      "Transport monitoring dashboard",
-    ],
-    howItWorks: [
-      "Transport vehicles provide location information.",
-      "The platform processes vehicle movement data.",
-      "Routes and estimated availability are displayed.",
-      "Users can view relevant transport information.",
-      "Authorities can monitor service coverage and reliability.",
-    ],
-    impact: [
-      "Better transport visibility",
-      "Reduced commuter uncertainty",
-      "Improved route monitoring",
-      "Better planning of transport services",
-      "Improved public mobility experience",
-    ],
-    timeline: "6 months",
-    funding: "₹4.8 Lakh",
-  },
-
-  {
-    id: "PRJ-012",
-    title: "Community Air Quality Network",
-    problem: "Limited local air quality monitoring",
-    category: "Environment",
-    university: "Central University of Jharkhand",
-    location: "Bokaro, Jharkhand",
-    stage: "Pilot / Validation",
-    progress: 63,
-    support: ["Prototyping", "Testing"],
-    description:
-      "A distributed sensor network for monitoring local air quality and pollution patterns.",
-    solution:
-      "The project creates a network of affordable monitoring devices that can collect local air-quality information across multiple community locations.",
-    prototype:
-      "The prototype consists of compact air-quality monitoring nodes that measure selected pollution indicators and send readings to a central monitoring platform.",
-    prototypeComponents: [
-      "Low-cost air-quality sensors",
-      "Distributed monitoring nodes",
-      "Environmental data collection",
-      "Pollution trend dashboard",
-      "Location-based air-quality records",
-    ],
-    howItWorks: [
-      "Monitoring nodes collect air-quality readings.",
-      "Readings are associated with their geographic locations.",
-      "The platform receives and organises the sensor data.",
-      "Pollution trends are visualised over time.",
-      "Authorities and communities can identify locations requiring attention.",
-    ],
-    impact: [
-      "Better local air-quality visibility",
-      "Identification of pollution hotspots",
-      "Improved environmental monitoring",
-      "More informed community awareness",
-      "Better evidence for local interventions",
-    ],
-    timeline: "7 months",
-    funding: "₹5.1 Lakh",
-  },
-];
-
 const milestones = [
   "Problem Validation",
   "Research & Design",
@@ -549,14 +56,72 @@ const milestones = [
   "Impact Evaluation",
 ];
 
-function getProject(id: string) {
-  return projects.find((project) => project.id === id) ?? projects[0];
+function mapStatus(status: string | null): { stage: ProjectStage; progress: number } {
+  switch (status) {
+    case "VALIDATION":
+      return { stage: "Solution Proposed", progress: 20 };
+    case "TEAM_FORMATION":
+      return { stage: "Project In Progress", progress: 30 };
+    case "SOLUTION_DESIGN":
+      return { stage: "Project In Progress", progress: 40 };
+    case "PROTOTYPE":
+      return { stage: "Project In Progress", progress: 60 };
+    case "FIELD_PILOT":
+      return { stage: "Pilot / Validation", progress: 75 };
+    case "DEPLOYED":
+      return { stage: "Impact / Deployment", progress: 90 };
+    case "IMPACT_MEASUREMENT":
+      return { stage: "Impact / Deployment", progress: 100 };
+    case "IDEA":
+    default:
+      return { stage: "Solution Proposed", progress: 10 };
+  }
 }
 
-function getMilestoneStatus(
-  project: ProjectDetail,
-  index: number
-) {
+function mapApiProject(project: ApiProject): ProjectDetail {
+  const mapped = mapStatus(project.status);
+  const linkedProblem = project.problem_id
+    ? `Linked problem: ${project.problem_id}`
+    : "Problem details are not available from the current project API.";
+
+  return {
+    id: project.id,
+    title: project.title,
+    problem: linkedProblem,
+    category: "Not available from current API",
+    university: "University details not available from current API",
+    location: "Location not available from current API",
+    stage: mapped.stage,
+    progress: mapped.progress,
+    support: ["Industry collaboration details not available from current API"],
+    description:
+      project.description ??
+      "No project description is available from the current project API.",
+    solution: project.solution_id
+      ? `Linked solution: ${project.solution_id}`
+      : "Solution details are not available from the current project API.",
+    prototype:
+      project.description ??
+      "Prototype details are not available from the current project API.",
+    prototypeComponents: [
+      "Project information from backend",
+      "Detailed prototype data pending backend support",
+    ],
+    howItWorks: [
+      "Project data is loaded from the SamadhanX backend.",
+      "The current project API provides the project title, description and lifecycle status.",
+      "Additional solution and prototype details can be connected when those backend fields are exposed.",
+    ],
+    impact: [
+      "Impact details are not available from the current project API.",
+      "Impact metrics can be connected when the backend exposes them.",
+    ],
+    timeline: "Not specified by current API",
+    funding: "Not specified by current API",
+  };
+}
+
+function getMilestoneStatus(project: ProjectDetail, index: number) {
   const progress = project.progress;
 
   if (index === 0) return "Completed";
@@ -571,11 +136,91 @@ function getMilestoneStatus(
 
 export default function IndustryProjectDetailPage() {
   const params = useParams();
-  const projectId = Array.isArray(params.id)
-    ? params.id[0]
-    : params.id;
+const projectId = Array.isArray(params.id)
+  ? params.id[0]
+  : params.id;
 
-  const project = getProject(projectId);
+const validProjectId =
+  typeof projectId === "string" ? projectId : "";
+
+  const [project, setProject] = useState<ProjectDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!projectId) {
+      setError("Project not found.");
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadProject() {
+      try {
+        setLoading(true);
+        setError("");
+
+        const data = await getProject(projectId!);
+
+        if (!cancelled) {
+          setProject(mapApiProject(data));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load project details."
+          );
+          setProject(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadProject();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  if (loading) {
+
+  if (loading) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-slate-100">
+        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+          <p className="text-sm font-medium text-slate-600">
+            Loading project details...
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (error || !project) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-slate-100 px-6">
+        <div className="max-w-md rounded-2xl border border-rose-200 bg-white p-6 text-center shadow-sm">
+          <p className="text-sm font-semibold text-rose-700">
+            {error || "Project not found."}
+          </p>
+          <Link
+            href="/industry/projects"
+            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white"
+          >
+            <ArrowLeft size={16} />
+            Back to Projects
+          </Link>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
@@ -1190,5 +835,6 @@ export default function IndustryProjectDetailPage() {
       </footer>
     </main>
   );
+}
 }
 

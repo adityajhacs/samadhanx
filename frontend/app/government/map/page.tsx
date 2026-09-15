@@ -2,13 +2,25 @@
 
 import { useMemo, useState } from "react";
 import { MapPinned, Sparkles, AlertCircle } from "lucide-react";
-
+import dynamic from "next/dynamic";
 import {
   problems,
   type ProblemCategory,
 } from "@/lib/mockData";
+const JharkhandProblemMap = dynamic(
+  () => import("@/components/JharkhandProblemMap"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[500px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
+        <p className="text-sm text-slate-500">
+          Loading map...
+        </p>
+      </div>
+    ),
+  }
+);
 
-import JharkhandProblemMap from "@/components/JharkhandProblemMap";
 
 export default function GovernmentProblemMapPage() {
   const [category, setCategory] = useState<
