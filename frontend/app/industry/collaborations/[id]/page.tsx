@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -11,21 +12,28 @@ import {
   CheckCircle2,
   CircleDollarSign,
   Clock3,
-  FileCheck2,
-  FlaskConical,
   Handshake,
-  MapPin,
-  MessageSquare,
   Target,
   Users,
   Wrench,
 } from "lucide-react";
 
+import {
+  type Project,
+  type ProjectTask,
+} from "@/lib/api/collaborations";
+
+import {
+  apiRequest,
+  getAuthToken,
+} from "@/lib/api/client";
+
 type CollaborationStatus =
   | "Pending Review"
   | "Under Discussion"
   | "Active"
-  | "Completed";
+  | "Completed"
+  | "Declined";
 
 type CollaborationDetail = {
   id: string;
@@ -33,38 +41,15 @@ type CollaborationDetail = {
   project: string;
   problem: string;
   university: string;
-  location: string;
   supportType: string;
   status: CollaborationStatus;
   commitment: string;
-  progress: number;
+  progress: number | null;
   submitted: string;
   overview: string;
   supportScope: string;
-  universityRole: string;
-  industryRole: string;
-  governmentRole: string;
   nextAction: string;
-  milestones: {
-    title: string;
-    description: string;
-    status: "Completed" | "Current" | "Upcoming";
-    date: string;
-  }[];
-  activity: {
-    title: string;
-    description: string;
-    date: string;
-    completed: boolean;
-  }[];
-};
-
-const statusMap: Record<string, CollaborationStatus> = {
-  REQUESTED: "Pending Review",
-  UNDER_REVIEW: "Under Discussion",
-  ACCEPTED: "Active",
-  COMPLETED: "Completed",
-  REJECTED: "Pending Review",
+  tasks: ProjectTask[];
 };
 
 type ApiCollaboration = {
@@ -78,77 +63,21 @@ type ApiCollaboration = {
   created_at: string | null;
 };
 
-type ApiProject = {
-  id: string;
-  title: string;
-  description: string | null;
-  status: string | null;
+const statusMap: Record<string, CollaborationStatus> = {
+  REQUESTED: "Pending Review",
+  UNDER_REVIEW: "Under Discussion",
+  ACCEPTED: "Active",
+  COMPLETED: "Completed",
+  REJECTED: "Declined",
 };
 
 const supportTypeMap: Record<string, string> = {
   FUNDING: "Funding",
   MENTORSHIP: "Mentorship",
-  HARDWARE: "Technical Support",
+  HARDWARE: "Hardware",
   TESTING: "Testing",
   PROTOTYPING: "Prototyping",
 };
-
-const projectProgress: Record<string, number> = {
-  IDEA: 10,
-  VALIDATION: 20,
-  TEAM_FORMATION: 30,
-  SOLUTION_DESIGN: 40,
-  PROTOTYPE: 60,
-  FIELD_PILOT: 75,
-  DEPLOYED: 90,
-  IMPACT_MEASUREMENT: 100,
-};
-
-function formatAmount(amount: number | null) {
-  return amount == null ? "—" : `₹${amount.toLocaleString("en-IN")}`;
-}
-
-function formatDate(date: string | null) {
-  if (!date) return "—";
-  return new Date(date).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-async function getApiData<T>(path: string): Promise<T> {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("auth_token") ||
-        localStorage.getItem("token") ||
-        sessionStorage.getItem("auth_token") ||
-        sessionStorage.getItem("token")
-      : null;
-
-  const response = await fetch(`${baseUrl}${path}`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    let message = `Request failed (${response.status})`;
-    try {
-      const body = await response.json();
-      if (body?.detail) message = body.detail;
-    } catch {
-      // Keep the fallback message.
-    }
-    throw new Error(message);
-  }
-
-  return response.json();
-}
 
 const statusOrder: CollaborationStatus[] = [
   "Pending Review",
@@ -157,12 +86,123 @@ const statusOrder: CollaborationStatus[] = [
   "Completed",
 ];
 
+function formatAmount(amount: number | null) {
+  if (amount == null) {
+    return "—";
+  }
+
+  return `₹${amount.toLocaleString("en-IN")}`;
+}
+
+function formatDate(date: string | null) {
+  if (!date) {
+    return "—";
+  }
+
+  const parsedDate = new Date(date);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "—";
+  }
+
+  return parsedDate.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function getTaskProgress(tasks: ProjectTask[]) {
+  if (tasks.length === 0) {
+    return null;
+  }
+
+  const completed = tasks.filter(
+    (task) => task.status === "COMPLETED"
+  ).length;
+
+  return Math.round((completed / tasks.length) * 100);
+}
+
+function getTaskCounts(tasks: ProjectTask[]) {
+  return {
+    total: tasks.length,
+    completed: tasks.filter(
+      (task) => task.status === "COMPLETED"
+    ).length,
+    inProgress: tasks.filter(
+      (task) => task.status === "IN_PROGRESS"
+    ).length,
+    pending: tasks.filter(
+      (task) => task.status === "PENDING"
+    ).length,
+  };
+}
+
+function getTaskStatusLabel(status: ProjectTask["status"]) {
+  switch (status) {
+    case "COMPLETED":
+      return "Completed";
+
+    case "IN_PROGRESS":
+      return "In Progress";
+
+    case "PENDING":
+      return "Pending";
+
+    default:
+      return status;
+  }
+}
+
+function getTaskStatusClass(status: ProjectTask["status"]) {
+  switch (status) {
+    case "COMPLETED":
+      return "bg-emerald-50 text-emerald-700 border-emerald-200";
+
+    case "IN_PROGRESS":
+      return "bg-sky-50 text-sky-700 border-sky-200";
+
+    case "PENDING":
+      return "bg-slate-100 text-slate-600 border-slate-200";
+
+    default:
+      return "bg-slate-100 text-slate-600 border-slate-200";
+  }
+}
+
+/*
+ * Authenticated GET helper.
+ *
+ * Earlier this page manually searched localStorage/sessionStorage.
+ * Now it uses the project's central getAuthToken() helper so the
+ * same authentication mechanism is used throughout the frontend.
+ */
+async function getAuthenticatedApiData<T>(
+  path: string
+): Promise<T> {
+  const token = getAuthToken();
+
+  if (!token) {
+    throw new Error("Authentication required. Please login again.");
+  }
+
+  return apiRequest<T>(path, {
+    method: "GET",
+    token,
+  });
+}
+
 export default function CollaborationDetailPage() {
   const params = useParams<{ id: string }>();
-  const collaborationId = Array.isArray(params?.id) ? params.id[0] : params?.id;
+
+  const collaborationId = Array.isArray(params?.id)
+    ? params.id[0]
+    : params?.id;
 
   const [collaboration, setCollaboration] =
     useState<CollaborationDetail | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -180,112 +220,128 @@ export default function CollaborationDetailPage() {
         setLoading(true);
         setError("");
 
-        const apiCollaboration = await getApiData<ApiCollaboration>(
-          `/api/collaborations/${encodeURIComponent(collaborationId)}`
-        );
+        /*
+         * Collaboration itself is protected by authentication.
+         */
+        const apiCollaboration =
+          await getAuthenticatedApiData<ApiCollaboration>(
+            `/api/collaborations/${encodeURIComponent(
+              collaborationId
+            )}`
+          );
 
-        let project: ApiProject | null = null;
+        let project: Project | null = null;
+        let tasks: ProjectTask[] = [];
 
         if (apiCollaboration.project_id) {
+          /*
+           * IMPORTANT:
+           * Do NOT use the old getProject() helper here because
+           * the project endpoint is authenticated as well.
+           *
+           * We now explicitly pass the authenticated token.
+           */
           try {
-            project = await getApiData<ApiProject>(
-              `/api/projects/${encodeURIComponent(apiCollaboration.project_id)}`
-            );
+            project =
+              await getAuthenticatedApiData<Project>(
+                `/api/projects/${encodeURIComponent(
+                  apiCollaboration.project_id
+                )}`
+              );
           } catch (projectError) {
-            console.warn("Project details could not be loaded:", projectError);
+            console.warn(
+              "Project details could not be loaded:",
+              projectError
+            );
+          }
+
+          /*
+           * Project tasks are also authenticated.
+           */
+          try {
+            tasks =
+              await getAuthenticatedApiData<ProjectTask[]>(
+                `/api/project-tasks/project/${encodeURIComponent(
+                  apiCollaboration.project_id
+                )}`
+              );
+          } catch (taskError) {
+            console.warn(
+              "Project tasks could not be loaded:",
+              taskError
+            );
           }
         }
 
         const mappedStatus =
-          statusMap[apiCollaboration.status ?? ""] ?? "Pending Review";
+          statusMap[apiCollaboration.status ?? ""] ??
+          "Pending Review";
+
+        const progress = getTaskProgress(tasks);
 
         const mapped: CollaborationDetail = {
           id: apiCollaboration.id,
-          projectId: apiCollaboration.project_id ?? "",
-          project: project?.title ?? "Untitled Project",
+
+          projectId:
+            apiCollaboration.project_id ?? "",
+
+          project:
+            project?.title ??
+            "Untitled Project",
+
           problem:
             project?.description ??
             apiCollaboration.description ??
-            "No project description available",
-          university: "University information unavailable",
-          location: "Location unavailable",
+            "No project description available.",
+
+          university:
+            project?.university_name ??
+            "University information unavailable",
+
           supportType:
-            supportTypeMap[apiCollaboration.collaboration_type ?? ""] ??
-            "Technical Support",
+            supportTypeMap[
+              apiCollaboration.collaboration_type ?? ""
+            ] ??
+            "Collaboration Support",
+
           status: mappedStatus,
-          commitment: formatAmount(apiCollaboration.amount),
-          progress: projectProgress[project?.status ?? ""] ?? 0,
-          submitted: formatDate(apiCollaboration.created_at),
+
+          commitment:
+            formatAmount(apiCollaboration.amount),
+
+          progress,
+
+          submitted:
+            formatDate(apiCollaboration.created_at),
+
           overview:
             project?.description ??
             apiCollaboration.description ??
             "No collaboration overview available.",
+
           supportScope:
             apiCollaboration.description ??
             "No additional collaboration scope has been provided.",
-          universityRole:
-            "The university team is responsible for solution development and project execution.",
-          industryRole:
-            "The industry partner provides the agreed support, expertise and validation.",
-          governmentRole:
-            "Government stakeholders can provide deployment context and oversight where applicable.",
+
           nextAction:
             mappedStatus === "Completed"
-              ? "Completed. Review outcomes for future scaling opportunities."
-              : "Review the collaboration scope and continue with the next project milestone.",
-          milestones: [
-            {
-              title: "Collaboration Submitted",
-              description: "The collaboration proposal was submitted.",
-              status: "Completed",
-              date: formatDate(apiCollaboration.created_at),
-            },
-            {
-              title: "Current Project Stage",
-              description:
-                project?.status
-                  ? `Project is currently at the ${project.status.replaceAll("_", " ").toLowerCase()} stage.`
-                  : "Current project stage is not available.",
-              status: mappedStatus === "Completed" ? "Completed" : "Current",
-              date: "Current",
-            },
-            {
-              title: "Next Milestone",
-              description:
-                mappedStatus === "Completed"
-                  ? "Review completed outcomes and identify future opportunities."
-                  : "Continue execution and submit progress for the next review.",
-              status: mappedStatus === "Completed" ? "Completed" : "Upcoming",
-              date: "Upcoming",
-            },
-          ],
-          activity: [
-            {
-              title: "Collaboration created",
-              description:
-                apiCollaboration.description ??
-                "Collaboration record created successfully.",
-              date: formatDate(apiCollaboration.created_at),
-              completed: true,
-            },
-            {
-              title:
-                mappedStatus === "Completed"
-                  ? "Collaboration completed"
-                  : "Current collaboration status",
-              description:
-                mappedStatus === "Completed"
-                  ? "This collaboration has been marked completed."
-                  : `Current status: ${mappedStatus}.`,
-              date: "Current",
-              completed: mappedStatus === "Completed",
-            },
-          ],
+              ? "Collaboration completed. Review the project outcomes and future opportunities."
+              : mappedStatus === "Declined"
+                ? "This collaboration request was declined."
+                : "Continue the collaboration according to the agreed scope and project work.",
+
+          tasks,
         };
 
-        if (!cancelled) setCollaboration(mapped);
+        if (!cancelled) {
+          setCollaboration(mapped);
+        }
       } catch (err) {
-        console.error("Failed to load collaboration:", err);
+        console.error(
+          "Failed to load collaboration:",
+          err
+        );
+
         if (!cancelled) {
           setError(
             err instanceof Error
@@ -294,7 +350,9 @@ export default function CollaborationDetailPage() {
           );
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
@@ -310,9 +368,11 @@ export default function CollaborationDetailPage() {
       <main className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="text-center">
           <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-teal-600" />
+
           <p className="mt-4 text-sm font-semibold text-slate-700">
             Loading collaboration...
           </p>
+
           <p className="mt-1 text-xs text-slate-400">
             Fetching partnership workspace
           </p>
@@ -328,12 +388,16 @@ export default function CollaborationDetailPage() {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
             <Handshake className="h-6 w-6" />
           </div>
+
           <h1 className="mt-4 text-lg font-bold text-slate-900">
             Unable to load collaboration
           </h1>
+
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            {error || "The requested collaboration could not be found."}
+            {error ||
+              "The requested collaboration could not be found."}
           </p>
+
           <Link
             href="/industry/collaborations"
             className="mt-6 inline-flex items-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-teal-800"
@@ -346,89 +410,93 @@ export default function CollaborationDetailPage() {
     );
   }
 
-  const currentIndex = statusOrder.indexOf(collaboration.status);
+  const currentIndex = statusOrder.indexOf(
+    collaboration.status
+  );
+
+  const taskCounts = getTaskCounts(
+    collaboration.tasks
+  );
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
+
       {/* Navbar */}
-      
-<nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
-  <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-    
-    {/* Logo */}
-    <Link
-      href="/industry/dashboard"
-      className="flex items-center gap-2.5"
-    >
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-700 text-sm font-bold text-white shadow-sm">
-        S
-      </div>
+      <nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
 
-      <div>
-        <p className="text-lg font-bold tracking-tight text-slate-900">
-          SamadhanX
-        </p>
+          <Link
+            href="/industry/dashboard"
+            className="flex items-center gap-2.5"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-700 text-sm font-bold text-white shadow-sm">
+              S
+            </div>
 
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-          Ideas → Action → Impact
-        </p>
-      </div>
-    </Link>
+            <div>
+              <p className="text-lg font-bold tracking-tight text-slate-900">
+                SamadhanX
+              </p>
 
-    {/* Navigation */}
-    <div className="hidden items-center gap-7 md:flex">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Ideas → Action → Impact
+              </p>
+            </div>
+          </Link>
 
-      <Link
-        href="/industry/dashboard"
-         className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
-      >
-        Dashboard
-      </Link>
+          <div className="hidden items-center gap-7 md:flex">
 
-      <Link
-        href="/industry/projects"
-        className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
-      >
-        Projects
-      </Link>
+            <Link
+              href="/industry/dashboard"
+              className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+            >
+              Dashboard
+            </Link>
 
-      <Link
-        href="/industry/collaborations"
-       className="text-sm font-semibold text-teal-700"
-      >
-        Collaborations
-      </Link>
+            <Link
+              href="/industry/projects"
+              className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+            >
+              Projects
+            </Link>
 
-      <Link
-        href="/industry/investments"
-        className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
-      >
-        Investments
-      </Link>
+            <Link
+              href="/industry/collaborations"
+              className="text-sm font-semibold text-teal-700"
+            >
+              Collaborations
+            </Link>
 
-      <Link
-        href="/industry/profile"
-        className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
-      >
-        Profile
-      </Link>
-
-      <Link
-        href="/industry/projects"
-        className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800"
-      >
-        Explore Projects
-      </Link>
-
-    </div>
-  </div>
-</nav>
+            <Link
+              href="/industry/profile"
+              className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+            >
+              Profile
+            </Link>
+           
+<Link
+  href={`/industry/collaborations/${collaboration.id}/contact`}
+  className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+>
+  Contact
+</Link>
 
 
+            <Link
+              href="/industry/projects"
+              className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800"
+            >
+              Explore Projects
+            </Link>
+
+          </div>
+        </div>
+      </nav>
 
       {/* Header */}
       <section className="border-b border-teal-900 bg-gradient-to-br from-teal-950 via-teal-900 to-emerald-950">
         <div className="mx-auto max-w-7xl px-6 py-8">
+
           <Link
             href="/industry/collaborations"
             className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-teal-200 transition hover:text-white"
@@ -438,17 +506,25 @@ export default function CollaborationDetailPage() {
           </Link>
 
           <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+
             <div className="max-w-3xl">
+
               <div className="mb-3 flex flex-wrap items-center gap-2">
+
                 <span className="rounded-md bg-white/10 px-2.5 py-1 text-[10px] font-bold tracking-wider text-teal-100">
                   {collaboration.id}
                 </span>
 
-                <span className="rounded-md bg-white/10 px-2.5 py-1 text-[10px] font-bold tracking-wider text-teal-100">
-                  {collaboration.projectId}
-                </span>
+                {collaboration.projectId && (
+                  <span className="rounded-md bg-white/10 px-2.5 py-1 text-[10px] font-bold tracking-wider text-teal-100">
+                    Project: {collaboration.projectId}
+                  </span>
+                )}
 
-                <StatusBadge status={collaboration.status} />
+                <StatusBadge
+                  status={collaboration.status}
+                />
+
               </div>
 
               <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
@@ -460,19 +536,23 @@ export default function CollaborationDetailPage() {
               </p>
 
               <div className="mt-5 flex flex-wrap gap-4 text-sm text-teal-100/80">
+
                 <span className="flex items-center gap-2">
                   <Building2 className="h-4 w-4 text-teal-300" />
                   {collaboration.university}
                 </span>
 
                 <span className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-teal-300" />
-                  {collaboration.location}
+                  <Handshake className="h-4 w-4 text-teal-300" />
+                  {collaboration.supportType}
                 </span>
+
               </div>
+
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-white/10 p-5 backdrop-blur">
+
               <p className="text-xs font-semibold uppercase tracking-wider text-teal-200">
                 Support Commitment
               </p>
@@ -484,15 +564,20 @@ export default function CollaborationDetailPage() {
               <p className="mt-1 text-xs text-teal-100/70">
                 {collaboration.supportType}
               </p>
+
             </div>
+
           </div>
         </div>
       </section>
 
-      {/* Lifecycle */}
+      {/* Collaboration Lifecycle */}
       <section className="mx-auto max-w-7xl px-6 pt-7">
+
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-6 flex items-center justify-between">
+
+          <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-teal-700">
                 Collaboration Lifecycle
@@ -504,11 +589,15 @@ export default function CollaborationDetailPage() {
             </div>
 
             <span className="text-sm font-bold text-teal-700">
-              {collaboration.progress}% project progress
+              {collaboration.progress == null
+                ? "Task progress unavailable"
+                : `${collaboration.progress}% task progress`}
             </span>
+
           </div>
 
           <div className="relative">
+
             <div className="absolute left-0 right-0 top-5 hidden h-0.5 bg-slate-200 md:block" />
 
             <div
@@ -522,12 +611,21 @@ export default function CollaborationDetailPage() {
             />
 
             <div className="relative grid gap-5 md:grid-cols-4">
+
               {statusOrder.map((status, index) => {
-                const completed = index <= currentIndex;
-                const current = index === currentIndex;
+
+                const completed =
+                  index <= currentIndex;
+
+                const current =
+                  index === currentIndex;
 
                 return (
-                  <div key={status} className="flex gap-3 md:block">
+                  <div
+                    key={status}
+                    className="flex gap-3 md:block"
+                  >
+
                     <div
                       className={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-4 border-white ${
                         completed
@@ -543,6 +641,7 @@ export default function CollaborationDetailPage() {
                     </div>
 
                     <div className="pt-1 md:mt-3 md:pt-0">
+
                       <p
                         className={`text-xs font-bold ${
                           current
@@ -558,21 +657,26 @@ export default function CollaborationDetailPage() {
                       <p className="mt-1 text-[11px] leading-4 text-slate-400">
                         {getLifecycleDescription(status)}
                       </p>
+
                     </div>
                   </div>
                 );
               })}
+
             </div>
           </div>
         </div>
       </section>
 
-      {/* Main content */}
+      {/* Main Content */}
       <section className="mx-auto grid max-w-7xl gap-6 px-6 py-7 lg:grid-cols-[1fr_340px]">
+
         {/* Left */}
         <div className="space-y-6">
+
           {/* Overview */}
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
             <SectionHeading
               icon={Handshake}
               label="Collaboration Overview"
@@ -583,6 +687,7 @@ export default function CollaborationDetailPage() {
             </p>
 
             <div className="mt-6 rounded-xl border border-teal-100 bg-teal-50/60 p-5">
+
               <p className="text-xs font-bold uppercase tracking-wider text-teal-700">
                 Collaboration Scope
               </p>
@@ -590,21 +695,146 @@ export default function CollaborationDetailPage() {
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 {collaboration.supportScope}
               </p>
+
             </div>
+
           </section>
 
-          {/* Roles */}
+          {/* Project Task Progress */}
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
+              <SectionHeading
+                icon={Target}
+                label="Project Work Progress"
+              />
+
+              {collaboration.progress != null && (
+                <span className="text-sm font-bold text-teal-700">
+                  {collaboration.progress}% complete
+                </span>
+              )}
+
+            </div>
+
+            {collaboration.tasks.length === 0 ? (
+
+              <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
+
+                <Target className="mx-auto h-7 w-7 text-slate-400" />
+
+                <p className="mt-3 text-sm font-semibold text-slate-700">
+                  No project tasks available
+                </p>
+
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Task-based progress will appear here once the
+                  university project team creates tasks.
+                </p>
+
+              </div>
+
+            ) : (
+
+              <div className="mt-6">
+
+                <div className="mb-5 h-2 overflow-hidden rounded-full bg-slate-100">
+
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-teal-600 to-emerald-500 transition-all"
+                    style={{
+                      width: `${collaboration.progress ?? 0}%`,
+                    }}
+                  />
+
+                </div>
+
+                <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+
+                  <TaskStat
+                    label="Total"
+                    value={taskCounts.total}
+                  />
+
+                  <TaskStat
+                    label="Completed"
+                    value={taskCounts.completed}
+                  />
+
+                  <TaskStat
+                    label="In Progress"
+                    value={taskCounts.inProgress}
+                  />
+
+                  <TaskStat
+                    label="Pending"
+                    value={taskCounts.pending}
+                  />
+
+                </div>
+
+                <div className="space-y-3">
+
+                  {collaboration.tasks.map((task) => (
+
+                    <div
+                      key={task.id}
+                      className="rounded-xl border border-slate-100 bg-slate-50/70 p-4"
+                    >
+
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+
+                        <div className="min-w-0">
+
+                          <h3 className="text-sm font-bold text-slate-900">
+                            {task.title}
+                          </h3>
+
+                          {task.description && (
+                            <p className="mt-1 text-xs leading-5 text-slate-500">
+                              {task.description}
+                            </p>
+                          )}
+
+                        </div>
+
+                        <span
+                          className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold ${getTaskStatusClass(
+                            task.status
+                          )}`}
+                        >
+                          {getTaskStatusLabel(task.status)}
+                        </span>
+
+                      </div>
+
+                    </div>
+
+                  ))}
+
+                </div>
+
+              </div>
+
+            )}
+
+          </section>
+
+          {/* Responsibilities */}
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
             <SectionHeading
               icon={Users}
               label="Partnership Responsibilities"
             />
 
             <div className="mt-5 grid gap-4 md:grid-cols-3">
+
               <RoleCard
                 title="University"
                 subtitle="Solution Development"
-                description={collaboration.universityRole}
+                description="The university team develops and executes the project solution."
                 icon={Building2}
                 iconBg="bg-teal-50"
                 iconColor="text-teal-700"
@@ -613,199 +843,145 @@ export default function CollaborationDetailPage() {
               <RoleCard
                 title="Industry"
                 subtitle="Support & Expertise"
-                description={collaboration.industryRole}
+                description="The industry partner provides the agreed collaboration support and domain expertise."
                 icon={Wrench}
                 iconBg="bg-emerald-50"
                 iconColor="text-emerald-700"
               />
 
               <RoleCard
-                title="Government"
-                subtitle="Validation & Oversight"
-                description={collaboration.governmentRole}
+                title="Project"
+                subtitle="Execution & Progress"
+                description="Project progress is tracked through the actual tasks created for the project."
                 icon={Target}
                 iconBg="bg-sky-50"
                 iconColor="text-sky-700"
               />
+
             </div>
+
           </section>
 
-          {/* Milestones */}
+          {/* Collaboration Milestones */}
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <SectionHeading
-                icon={Target}
-                label="Project Milestones"
-              />
 
-              <span className="text-xs font-semibold text-slate-400">
-                {collaboration.progress}% complete
-              </span>
-            </div>
-
-            <div className="mt-6 space-y-4">
-              {collaboration.milestones.map((milestone, index) => (
-                <div
-                  key={milestone.title}
-                  className={`relative rounded-xl border p-4 ${
-                    milestone.status === "Current"
-                      ? "border-teal-200 bg-teal-50/50"
-                      : "border-slate-100 bg-slate-50/50"
-                  }`}
-                >
-                  <div className="flex gap-4">
-                    <div
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                        milestone.status === "Completed"
-                          ? "bg-teal-600 text-white"
-                          : milestone.status === "Current"
-                            ? "bg-teal-100 text-teal-700"
-                            : "bg-slate-200 text-slate-400"
-                      }`}
-                    >
-                      {milestone.status === "Completed" ? (
-                        <Check className="h-4 w-4" />
-                      ) : (
-                        <span className="text-xs font-bold">
-                          {index + 1}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex-1">
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <h3 className="text-sm font-bold text-slate-900">
-                            {milestone.title}
-                          </h3>
-
-                          <p className="mt-1 text-xs leading-5 text-slate-500">
-                            {milestone.description}
-                          </p>
-                        </div>
-
-                        <div className="shrink-0">
-                          <span
-                            className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                              milestone.status === "Completed"
-                                ? "bg-teal-100 text-teal-700"
-                                : milestone.status === "Current"
-                                  ? "bg-amber-100 text-amber-700"
-                                  : "bg-slate-100 text-slate-500"
-                            }`}
-                          >
-                            {milestone.status}
-                          </span>
-
-                          <p className="mt-2 text-right text-[10px] text-slate-400">
-                            {milestone.date}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Activity */}
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <SectionHeading
-              icon={Clock3}
-              label="Activity Timeline"
+              icon={Target}
+              label="Collaboration Milestones"
             />
 
-            <div className="mt-6">
-              {collaboration.activity.map((item, index) => (
-                <div key={`${item.title}-${index}`} className="relative flex gap-4 pb-6 last:pb-0">
-                  {index !== collaboration.activity.length - 1 && (
-                    <div className="absolute left-[15px] top-8 h-full w-px bg-slate-200" />
-                  )}
+            <div className="mt-6 space-y-4">
 
-                  <div
-                    className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                      item.completed
-                        ? "bg-teal-100 text-teal-700"
-                        : "bg-amber-100 text-amber-700"
-                    }`}
-                  >
-                    {item.completed ? (
-                      <CheckCircle2 className="h-4 w-4" />
-                    ) : (
-                      <Clock3 className="h-4 w-4" />
-                    )}
-                  </div>
+              <Milestone
+                number={1}
+                title="Collaboration Submitted"
+                description="The collaboration proposal was submitted."
+                status="Completed"
+                date={collaboration.submitted}
+              />
 
-                  <div className="flex-1">
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-sm font-bold text-slate-800">
-                        {item.title}
-                      </h3>
+              <Milestone
+                number={2}
+                title="Current Collaboration Status"
+                description={`Current status: ${collaboration.status}.`}
+                status={
+                  collaboration.status === "Completed"
+                    ? "Completed"
+                    : "Current"
+                }
+                date="Current"
+              />
 
-                      <span className="text-[10px] font-medium text-slate-400">
-                        {item.date}
-                      </span>
-                    </div>
+              <Milestone
+                number={3}
+                title="Project Work Progress"
+                description={
+                  collaboration.progress == null
+                    ? "Project task progress is not available yet."
+                    : `${taskCounts.completed} of ${taskCounts.total} project tasks are completed.`
+                }
+                status={
+                  collaboration.progress === 100
+                    ? "Completed"
+                    : "Upcoming"
+                }
+                date={
+                  collaboration.progress === 100
+                    ? "Completed"
+                    : "Ongoing"
+                }
+              />
 
-                    <p className="mt-1 text-xs leading-5 text-slate-500">
-                      {item.description}
-                    </p>
-                  </div>
-                </div>
-              ))}
             </div>
+
           </section>
+
         </div>
 
         {/* Right */}
         <aside className="space-y-5">
-          {/* Current status */}
+
+          {/* Current Status */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
             <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
               Current Status
             </p>
 
             <div className="mt-3 flex items-center gap-3">
+
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
                 <CheckCircle2 className="h-5 w-5 text-emerald-700" />
               </div>
 
               <div>
+
                 <p className="text-base font-bold text-slate-900">
                   {collaboration.status}
                 </p>
 
                 <p className="text-xs text-slate-500">
-                  Partnership lifecycle stage
+                  Collaboration lifecycle stage
                 </p>
+
               </div>
+
             </div>
 
             <div className="mt-5">
+
               <div className="mb-2 flex items-center justify-between">
+
                 <span className="text-xs font-semibold text-slate-500">
-                  Project progress
+                  Project task progress
                 </span>
 
                 <span className="text-sm font-bold text-teal-700">
-                  {collaboration.progress}%
+                  {collaboration.progress == null
+                    ? "—"
+                    : `${collaboration.progress}%`}
                 </span>
+
               </div>
 
               <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-teal-600 to-emerald-500"
                   style={{
-                    width: `${collaboration.progress}%`,
+                    width: `${collaboration.progress ?? 0}%`,
                   }}
                 />
+
               </div>
+
             </div>
+
           </div>
 
-          {/* Next action */}
+          {/* Next Action */}
           <div className="rounded-2xl border border-teal-200 bg-gradient-to-br from-teal-50 to-emerald-50 p-5">
+
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-teal-700 shadow-sm">
               <Target className="h-5 w-5" />
             </div>
@@ -817,15 +993,18 @@ export default function CollaborationDetailPage() {
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-800">
               {collaboration.nextAction}
             </p>
+
           </div>
 
-          {/* Support details */}
+          {/* Support Details */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
             <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
               Support Details
             </p>
 
             <div className="mt-4 space-y-4">
+
               <DetailRow
                 icon={Handshake}
                 label="Support Type"
@@ -849,68 +1028,55 @@ export default function CollaborationDetailPage() {
                 label="University"
                 value={collaboration.university}
               />
+
             </div>
+
           </div>
 
-          {/* Actions */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Workspace Actions
-            </p>
+          {/* Project Link */}
+          {collaboration.projectId && (
+            <Link
+              href={`/industry/projects/${collaboration.projectId}`}
+              className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-900 p-5 text-white transition hover:bg-slate-800"
+            >
+              <div>
 
-            <div className="mt-4 space-y-2.5">
-              <Link
-  href={`/industry/collaborations/${collaboration.id}/contact`}
-  className="flex w-full items-center justify-between rounded-xl bg-teal-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-teal-800"
->
-  <span className="flex items-center gap-2">
-    <MessageSquare className="h-4 w-4" />
-    Contact Project Team
-  </span>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-teal-300">
+                  Linked Project
+                </p>
 
-  <ArrowRight className="h-4 w-4" />
-</Link>
-             <Link
-  href={`/industry/collaborations/${collaboration.id}/documents`}
-  className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-teal-300 hover:text-teal-700"
->
-  <span className="flex items-center gap-2">
-    <FileCheck2 className="h-4 w-4" />
-    View Documents
-  </span>
+                <p className="mt-1 text-sm font-bold">
+                  View Project Details
+                </p>
 
-  <ArrowRight className="h-4 w-4" />
-</Link>
-            </div>
-          </div>
+              </div>
 
-          {/* Project link */}
-          <Link
-            href={`/industry/projects/${collaboration.projectId}`}
-            className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-900 p-5 text-white transition hover:bg-slate-800"
-          >
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-teal-300">
-                Linked Project
-              </p>
+              <ArrowRight className="h-5 w-5 text-teal-300" />
 
-              <p className="mt-1 text-sm font-bold">
-                View Project Details
-              </p>
-            </div>
+            </Link>
+          )}
 
-            <ArrowRight className="h-5 w-5 text-teal-300" />
-          </Link>
         </aside>
+
       </section>
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white">
+
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-6 py-6 text-center text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between sm:text-left">
-          <p>© 2026 SamadhanX • Ideas → Action → Impact</p>
-          <p>Industry Innovation Network</p>
+
+          <p>
+            © 2026 SamadhanX • Ideas → Action → Impact
+          </p>
+
+          <p>
+            Industry Innovation Network
+          </p>
+
         </div>
+
       </footer>
+
     </main>
   );
 }
@@ -920,15 +1086,24 @@ function StatusBadge({
 }: {
   status: CollaborationStatus;
 }) {
-  const styles: Record<CollaborationStatus, string> = {
+  const styles: Record<
+    CollaborationStatus,
+    string
+  > = {
     "Pending Review":
       "bg-amber-400/15 text-amber-100 border-amber-300/20",
+
     "Under Discussion":
       "bg-sky-400/15 text-sky-100 border-sky-300/20",
+
     Active:
       "bg-emerald-400/15 text-emerald-100 border-emerald-300/20",
+
     Completed:
       "bg-teal-400/15 text-teal-100 border-teal-300/20",
+
+    Declined:
+      "bg-rose-400/15 text-rose-100 border-rose-300/20",
   };
 
   return (
@@ -949,6 +1124,7 @@ function SectionHeading({
 }) {
   return (
     <div className="flex items-center gap-3">
+
       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
         <Icon className="h-4 w-4" />
       </div>
@@ -956,6 +1132,7 @@ function SectionHeading({
       <h2 className="text-base font-bold text-slate-900">
         {label}
       </h2>
+
     </div>
   );
 }
@@ -977,10 +1154,13 @@ function RoleCard({
 }) {
   return (
     <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+
       <div
         className={`flex h-9 w-9 items-center justify-center rounded-lg ${iconBg}`}
       >
-        <Icon className={`h-4 w-4 ${iconColor}`} />
+        <Icon
+          className={`h-4 w-4 ${iconColor}`}
+        />
       </div>
 
       <p className="mt-4 text-sm font-bold text-slate-900">
@@ -994,6 +1174,7 @@ function RoleCard({
       <p className="mt-2 text-xs leading-5 text-slate-500">
         {description}
       </p>
+
     </div>
   );
 }
@@ -1009,11 +1190,13 @@ function DetailRow({
 }) {
   return (
     <div className="flex items-start gap-3">
+
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
         <Icon className="h-4 w-4" />
       </div>
 
       <div className="min-w-0">
+
         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
           {label}
         </p>
@@ -1021,18 +1204,146 @@ function DetailRow({
         <p className="mt-0.5 text-sm font-semibold leading-5 text-slate-700">
           {value}
         </p>
+
       </div>
+
     </div>
   );
 }
 
-function getLifecycleDescription(status: CollaborationStatus) {
-  const descriptions: Record<CollaborationStatus, string> = {
-    "Pending Review": "Proposal submitted",
-    "Under Discussion": "Terms and scope",
-    Active: "Execution underway",
-    Completed: "Impact delivered",
+function TaskStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        {label}
+      </p>
+
+      <p className="mt-1 text-lg font-bold text-slate-900">
+        {value}
+      </p>
+
+    </div>
+  );
+}
+
+function Milestone({
+  number,
+  title,
+  description,
+  status,
+  date,
+}: {
+  number: number;
+  title: string;
+  description: string;
+  status: "Completed" | "Current" | "Upcoming";
+  date: string;
+}) {
+  return (
+    <div
+      className={`rounded-xl border p-4 ${
+        status === "Current"
+          ? "border-teal-200 bg-teal-50/50"
+          : "border-slate-100 bg-slate-50/50"
+      }`}
+    >
+
+      <div className="flex gap-4">
+
+        <div
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+            status === "Completed"
+              ? "bg-teal-600 text-white"
+              : status === "Current"
+                ? "bg-teal-100 text-teal-700"
+                : "bg-slate-200 text-slate-400"
+          }`}
+        >
+          {status === "Completed" ? (
+            <Check className="h-4 w-4" />
+          ) : (
+            <span className="text-xs font-bold">
+              {number}
+            </span>
+          )}
+        </div>
+
+        <div className="flex-1">
+
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+
+            <div>
+
+              <h3 className="text-sm font-bold text-slate-900">
+                {title}
+              </h3>
+
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                {description}
+              </p>
+
+            </div>
+
+            <div className="shrink-0">
+
+              <span
+                className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                  status === "Completed"
+                    ? "bg-teal-100 text-teal-700"
+                    : status === "Current"
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-slate-100 text-slate-500"
+                }`}
+              >
+                {status}
+              </span>
+
+              <p className="mt-2 text-right text-[10px] text-slate-400">
+                {date}
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+
+function getLifecycleDescription(
+  status: CollaborationStatus
+) {
+  const descriptions: Record<
+    CollaborationStatus,
+    string
+  > = {
+    "Pending Review":
+      "Proposal submitted",
+
+    "Under Discussion":
+      "Terms and scope",
+
+    Active:
+      "Execution underway",
+
+    Completed:
+      "Impact delivered",
+
+    Declined:
+      "Proposal declined",
   };
 
   return descriptions[status];
 }
+

@@ -1,3 +1,4 @@
+
 import uuid
 
 from fastapi import (
@@ -90,6 +91,95 @@ def get_project_university_id(
         return None
 
     return solution.university_id
+
+
+def get_project_university_name(
+    project: Project,
+    db: Session,
+) -> str | None:
+    """
+    Resolve the university name associated with a project.
+
+    Current database structure:
+
+        Project
+            ↓
+        Solution
+            ↓
+        University
+    """
+
+    university_id = get_project_university_id(
+        project,
+        db,
+    )
+
+    if not university_id:
+        return None
+
+    university = (
+        db.query(University)
+        .filter(
+            University.id == university_id
+        )
+        .first()
+    )
+
+    if not university:
+        return None
+
+    return university.name
+
+def get_project_problem_name(
+    project: Project,
+    db: Session,
+) -> str | None:
+    """
+    Resolve the problem title associated with a project.
+    """
+
+    if not project.problem_id:
+        return None
+
+    problem = (
+        db.query(Problem)
+        .filter(
+            Problem.id == project.problem_id
+        )
+        .first()
+    )
+
+    if not problem:
+        return None
+
+    return problem.title
+
+
+def get_project_solution_name(
+    project: Project,
+    db: Session,
+) -> str | None:
+    """
+    Resolve the solution title associated with a project.
+    """
+
+    if not project.solution_id:
+        return None
+
+    solution = (
+        db.query(Solution)
+        .filter(
+            Solution.id == project.solution_id
+        )
+        .first()
+    )
+
+    if not solution:
+        return None
+
+    return solution.solution_title
+
+
 
 
 def belongs_to_same_university(
@@ -210,7 +300,6 @@ def can_edit_project(
 
     University:
         Can edit projects belonging to its own university.
-
     """
 
     role = get_role(current_user)
@@ -255,6 +344,57 @@ def can_edit_project(
         )
 
     return False
+
+
+# ============================================================
+# RESPONSE ENRICHMENT
+# ============================================================
+
+
+def enrich_project_response(
+    project: Project,
+    db: Session,
+) -> Project:
+    """
+    Add calculated fields required by the frontend.
+
+    These values are response-only and are NOT stored
+    as database columns.
+
+    Added:
+        - member_count
+        - university_name
+        - problem_name
+        - solution_name
+    """
+
+    project.member_count = get_member_count(
+        project.id,
+        db,
+    )
+
+    project.university_name = (
+        get_project_university_name(
+            project,
+            db,
+        )
+    )
+
+    project.problem_name = (
+        get_project_problem_name(
+            project,
+            db,
+        )
+    )
+
+    project.solution_name = (
+        get_project_solution_name(
+            project,
+            db,
+        )
+    )
+
+    return project
 
 
 # ============================================================
@@ -344,12 +484,12 @@ def get_projects(
     projects = query.all()
 
     # --------------------------------------------------------
-    # Add member count for frontend
+    # Add frontend response fields
     # --------------------------------------------------------
 
     for project in projects:
-        project.member_count = get_member_count(
-            project.id,
+        enrich_project_response(
+            project,
             db,
         )
 
@@ -388,8 +528,8 @@ def get_project(
             detail="Project not found",
         )
 
-    project.member_count = get_member_count(
-        project.id,
+    enrich_project_response(
+        project,
         db,
     )
 
@@ -548,8 +688,8 @@ def create_project(
     db.commit()
     db.refresh(project)
 
-    project.member_count = get_member_count(
-        project.id,
+    enrich_project_response(
+        project,
         db,
     )
 
@@ -785,9 +925,10 @@ def update_project(
     db.commit()
     db.refresh(project)
 
-    project.member_count = get_member_count(
-        project.id,
+    enrich_project_response(
+        project,
         db,
     )
 
     return project
+

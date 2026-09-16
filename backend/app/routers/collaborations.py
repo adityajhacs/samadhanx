@@ -1,3 +1,4 @@
+
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -120,11 +121,11 @@ def can_request_collaboration(
     Faculty:
         Only projects created by that Faculty.
 
+    Industry:
+        Can request collaboration for any project.
+
     Student:
         Cannot request collaboration.
-
-    Industry:
-        Cannot initiate collaboration requests here.
     """
 
     role = normalize_role(user.role)
@@ -144,6 +145,9 @@ def can_request_collaboration(
             user,
             project,
         )
+
+    if role == "industry":
+        return user.industry_id is not None
 
     return False
 
@@ -165,6 +169,9 @@ def can_manage_project_collaboration(
 
     Faculty:
         Only project creator/owner.
+
+    Industry:
+        Cannot modify/delete collaboration fields.
 
     Student:
         Cannot manage collaboration.
@@ -215,11 +222,18 @@ def get_project_or_404(
 
 
 # ============================================================
-# GET ALL COLLABORATIONS
+# GET COLLABORATIONS
 # GET /api/collaborations
 #
-# University / Faculty / Student / Industry / Admin
-# can view collaboration information.
+# Admin:
+#     Can view all collaborations.
+#
+# Industry:
+#     Can view only collaborations belonging to
+#     their own industry partner.
+#
+# University / Faculty / Student:
+#     Can view collaboration information.
 #
 # Read-only.
 # ============================================================
@@ -232,14 +246,52 @@ def get_collaborations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return db.query(Collaboration).all()
+    role = normalize_role(current_user.role)
+
+    # Admin can view everything.
+    if role == "admin":
+        return (
+            db.query(Collaboration)
+            .order_by(Collaboration.created_at.desc())
+            .all()
+        )
+
+    # Industry can only see collaborations
+    # connected to its own industry profile.
+    if role == "industry":
+        if not current_user.industry_id:
+            return []
+
+        return (
+            db.query(Collaboration)
+            .filter(
+                Collaboration.industry_partner_id
+                == current_user.industry_id
+            )
+            .order_by(Collaboration.created_at.desc())
+            .all()
+        )
+
+    # Existing behavior for other roles.
+    return (
+        db.query(Collaboration)
+        .order_by(Collaboration.created_at.desc())
+        .all()
+    )
 
 
 # ============================================================
 # GET SINGLE COLLABORATION
 # GET /api/collaborations/{collaboration_id}
 #
-# Read-only.
+# Industry:
+#     Can view only its own collaboration.
+#
+# Admin:
+#     Can view any collaboration.
+#
+# Other authenticated users:
+#     Existing read behavior remains.
 # ============================================================
 
 @router.get(
@@ -265,6 +317,22 @@ def get_collaboration(
             detail="Collaboration not found",
         )
 
+    role = normalize_role(current_user.role)
+
+    if role == "industry":
+        if (
+            not current_user.industry_id
+            or collaboration.industry_partner_id
+            != current_user.industry_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "You are not authorized to view "
+                    "this collaboration"
+                ),
+            )
+
     return collaboration
 
 
@@ -276,9 +344,9 @@ def get_collaboration(
 #   Admin
 #   University -> own university project
 #   Faculty -> project created by that Faculty
+#   Industry -> any project
 #
 # Student -> FORBIDDEN
-# Industry -> FORBIDDEN
 # ============================================================
 
 @router.post(
@@ -309,11 +377,46 @@ def create_collaboration(
             ),
         )
 
+    role = normalize_role(current_user.role)
+
+    # --------------------------------------------------------
+    # INDUSTRY OWNERSHIP
+    #
+    # Industry users cannot create a collaboration
+    # on behalf of another industry.
+    # --------------------------------------------------------
+
+    industry_partner_id = (
+        collaboration_data.industry_partner_id
+    )
+
+    if role == "industry":
+        if not current_user.industry_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Your industry account is not linked "
+                    "to an industry profile"
+                ),
+            )
+
+        if (
+            industry_partner_id
+            != current_user.industry_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "You can only create collaborations "
+                    "for your own industry profile"
+                ),
+            )
+
     partner = (
         db.query(IndustryPartner)
         .filter(
             IndustryPartner.id
-            == collaboration_data.industry_partner_id
+            == industry_partner_id
         )
         .first()
     )
@@ -326,8 +429,10 @@ def create_collaboration(
 
     collaboration = Collaboration(
         project_id=collaboration_data.project_id,
-        industry_partner_id=collaboration_data.industry_partner_id,
-        collaboration_type=collaboration_data.collaboration_type,
+        industry_partner_id=industry_partner_id,
+        collaboration_type=(
+            collaboration_data.collaboration_type
+        ),
         amount=collaboration_data.amount,
         status="REQUESTED",
         description=collaboration_data.description,
@@ -348,9 +453,9 @@ def create_collaboration(
 #   Admin
 #   University -> own university project
 #   Faculty -> project creator only
+#   Industry -> any project
 #
 # Student -> FORBIDDEN
-# Industry -> FORBIDDEN
 # ============================================================
 
 @project_collaborations_router.post(
@@ -376,7 +481,10 @@ def create_project_collaboration(
     if collaboration_data.project_id != project_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Project ID in request body does not match URL",
+            detail=(
+                "Project ID in request body does not "
+                "match URL"
+            ),
         )
 
     # --------------------------------------------------------
@@ -396,11 +504,44 @@ def create_project_collaboration(
             ),
         )
 
+    role = normalize_role(current_user.role)
+
+    # --------------------------------------------------------
+    # Industry can only send request using its own
+    # industry profile.
+    # --------------------------------------------------------
+
+    industry_partner_id = (
+        collaboration_data.industry_partner_id
+    )
+
+    if role == "industry":
+        if not current_user.industry_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Your industry account is not linked "
+                    "to an industry profile"
+                ),
+            )
+
+        if (
+            industry_partner_id
+            != current_user.industry_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "You can only create collaborations "
+                    "for your own industry profile"
+                ),
+            )
+
     partner = (
         db.query(IndustryPartner)
         .filter(
             IndustryPartner.id
-            == collaboration_data.industry_partner_id
+            == industry_partner_id
         )
         .first()
     )
@@ -413,8 +554,10 @@ def create_project_collaboration(
 
     collaboration = Collaboration(
         project_id=project_id,
-        industry_partner_id=collaboration_data.industry_partner_id,
-        collaboration_type=collaboration_data.collaboration_type,
+        industry_partner_id=industry_partner_id,
+        collaboration_type=(
+            collaboration_data.collaboration_type
+        ),
         amount=collaboration_data.amount,
         status="REQUESTED",
         description=collaboration_data.description,
@@ -433,8 +576,9 @@ def create_project_collaboration(
 #
 # Read-only.
 #
-# University / Faculty / Student can view.
-# Other universities' collaborations are also viewable.
+# Existing behavior preserved:
+# All authenticated users can view collaborations
+# for a project.
 # ============================================================
 
 @project_collaborations_router.get(
@@ -474,8 +618,11 @@ def get_project_collaborations(
 #   Faculty -> own project only
 #   Admin
 #
+# Industry:
+#   Cannot modify non-status fields.
+#
 # Student:
-#   Cannot update
+#   Cannot update.
 # ============================================================
 
 @router.patch(
@@ -507,11 +654,30 @@ def update_collaboration(
         db,
     )
 
+    role = normalize_role(current_user.role)
+
+    # --------------------------------------------------------
+    # Industry can only update the status of its own
+    # collaboration.
+    # --------------------------------------------------------
+
+    if role == "industry":
+        if (
+            not current_user.industry_id
+            or collaboration.industry_partner_id
+            != current_user.industry_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "You are not authorized to update "
+                    "this collaboration"
+                ),
+            )
+
     update_data = collaboration_data.model_dump(
         exclude_unset=True
     )
-
-    role = normalize_role(current_user.role)
 
     # --------------------------------------------------------
     # STATUS UPDATE
@@ -521,7 +687,7 @@ def update_collaboration(
 
         new_status = update_data["status"]
 
-        # Only Industry / Admin can update status
+        # Only Industry / Admin can update status.
         if role not in {"industry", "admin"}:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -599,10 +765,10 @@ def update_collaboration(
 # Faculty:
 #   Project creator only
 #
-# Student:
-#   FORBIDDEN
-#
 # Industry:
+#   Cannot delete
+#
+# Student:
 #   FORBIDDEN
 # ============================================================
 
@@ -651,3 +817,4 @@ def delete_collaboration(
     db.commit()
 
     return None
+

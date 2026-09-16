@@ -1,124 +1,294 @@
+
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Building2,
   CheckCircle2,
   Edit3,
-  Globe2,
   Handshake,
   Mail,
   MapPin,
-  Phone,
   Save,
   ShieldCheck,
   Target,
-  Users,
+  Wrench,
 } from "lucide-react";
+import { apiRequest, getAuthToken } from "@/lib/api/client";
+
+interface CurrentUser {
+  id: string;
+  role: string | null;
+  industry_id: string | null;
+}
+
+interface IndustryPartner {
+  id: string;
+  name: string;
+  industry_type: string | null;
+  description: string | null;
+  location: string | null;
+  contact_email: string | null;
+  created_at: string | null;
+}
+
+interface IndustryPartnerUpdate {
+  name: string;
+  industry_type: string | null;
+  description: string | null;
+  location: string | null;
+  contact_email: string | null;
+}
 
 export default function IndustryProfilePage() {
+  const [company, setCompany] = useState<IndustryPartner | null>(null);
+
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const [company, setCompany] = useState({
-    name: "Tata Technologies",
-    type: "Technology & Engineering",
-    email: "industry@example.com",
-    phone: "+91 98765 43210",
-    website: "www.example.com",
-    location: "Ranchi, Jharkhand",
-    about:
-      "Technology and engineering organization supporting innovation projects through technical expertise, prototyping, testing and field deployment.",
-  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSave = () => {
-    setEditing(false);
-    setSaved(true);
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-    setTimeout(() => {
-      setSaved(false);
-    }, 2500);
+        const token = getAuthToken();
+
+        if (!token) {
+          throw new Error("Authentication required");
+        }
+
+        // Step 1: Get current logged-in user
+        const currentUser = await apiRequest<CurrentUser>(
+          "/api/auth/me",
+          {
+            method: "GET",
+            token,
+          }
+        );
+
+        // Step 2: Get industry_id from logged-in user
+        if (!currentUser.industry_id) {
+          throw new Error(
+            "No industry profile is linked to this account."
+          );
+        }
+
+        // Step 3: Get industry profile from backend
+        const industry = await apiRequest<IndustryPartner>(
+          `/api/industry/${currentUser.industry_id}`,
+          {
+            method: "GET",
+            token,
+          }
+        );
+
+        setCompany(industry);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load industry profile."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, []);
+
+  const handleChange = (
+    field: keyof IndustryPartner,
+    value: string
+  ) => {
+    if (!company) return;
+
+    setCompany({
+      ...company,
+      [field]: value,
+    });
   };
+
+  const handleSave = async () => {
+    if (!company) return;
+
+    try {
+      setSaving(true);
+      setError(null);
+
+      const token = getAuthToken();
+
+      if (!token) {
+        throw new Error("Authentication required");
+      }
+
+      const payload: IndustryPartnerUpdate = {
+        name: company.name,
+        industry_type: company.industry_type,
+        description: company.description,
+        location: company.location,
+        contact_email: company.contact_email,
+      };
+
+      const updatedIndustry = await apiRequest<IndustryPartner>(
+        `/api/industry/${company.id}`,
+        {
+          method: "PATCH",
+          token,
+          body: JSON.stringify(payload),
+        }
+      );
+
+      setCompany(updatedIndustry);
+      setEditing(false);
+      setSaved(true);
+
+      setTimeout(() => {
+        setSaved(false);
+      }, 2500);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to save industry profile."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-100">
+        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+          <p className="text-sm font-semibold text-slate-600">
+            Loading industry profile...
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (error || !company) {
+    return (
+      <main className="min-h-screen bg-slate-100 text-slate-900">
+        <nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+            <Link
+              href="/industry/dashboard"
+              className="flex items-center gap-2.5"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-700 text-sm font-bold text-white shadow-sm">
+                S
+              </div>
+
+              <div>
+                <p className="text-lg font-bold tracking-tight text-slate-900">
+                  SamadhanX
+                </p>
+
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Ideas → Action → Impact
+                </p>
+              </div>
+            </Link>
+          </div>
+        </nav>
+
+        <div className="mx-auto max-w-3xl px-6 py-12">
+          <div className="rounded-3xl border border-red-200 bg-white p-8 shadow-sm">
+            <p className="text-sm font-bold text-red-600">
+              Unable to load profile
+            </p>
+
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              {error ?? "Industry profile not found."}
+            </p>
+
+            <Link
+              href="/industry/dashboard"
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-teal-800"
+            >
+              <ArrowLeft size={15} />
+              Back to Dashboard
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
       {/* Navbar */}
+      <nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+          {/* Logo */}
+          <Link
+            href="/industry/dashboard"
+            className="flex items-center gap-2.5"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-700 text-sm font-bold text-white shadow-sm">
+              S
+            </div>
 
-<nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
-  <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-    
-    {/* Logo */}
-    <Link
-      href="/industry/dashboard"
-      className="flex items-center gap-2.5"
-    >
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-700 text-sm font-bold text-white shadow-sm">
-        S
-      </div>
+            <div>
+              <p className="text-lg font-bold tracking-tight text-slate-900">
+                SamadhanX
+              </p>
 
-      <div>
-        <p className="text-lg font-bold tracking-tight text-slate-900">
-          SamadhanX
-        </p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Ideas → Action → Impact
+              </p>
+            </div>
+          </Link>
 
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-          Ideas → Action → Impact
-        </p>
-      </div>
-    </Link>
+          {/* Navigation */}
+          <div className="hidden items-center gap-7 md:flex">
+            <Link
+              href="/industry/dashboard"
+              className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+            >
+              Dashboard
+            </Link>
 
-    {/* Navigation */}
-    <div className="hidden items-center gap-7 md:flex">
+            <Link
+              href="/industry/projects"
+              className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+            >
+              Projects
+            </Link>
 
-      <Link
-        href="/industry/dashboard"
-        className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
-      >
-        Dashboard
-      </Link>
+            <Link
+              href="/industry/collaborations"
+              className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+            >
+              Collaborations
+            </Link>
 
-      <Link
-        href="/industry/projects"
-        className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
-      >
-        Projects
-      </Link>
+            <Link
+              href="/industry/profile"
+              className="text-sm font-semibold text-teal-700"
+            >
+              Profile
+            </Link>
 
-      <Link
-        href="/industry/collaborations"
-        className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
-      >
-        Collaborations
-      </Link>
-
-      <Link
-        href="/industry/investments"
-        className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
-      >
-        Investments
-      </Link>
-
-      <Link
-        href="/industry/profile"
-        className="text-sm font-semibold text-teal-700"
-      >
-        Profile
-      </Link>
-
-      <Link
-        href="/industry/projects"
-        className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800"
-      >
-        Explore Projects
-      </Link>
-
-    </div>
-  </div>
-</nav>
-
-
+            <Link
+              href="/industry/projects"
+              className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800"
+            >
+              Explore Projects
+            </Link>
+          </div>
+        </div>
+      </nav>
 
       {/* Header */}
       <section className="border-b border-teal-900 bg-gradient-to-br from-teal-950 via-teal-900 to-emerald-950">
@@ -164,10 +334,7 @@ export default function IndustryProfilePage() {
               <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
                 <div className="flex items-start gap-4">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-100">
-                    <Building2
-                      size={27}
-                      className="text-teal-700"
-                    />
+                    <Building2 size={27} className="text-teal-700" />
                   </div>
 
                   <div>
@@ -180,7 +347,7 @@ export default function IndustryProfilePage() {
                     </h2>
 
                     <p className="mt-1 text-sm text-slate-500">
-                      {company.type}
+                      {company.industry_type || "Industry Partner"}
                     </p>
                   </div>
                 </div>
@@ -198,10 +365,11 @@ export default function IndustryProfilePage() {
                   <button
                     type="button"
                     onClick={handleSave}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-teal-800"
+                    disabled={saving}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Save size={15} />
-                    Save Changes
+                    {saving ? "Saving..." : "Save Changes"}
                   </button>
                 )}
               </div>
@@ -211,77 +379,53 @@ export default function IndustryProfilePage() {
                   label="Company Name"
                   value={company.name}
                   editing={editing}
+                  onChange={(value) => handleChange("name", value)}
+                />
+
+                <ProfileField
+                  label="Industry Type"
+                  value={company.industry_type ?? ""}
+                  editing={editing}
                   onChange={(value) =>
-                    setCompany({ ...company, name: value })
+                    handleChange("industry_type", value)
                   }
                 />
 
                 <ProfileField
-                  label="Organization Type"
-                  value={company.type}
+                  label="Contact Email"
+                  value={company.contact_email ?? ""}
                   editing={editing}
                   onChange={(value) =>
-                    setCompany({ ...company, type: value })
-                  }
-                />
-
-                <ProfileField
-                  label="Email"
-                  value={company.email}
-                  editing={editing}
-                  onChange={(value) =>
-                    setCompany({ ...company, email: value })
-                  }
-                />
-
-                <ProfileField
-                  label="Phone"
-                  value={company.phone}
-                  editing={editing}
-                  onChange={(value) =>
-                    setCompany({ ...company, phone: value })
-                  }
-                />
-
-                <ProfileField
-                  label="Website"
-                  value={company.website}
-                  editing={editing}
-                  onChange={(value) =>
-                    setCompany({ ...company, website: value })
+                    handleChange("contact_email", value)
                   }
                 />
 
                 <ProfileField
                   label="Location"
-                  value={company.location}
+                  value={company.location ?? ""}
                   editing={editing}
-                  onChange={(value) =>
-                    setCompany({ ...company, location: value })
-                  }
+                  onChange={(value) => handleChange("location", value)}
                 />
               </div>
 
               <div className="mt-5">
                 <label className="mb-2 block text-sm font-semibold text-slate-800">
-                  About Organization
+                  Organization Description
                 </label>
 
                 {editing ? (
                   <textarea
-                    value={company.about}
+                    value={company.description ?? ""}
                     onChange={(event) =>
-                      setCompany({
-                        ...company,
-                        about: event.target.value,
-                      })
+                      handleChange("description", event.target.value)
                     }
                     rows={5}
                     className="w-full resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm leading-6 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
                   />
                 ) : (
                   <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-                    {company.about}
+                    {company.description ||
+                      "No organization description provided."}
                   </p>
                 )}
               </div>
@@ -290,6 +434,12 @@ export default function IndustryProfilePage() {
                 <div className="mt-5 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
                   <CheckCircle2 size={17} />
                   Profile changes saved successfully.
+                </div>
+              )}
+
+              {error && (
+                <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                  {error}
                 </div>
               )}
             </section>
@@ -309,38 +459,38 @@ export default function IndustryProfilePage() {
 
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 <InterestCard
-                  title="Funding & Investment"
-                  description="Support promising projects financially."
-                  active
-                />
-
-                <InterestCard
-                  title="Technical Support"
-                  description="Provide engineering and technical expertise."
-                  active
-                />
-
-                <InterestCard
-                  title="Testing & Validation"
-                  description="Help validate prototypes in real conditions."
-                  active
-                />
-
-                <InterestCard
-                  title="Prototyping & Manufacturing"
-                  description="Support product development and production."
-                  active
-                />
-
-                <InterestCard
-                  title="Field Pilot"
-                  description="Support real-world deployment and testing."
+                  title="Funding"
+                  description="Provide financial support to promising projects."
                   active
                 />
 
                 <InterestCard
                   title="Mentorship"
                   description="Guide university teams with industry expertise."
+                  active
+                />
+
+                <InterestCard
+                  title="Hardware"
+                  description="Provide hardware, equipment and technical resources."
+                  active
+                />
+
+                <InterestCard
+                  title="Testing"
+                  description="Help validate prototypes in real conditions."
+                  active
+                />
+
+                <InterestCard
+                  title="Prototyping"
+                  description="Support prototype development and engineering."
+                  active
+                />
+
+                <InterestCard
+                  title="Technical Expertise"
+                  description="Support projects through engineering and domain knowledge."
                   active
                 />
               </div>
@@ -373,10 +523,7 @@ export default function IndustryProfilePage() {
 
               <div className="mt-5 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                  <ShieldCheck
-                    size={20}
-                    className="text-emerald-700"
-                  />
+                  <ShieldCheck size={20} className="text-emerald-700" />
                 </div>
 
                 <div>
@@ -390,21 +537,23 @@ export default function IndustryProfilePage() {
                 </div>
               </div>
 
-              <div className="mt-5 space-y-4">
-                <StatusRow
-                  label="Profile Completion"
-                  value="92%"
-                />
+              <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-100">
+                    <Wrench size={17} className="text-teal-700" />
+                  </div>
 
-                <StatusRow
-                  label="Partnerships"
-                  value="7 Active"
-                />
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">
+                      Industry Innovation Partner
+                    </p>
 
-                <StatusRow
-                  label="Projects Supported"
-                  value="12"
-                />
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      Your organization can collaborate with university teams
+                      on innovation projects.
+                    </p>
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -418,25 +567,15 @@ export default function IndustryProfilePage() {
                 <ContactRow
                   icon={Mail}
                   label="Email"
-                  value={company.email}
-                />
-
-                <ContactRow
-                  icon={Phone}
-                  label="Phone"
-                  value={company.phone}
-                />
-
-                <ContactRow
-                  icon={Globe2}
-                  label="Website"
-                  value={company.website}
+                  value={
+                    company.contact_email || "No email provided"
+                  }
                 />
 
                 <ContactRow
                   icon={MapPin}
                   label="Location"
-                  value={company.location}
+                  value={company.location || "No location provided"}
                 />
               </div>
             </section>
@@ -444,7 +583,7 @@ export default function IndustryProfilePage() {
             {/* Partnership Summary */}
             <section className="rounded-3xl border border-teal-200 bg-teal-50/70 p-6">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-100">
-                <Users size={19} className="text-teal-700" />
+                <Handshake size={19} className="text-teal-700" />
               </div>
 
               <p className="mt-4 text-xs font-bold uppercase tracking-wider text-teal-700">
@@ -457,7 +596,7 @@ export default function IndustryProfilePage() {
 
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 Your organization can support projects through funding,
-                expertise, testing, prototyping and field deployment.
+                mentorship, hardware, testing and prototyping.
               </p>
 
               <Link
@@ -534,7 +673,7 @@ function ProfileField({
         />
       ) : (
         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-          {value}
+          {value || "Not provided"}
         </div>
       )}
     </div>
@@ -595,22 +734,6 @@ function GoalRow({ text }: { text: string }) {
   );
 }
 
-function StatusRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center justify-between border-b border-slate-100 pb-3 last:border-0 last:pb-0">
-      <span className="text-xs text-slate-500">{label}</span>
-
-      <span className="text-sm font-bold text-slate-800">{value}</span>
-    </div>
-  );
-}
-
 function ContactRow({
   icon: Icon,
   label,
@@ -636,3 +759,4 @@ function ContactRow({
     </div>
   );
 }
+

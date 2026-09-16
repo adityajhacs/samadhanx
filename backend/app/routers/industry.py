@@ -1,3 +1,4 @@
+
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -5,28 +6,15 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.auth import get_current_user
+
 from app.models.industry_partner import IndustryPartner
 from app.models.user import User
+
 from app.schemas.industry_partner import (
     IndustryPartnerCreate,
     IndustryPartnerUpdate,
     IndustryPartnerResponse,
 )
-
-
-# ============================================================
-# Allowed roles for Industry write operations
-# ============================================================
-
-ALLOWED_INDUSTRY_WRITE_ROLES = {
-    "CITIZEN",
-    "UNIVERSITY",
-    "STUDENT",
-    "FACULTY",
-    "INDUSTRY",
-    "GOVERNMENT",
-    "ADMIN",
-}
 
 
 # ============================================================
@@ -40,8 +28,81 @@ router = APIRouter(
 
 
 # ============================================================
+# ROLE HELPER
+# ============================================================
+
+def get_role(current_user: User) -> str:
+    """
+    Normalize the current user's role.
+
+    This keeps role checks consistent across the backend,
+    regardless of whether the database contains:
+        industry
+        INDUSTRY
+        Industry
+    """
+
+    return (current_user.role or "").strip().lower()
+
+
+# ============================================================
+# INDUSTRY ACCESS
+# ============================================================
+
+def require_industry_write_access(
+    current_user: User,
+):
+    """
+    Only Industry and Admin users can create, update,
+    or delete industry partner records.
+
+    Other portal roles are read-only.
+    """
+
+    role = get_role(current_user)
+
+    if role not in {
+        "industry",
+        "admin",
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Only industry and admin users can "
+                "manage industry partners"
+            ),
+        )
+
+
+def require_industry_or_admin(
+    current_user: User,
+):
+    """
+    Explicit helper for operations that require
+    Industry or Admin access.
+    """
+
+    role = get_role(current_user)
+
+    if role not in {
+        "industry",
+        "admin",
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Only industry and admin users have "
+                "access to this operation"
+            ),
+        )
+
+
+# ============================================================
 # GET /api/industry
-# Get all industry partners
+#
+# Get all industry partners.
+#
+# Authenticated users can view industry partners.
 # ============================================================
 
 @router.get(
@@ -50,15 +111,23 @@ router = APIRouter(
 )
 def get_industry_partners(
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    partners = db.query(IndustryPartner).all()
+    partners = (
+        db.query(IndustryPartner)
+        .order_by(IndustryPartner.name.asc())
+        .all()
+    )
 
     return partners
 
 
 # ============================================================
 # GET /api/industry/{industry_id}
-# Get one industry partner
+#
+# Get one industry partner.
+#
+# Authenticated users can view an industry partner.
 # ============================================================
 
 @router.get(
@@ -68,10 +137,13 @@ def get_industry_partners(
 def get_industry_partner(
     industry_id: uuid.UUID,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     partner = (
         db.query(IndustryPartner)
-        .filter(IndustryPartner.id == industry_id)
+        .filter(
+            IndustryPartner.id == industry_id
+        )
         .first()
     )
 
@@ -86,7 +158,11 @@ def get_industry_partner(
 
 # ============================================================
 # POST /api/industry
-# Create industry partner
+#
+# Create industry partner.
+#
+# Industry + Admin -> allowed
+# Others            -> forbidden
 # ============================================================
 
 @router.post(
@@ -99,11 +175,9 @@ def create_industry_partner(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role not in ALLOWED_INDUSTRY_WRITE_ROLES:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to create an industry partner",
-        )
+    require_industry_write_access(
+        current_user
+    )
 
     partner = IndustryPartner(
         name=partner_data.name,
@@ -122,7 +196,11 @@ def create_industry_partner(
 
 # ============================================================
 # PATCH /api/industry/{industry_id}
-# Update industry partner
+#
+# Update industry partner.
+#
+# Industry + Admin -> allowed
+# Others            -> forbidden
 # ============================================================
 
 @router.patch(
@@ -135,15 +213,15 @@ def update_industry_partner(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role not in ALLOWED_INDUSTRY_WRITE_ROLES:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to update an industry partner",
-        )
+    require_industry_write_access(
+        current_user
+    )
 
     partner = (
         db.query(IndustryPartner)
-        .filter(IndustryPartner.id == industry_id)
+        .filter(
+            IndustryPartner.id == industry_id
+        )
         .first()
     )
 
@@ -158,7 +236,11 @@ def update_industry_partner(
     )
 
     for field, value in update_data.items():
-        setattr(partner, field, value)
+        setattr(
+            partner,
+            field,
+            value,
+        )
 
     db.commit()
     db.refresh(partner)
@@ -168,7 +250,11 @@ def update_industry_partner(
 
 # ============================================================
 # DELETE /api/industry/{industry_id}
-# Delete industry partner
+#
+# Delete industry partner.
+#
+# Industry + Admin -> allowed
+# Others            -> forbidden
 # ============================================================
 
 @router.delete(
@@ -180,15 +266,15 @@ def delete_industry_partner(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role not in ALLOWED_INDUSTRY_WRITE_ROLES:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to delete an industry partner",
-        )
+    require_industry_write_access(
+        current_user
+    )
 
     partner = (
         db.query(IndustryPartner)
-        .filter(IndustryPartner.id == industry_id)
+        .filter(
+            IndustryPartner.id == industry_id
+        )
         .first()
     )
 
@@ -202,3 +288,4 @@ def delete_industry_partner(
     db.commit()
 
     return None
+

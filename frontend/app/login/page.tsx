@@ -69,7 +69,7 @@ setTimeout(() => {
   } else if (role === "industry") {
     router.push("/industry/dashboard");
   } else {
-    router.push("/");
+    router.push("/citizen/dashboard");
   }
 }, 500);
     } catch (err) {

@@ -42,22 +42,26 @@ class ProjectResponse(BaseModel):
     id: uuid.UUID
     problem_id: uuid.UUID | None
     solution_id: uuid.UUID | None
+
+    problem_name: str | None = None
+    solution_name: str | None = None
+
     title: str
-    description: str | None
-    status: str | None
-    created_by: uuid.UUID | None
+    description: str | None = None
+    status: str | None = None
+    created_by: uuid.UUID | None = None
 
-    deadline: datetime | None
+    deadline: datetime | None = None
     progress: int
-    budget: float | None
-    expected_impact: int | None
+    budget: float | None = None
+    expected_impact: int | None = None
 
-    prototype_name: str | None
-    prototype_url: str | None
+    prototype_name: str | None = None
+    prototype_url: str | None = None
+    university_name: str | None = None
     member_count: int = 0
 
-
-    created_at: datetime | None
-    updated_at: datetime | None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)

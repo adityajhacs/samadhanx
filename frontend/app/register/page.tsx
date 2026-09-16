@@ -203,7 +203,7 @@ export default function RegisterPage() {
       ) {
         router.push("/university/dashboard");
       } else {
-        router.push("/");
+        router.push("/citizen/dashboard");
       }
     } catch (err) {
       setError(

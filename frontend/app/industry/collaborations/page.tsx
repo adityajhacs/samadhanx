@@ -1,6 +1,8 @@
+
 "use client";
 
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   ArrowRight,
@@ -10,15 +12,12 @@ import {
   Clock3,
   FlaskConical,
   Handshake,
-  MapPin,
   Search,
   Target,
   Users,
   Wrench,
   XCircle,
 } from "lucide-react";
-
-import { useEffect, useMemo, useState } from "react";
 
 import {
   getCollaborations,
@@ -36,10 +35,9 @@ type CollaborationStatus =
 type SupportType =
   | "Funding"
   | "Mentorship"
+  | "Hardware"
   | "Testing"
-  | "Prototyping"
-  | "Field Pilot"
-  | "Technical Support";
+  | "Prototyping";
 
 type CollaborationItem = {
   id: string;
@@ -47,11 +45,9 @@ type CollaborationItem = {
   project: string;
   problem: string;
   university: string;
-  location: string;
   supportType: SupportType;
   status: CollaborationStatus;
   amount: string;
-  progress: number;
   submitted: string;
   description: string;
 };
@@ -67,36 +63,31 @@ const statusMap: Record<string, CollaborationStatus> = {
 const supportTypeMap: Record<string, SupportType> = {
   FUNDING: "Funding",
   MENTORSHIP: "Mentorship",
+  HARDWARE: "Hardware",
   TESTING: "Testing",
   PROTOTYPING: "Prototyping",
-  HARDWARE: "Technical Support",
-};
-
-const statusProgress: Record<string, number> = {
-  IDEA: 10,
-  VALIDATION: 20,
-  TEAM_FORMATION: 30,
-  SOLUTION_DESIGN: 40,
-  PROTOTYPE: 60,
-  FIELD_PILOT: 75,
-  DEPLOYED: 90,
-  IMPACT_MEASUREMENT: 100,
 };
 
 function formatAmount(amount: number | null) {
-  if (amount == null) return "—";
+  if (amount == null) {
+    return "—";
+  }
 
   return `₹${amount.toLocaleString("en-IN")}`;
 }
-
-
 
 function formatDate(date: string | null) {
   if (!date) {
     return "—";
   }
 
-  return new Date(date).toLocaleDateString("en-IN", {
+  const parsedDate = new Date(date);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "—";
+  }
+
+  return parsedDate.toLocaleDateString("en-IN", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -118,35 +109,33 @@ const supportConfig: Record<
     iconColor: "text-amber-700",
     label: "Financial Support",
   },
+
   Mentorship: {
     icon: Users,
     iconBg: "bg-teal-50",
     iconColor: "text-teal-700",
     label: "Industry Mentorship",
   },
+
+  Hardware: {
+    icon: Wrench,
+    iconBg: "bg-slate-100",
+    iconColor: "text-slate-700",
+    label: "Hardware Support",
+  },
+
   Testing: {
     icon: FlaskConical,
     iconBg: "bg-sky-50",
     iconColor: "text-sky-700",
     label: "Testing & Validation",
   },
+
   Prototyping: {
     icon: Wrench,
     iconBg: "bg-emerald-50",
     iconColor: "text-emerald-700",
     label: "Prototype Support",
-  },
-  "Field Pilot": {
-    icon: Target,
-    iconBg: "bg-cyan-50",
-    iconColor: "text-cyan-700",
-    label: "Field Pilot",
-  },
-  "Technical Support": {
-    icon: Wrench,
-    iconBg: "bg-slate-100",
-    iconColor: "text-slate-700",
-    label: "Technical Support",
   },
 };
 
@@ -167,6 +156,7 @@ const statusConfig: Record<
     border: "border-amber-200",
     description: "Awaiting review",
   },
+
   "Under Discussion": {
     icon: Users,
     bg: "bg-sky-50",
@@ -174,6 +164,7 @@ const statusConfig: Record<
     border: "border-sky-200",
     description: "Terms being discussed",
   },
+
   Active: {
     icon: CheckCircle2,
     bg: "bg-emerald-50",
@@ -181,6 +172,7 @@ const statusConfig: Record<
     border: "border-emerald-200",
     description: "Collaboration active",
   },
+
   Completed: {
     icon: CheckCircle2,
     bg: "bg-teal-50",
@@ -188,6 +180,7 @@ const statusConfig: Record<
     border: "border-teal-200",
     description: "Successfully completed",
   },
+
   Declined: {
     icon: XCircle,
     bg: "bg-rose-50",
@@ -198,11 +191,15 @@ const statusConfig: Record<
 };
 
 export default function IndustryCollaborationsPage() {
-  const [collaborations, setCollaborations] = useState<CollaborationItem[]>([]);
+  const [collaborations, setCollaborations] = useState<
+    CollaborationItem[]
+  >([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
+
   const [statusFilter, setStatusFilter] = useState<
     "All" | CollaborationStatus
   >("All");
@@ -212,132 +209,152 @@ export default function IndustryCollaborationsPage() {
   >("All");
 
   const [showFilters, setShowFilters] = useState(false);
-useEffect(() => {
-  let cancelled = false;
 
-  async function loadCollaborations() {
-    try {
-      setLoading(true);
-      setError("");
+  useEffect(() => {
+    let cancelled = false;
 
-      const apiCollaborations = await getCollaborations();
+    async function loadCollaborations() {
+      try {
+        setLoading(true);
+        setError("");
 
-      const results = await Promise.all(
-        apiCollaborations.map(async (collaboration) => {
-          let project: Project | null = null;
+        /*
+         * Backend is responsible for returning only the
+         * collaborations belonging to the currently
+         * authenticated industry user.
+         *
+         * This can include:
+         * - requests sent by this industry
+         * - requests received by this industry
+         */
+        const apiCollaborations = await getCollaborations();
 
-          if (collaboration.project_id) {
-            try {
-              project = await getProject(collaboration.project_id);
-            } catch (projectError) {
-              console.error(
-                `Failed to load project ${collaboration.project_id}`,
-                projectError
-              );
+        const results = await Promise.all(
+          apiCollaborations.map(async (collaboration) => {
+            let project: Project | null = null;
+
+            if (collaboration.project_id) {
+              try {
+                project = await getProject(
+                  collaboration.project_id
+                );
+              } catch (projectError) {
+                console.error(
+                  `Failed to load project ${collaboration.project_id}`,
+                  projectError
+                );
+              }
             }
-          }
 
-          return {
-            id: collaboration.id,
+            return {
+              id: collaboration.id,
 
-            projectId: collaboration.project_id ?? "",
+              projectId: collaboration.project_id ?? "",
 
-            project:
-              project?.title ??
-              "Untitled Project",
+              project:
+                project?.title ??
+                "Project information unavailable",
 
-            problem:
-              project?.description ??
-              collaboration.description ??
-              "No project description available",
+              problem:
+                project?.description ??
+                "No project description available.",
 
-            university:
-              "University information unavailable",
+              university:
+                project?.university_name ??
+                "University information unavailable",
 
-            location:
-              "Location unavailable",
+              supportType:
+                supportTypeMap[
+                  collaboration.collaboration_type ?? ""
+                ] ?? "Mentorship",
 
-            supportType:
-              supportTypeMap[
-                collaboration.collaboration_type ?? ""
-              ] ?? "Technical Support",
+              status:
+                statusMap[
+                  collaboration.status ?? ""
+                ] ?? "Pending Review",
 
-            status:
-              statusMap[
-                collaboration.status ?? ""
-              ] ?? "Pending Review",
+              amount: formatAmount(collaboration.amount),
 
-            amount:
-              formatAmount(collaboration.amount),
+              submitted: formatDate(
+                collaboration.created_at
+              ),
 
-            progress:
-              statusProgress[
-                project?.status ?? ""
-              ] ?? 0,
-
-            submitted:
-              formatDate(collaboration.created_at),
-
-            description:
-              collaboration.description ??
-              project?.description ??
-              "No collaboration description available",
-          } satisfies CollaborationItem;
-        })
-      );
-
-      if (!cancelled) {
-        setCollaborations(results);
-      }
-    } catch (err) {
-      console.error(
-        "Failed to load collaborations:",
-        err
-      );
-
-      if (!cancelled) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load collaborations"
+              description:
+                collaboration.description ??
+                "No collaboration description available.",
+            } satisfies CollaborationItem;
+          })
         );
-      }
-    } finally {
-      if (!cancelled) {
-        setLoading(false);
+
+        if (!cancelled) {
+          setCollaborations(results);
+        }
+      } catch (err) {
+        console.error(
+          "Failed to load collaborations:",
+          err
+        );
+
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load collaborations."
+          );
+
+          /*
+           * Authentication/backend errors are real errors.
+           * A simple "no collaborations" response is NOT
+           * treated as an error.
+           */
+          setCollaborations([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
-  }
 
-  loadCollaborations();
+    loadCollaborations();
 
-  return () => {
-    cancelled = true;
-  };
-}, []);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredCollaborations = useMemo(() => {
     return collaborations.filter((item) => {
       const query = search.toLowerCase().trim();
 
       const matchesSearch =
-  !query ||
-  item.id.toLowerCase().includes(query) ||
-  item.project.toLowerCase().includes(query) ||
-  item.problem.toLowerCase().includes(query) ||
-  item.university.toLowerCase().includes(query) ||
-  item.location.toLowerCase().includes(query) ||
-  item.supportType.toLowerCase().includes(query);
+        !query ||
+        item.id.toLowerCase().includes(query) ||
+        item.project.toLowerCase().includes(query) ||
+        item.problem.toLowerCase().includes(query) ||
+        item.university.toLowerCase().includes(query) ||
+        item.supportType.toLowerCase().includes(query);
 
       const matchesStatus =
-        statusFilter === "All" || item.status === statusFilter;
+        statusFilter === "All" ||
+        item.status === statusFilter;
 
       const matchesSupport =
         supportFilter === "All" ||
         item.supportType === supportFilter;
 
-      return matchesSearch && matchesStatus && matchesSupport;
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesSupport
+      );
     });
-  }, [collaborations, search, statusFilter, supportFilter]);
+  }, [
+    collaborations,
+    search,
+    statusFilter,
+    supportFilter,
+  ]);
 
   const activeCount = collaborations.filter(
     (item) => item.status === "Active"
@@ -355,117 +372,112 @@ useEffect(() => {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
+
       {/* Navbar */}
-    
-<nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
-  <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-    
-    {/* Logo */}
-    <Link
-      href="/industry/dashboard"
-      className="flex items-center gap-2.5"
-    >
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-700 text-sm font-bold text-white shadow-sm">
-        S
-      </div>
+      <nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
 
-      <div>
-        <p className="text-lg font-bold tracking-tight text-slate-900">
-          SamadhanX
-        </p>
+          <Link
+            href="/industry/dashboard"
+            className="flex items-center gap-2.5"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-700 text-sm font-bold text-white shadow-sm">
+              S
+            </div>
 
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-          Ideas → Action → Impact
-        </p>
-      </div>
-    </Link>
+            <div>
+              <p className="text-lg font-bold tracking-tight text-slate-900">
+                SamadhanX
+              </p>
 
-    {/* Navigation */}
-    <div className="hidden items-center gap-7 md:flex">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Ideas → Action → Impact
+              </p>
+            </div>
+          </Link>
 
-      <Link
-        href="/industry/dashboard"
-        className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
-      >
-        Dashboard
-      </Link>
+          <div className="hidden items-center gap-7 md:flex">
 
-      <Link
-        href="/industry/projects"
-        className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
-      >
-        Projects
-      </Link>
+            <Link
+              href="/industry/dashboard"
+              className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+            >
+              Dashboard
+            </Link>
 
-      <Link
-        href="/industry/collaborations"
-        className="text-sm font-semibold text-teal-700"
-      >
-        Collaborations
-      </Link>
+            <Link
+              href="/industry/projects"
+              className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+            >
+              Projects
+            </Link>
 
-      <Link
-        href="/industry/investments"
-        className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
-      >
-        Investments
-      </Link>
+            <Link
+              href="/industry/collaborations"
+              className="text-sm font-semibold text-teal-700"
+            >
+              Collaborations
+            </Link>
 
-      <Link
-        href="/industry/profile"
-        className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
-      >
-        Profile
-      </Link>
+            <Link
+              href="/industry/profile"
+              className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+            >
+              Profile
+            </Link>
 
-      <Link
-        href="/industry/projects"
-        className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800"
-      >
-        Explore Projects
-      </Link>
+            <Link
+              href="/industry/projects"
+              className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800"
+            >
+              Explore Projects
+            </Link>
 
-    </div>
-  </div>
-</nav>
-
-
+          </div>
+        </div>
+      </nav>
 
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-br from-teal-950 via-teal-900 to-emerald-950">
+
         <div className="absolute right-[-80px] top-[-100px] h-80 w-80 rounded-full bg-teal-400/10 blur-3xl" />
+
         <div className="absolute bottom-[-120px] left-[35%] h-80 w-80 rounded-full bg-emerald-300/10 blur-3xl" />
 
         <div className="relative mx-auto max-w-7xl px-6 py-12 sm:py-14">
+
           <div className="max-w-3xl">
+
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-semibold text-teal-100">
               <Handshake className="h-3.5 w-3.5" />
               Partnership Workspace
             </div>
 
             <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-              Collaborate With
+              Your
               <span className="block text-teal-200">
-                Innovation That Matters.
+                Collaborations
               </span>
             </h1>
 
             <p className="mt-4 max-w-2xl text-sm leading-6 text-teal-100/80 sm:text-base">
-              Manage your partnerships with university teams, track support
-              commitments and follow every project from proposal to measurable
-              impact.
+              Track collaboration requests sent by your industry
+              and requests received from university project teams.
             </p>
+
           </div>
         </div>
       </section>
 
       {/* Overview */}
       <section className="mx-auto max-w-7xl px-6 pt-7">
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
           <OverviewCard
-            label="Total Partnerships"
+            label="Total Collaborations"
             value={collaborations.length.toString()}
-            description="Across innovation projects"
+            description="Your collaboration requests"
             icon={Handshake}
             iconBg="bg-teal-50"
             iconColor="text-teal-700"
@@ -474,7 +486,7 @@ useEffect(() => {
           <OverviewCard
             label="Active"
             value={activeCount.toString()}
-            description="Currently in execution"
+            description="Currently active"
             icon={CheckCircle2}
             iconBg="bg-emerald-50"
             iconColor="text-emerald-700"
@@ -492,18 +504,20 @@ useEffect(() => {
           <OverviewCard
             label="Completed"
             value={completedCount.toString()}
-            description="Successfully delivered"
+            description="Successfully completed"
             icon={Target}
             iconBg="bg-sky-50"
             iconColor="text-sky-700"
           />
+
         </div>
       </section>
 
       {/* Main */}
       <section className="mx-auto max-w-7xl px-6 py-8">
-        {/* Section heading */}
+
         <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-teal-700">
               Partnership Portfolio
@@ -514,7 +528,7 @@ useEffect(() => {
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Track proposals, active partnerships and completed engagements.
+              Requests sent by you and requests received from university teams.
             </p>
           </div>
 
@@ -525,42 +539,60 @@ useEffect(() => {
             Find more opportunities
             <ArrowRight className="h-4 w-4" />
           </Link>
+
         </div>
 
-        {/* Search + filters */}
+        {/* Search + Filters */}
         <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+
           <div className="flex flex-col gap-3 lg:flex-row">
+
             <div className="relative flex-1">
+
               <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
               <input
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) =>
+                  setSearch(e.target.value)
+                }
                 placeholder="Search collaborations, projects or universities..."
                 className="h-11 w-full rounded-xl border border-transparent bg-slate-50 pl-10 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-teal-300 focus:bg-white focus:ring-2 focus:ring-teal-100"
               />
+
             </div>
 
             <button
-              onClick={() => setShowFilters((value) => !value)}
+              onClick={() =>
+                setShowFilters((value) => !value)
+              }
               className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-teal-300 hover:text-teal-700"
             >
               Filters
+
               <ChevronDown
                 className={`h-4 w-4 transition ${
-                  showFilters ? "rotate-180" : ""
+                  showFilters
+                    ? "rotate-180"
+                    : ""
                 }`}
               />
             </button>
+
           </div>
 
           {showFilters && (
             <div className="mt-3 grid gap-3 border-t border-slate-100 pt-3 sm:grid-cols-2">
+
               <FilterSelect
                 label="Collaboration Status"
                 value={statusFilter}
                 onChange={(value) =>
-                  setStatusFilter(value as "All" | CollaborationStatus)
+                  setStatusFilter(
+                    value as
+                      | "All"
+                      | CollaborationStatus
+                  )
                 }
                 options={[
                   "All",
@@ -576,189 +608,273 @@ useEffect(() => {
                 label="Support Type"
                 value={supportFilter}
                 onChange={(value) =>
-                  setSupportFilter(value as "All" | SupportType)
+                  setSupportFilter(
+                    value as
+                      | "All"
+                      | SupportType
+                  )
                 }
                 options={[
                   "All",
                   "Funding",
                   "Mentorship",
+                  "Hardware",
                   "Testing",
                   "Prototyping",
-                  "Field Pilot",
-                  "Technical Support",
                 ]}
               />
+
             </div>
           )}
+
         </div>
 
         {/* Result count */}
-        <div className="mb-4 flex items-center justify-between">
-          <p className="text-sm font-medium text-slate-500">
-            Showing{" "}
-            <span className="font-bold text-slate-800">
-              {filteredCollaborations.length}
-            </span>{" "}
-            of {collaborations.length} partnerships
-          </p>
+        <div className="mb-4">
+
+          {!loading && !error && collaborations.length > 0 && (
+            <p className="text-sm font-medium text-slate-500">
+              Showing{" "}
+              <span className="font-bold text-slate-800">
+                {filteredCollaborations.length}
+              </span>{" "}
+              of {collaborations.length} collaborations
+            </p>
+          )}
+
         </div>
-      {loading ? (
-  <div className="rounded-2xl border border-slate-200 bg-white px-6 py-20 text-center">
-    <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-teal-600" />
 
-    <p className="mt-4 text-sm font-semibold text-slate-700">
-      Loading collaborations...
-    </p>
+        {/* Loading */}
+        {loading ? (
 
-    <p className="mt-1 text-xs text-slate-400">
-      Fetching your partnership portfolio
-    </p>
-  </div>
-) : error ? (
-  <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-12 text-center">
-    <h3 className="text-base font-bold text-rose-800">
-      Unable to load collaborations
-    </h3>
+          <div className="rounded-2xl border border-slate-200 bg-white px-6 py-20 text-center">
 
-    <p className="mx-auto mt-2 max-w-lg text-sm text-rose-600">
-      {error}
-    </p>
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-teal-600" />
 
-    <p className="mx-auto mt-3 max-w-lg text-xs text-rose-500">
-      Make sure the FastAPI backend is running and you are logged in.
-    </p>
-  </div>
-) : filteredCollaborations.length === 0 ? (
-  <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-20 text-center">
-    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
-      <Search className="h-6 w-6 text-slate-400" />
-    </div>
+            <p className="mt-4 text-sm font-semibold text-slate-700">
+              Loading collaborations...
+            </p>
 
-    <h3 className="mt-4 text-base font-bold text-slate-900">
-      No partnerships found
-    </h3>
+          </div>
 
-    <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
-      Try changing your search or filters to find a collaboration.
-    </p>
-  </div>
-) : (
-  <div className="grid gap-5">
-    {filteredCollaborations.map((item) => {
-      const support = supportConfig[item.supportType];
-      const SupportIcon = support.icon;
+        ) : error ? (
 
-      const status = statusConfig[item.status];
-      const StatusIcon = status.icon;
+          /* Real API/auth/backend error */
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-12 text-center">
 
-      return (
-        <Link
-          key={item.id}
-          href={`/industry/collaborations/${item.id}`}
-          className="group"
-        >
-          <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-lg">
-            <div className="h-1 bg-gradient-to-r from-teal-600 to-emerald-500" />
+            <h3 className="text-base font-bold text-rose-800">
+              Unable to load collaborations
+            </h3>
 
-            <div className="p-6">
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                <div className="flex gap-4">
-                  <div
-                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${support.iconBg}`}
-                  >
-                    <SupportIcon className={`h-5 w-5 ${support.iconColor}`} />
-                  </div>
+            <p className="mx-auto mt-2 max-w-lg text-sm text-rose-600">
+              {error}
+            </p>
 
-                  <div>
-                    <div className="mb-2 flex flex-wrap items-center gap-2">
-                      <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold tracking-wide text-slate-500">
-                        {item.id}
-                      </span>
+            <p className="mx-auto mt-3 max-w-lg text-xs text-rose-500">
+              Make sure the FastAPI backend is running and
+              your industry account is logged in.
+            </p>
 
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold ${status.bg} ${status.text} ${status.border}`}
-                      >
-                        <StatusIcon className="h-3 w-3" />
-                        {item.status}
-                      </span>
-                    </div>
+          </div>
 
-                    <h3 className="text-lg font-bold tracking-tight text-slate-900 transition group-hover:text-teal-700">
-                      {item.project}
-                    </h3>
+        ) : collaborations.length === 0 ? (
 
-                    <p className="mt-1 max-w-2xl text-sm text-slate-500">
-                      {item.problem}
-                    </p>
-                  </div>
-                </div>
+          /* NORMAL EMPTY STATE */
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
 
-                <div className="flex items-center gap-2 self-start rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                  <span className="text-xs text-slate-400">Support</span>
-                  <span className="text-sm font-bold text-slate-800">{item.amount}</span>
-                  <ArrowRight className="ml-1 h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-teal-600" />
-                </div>
-              </div>
-
-              <div className="mt-6 grid gap-4 border-y border-slate-100 py-5 sm:grid-cols-2 lg:grid-cols-4">
-                <MetaBlock label="University Partner" value={item.university} />
-
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Location
-                  </p>
-                  <div className="mt-1.5 flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5 text-teal-600" />
-                    <p className="text-sm font-semibold text-slate-700">{item.location}</p>
-                  </div>
-                </div>
-
-                <MetaBlock label="Support Area" value={support.label} />
-                <MetaBlock label="Proposal Date" value={item.submitted} />
-              </div>
-
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-                <div className="max-w-2xl">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    Partnership Scope
-                  </p>
-                  <p className="mt-1.5 text-sm leading-6 text-slate-600">
-                    {item.description}
-                  </p>
-                </div>
-
-                <div className="w-full lg:w-72">
-                  <div className="mb-2 flex items-center justify-between">
-                    <p className="text-xs font-semibold text-slate-500">Project Progress</p>
-                    <span className="text-sm font-bold text-teal-700">{item.progress}%</span>
-                  </div>
-
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-teal-600 to-emerald-500 transition-all"
-                      style={{ width: `${item.progress}%` }}
-                    />
-                  </div>
-
-                  <div className="mt-2 flex items-center justify-between">
-                    <span className="text-[11px] text-slate-400">{status.description}</span>
-                    <span className="text-xs font-semibold text-teal-700">View workspace →</span>
-                  </div>
-                </div>
-              </div>
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50">
+              <Handshake className="h-6 w-6 text-teal-600" />
             </div>
-          </article>
-        </Link>
-      );
-    })}
-  </div>
-)}
+
+            <h3 className="mt-4 text-lg font-bold text-slate-900">
+              No collaborations yet
+            </h3>
+
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+              You do not have any collaboration requests yet.
+              Explore university-led projects and start a
+              collaboration when you find an opportunity that
+              matches your industry.
+            </p>
+
+            <Link
+              href="/industry/projects"
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-teal-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-teal-800"
+            >
+              Explore Projects
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+
+          </div>
+
+        ) : filteredCollaborations.length === 0 ? (
+
+          /* FILTER EMPTY STATE */
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+              <Search className="h-6 w-6 text-slate-400" />
+            </div>
+
+            <h3 className="mt-4 text-base font-bold text-slate-900">
+              No matching collaborations
+            </h3>
+
+            <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
+              Try changing your search or filters.
+            </p>
+
+          </div>
+
+        ) : (
+
+          /* Collaboration Cards */
+          <div className="grid gap-5">
+
+            {filteredCollaborations.map((item) => {
+
+              const support =
+                supportConfig[item.supportType];
+
+              const SupportIcon =
+                support.icon;
+
+              const status =
+                statusConfig[item.status];
+
+              const StatusIcon =
+                status.icon;
+
+              return (
+                <Link
+                  key={item.id}
+                  href={`/industry/collaborations/${item.id}`}
+                  className="group"
+                >
+
+                  <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-lg">
+
+                    <div className="h-1 bg-gradient-to-r from-teal-600 to-emerald-500" />
+
+                    <div className="p-6">
+
+                      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+
+                        <div className="flex gap-4">
+
+                          <div
+                            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${support.iconBg}`}
+                          >
+                            <SupportIcon
+                              className={`h-5 w-5 ${support.iconColor}`}
+                            />
+                          </div>
+
+                          <div>
+
+                            <div className="mb-2 flex flex-wrap items-center gap-2">
+
+                              <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold tracking-wide text-slate-500">
+                                {item.id}
+                              </span>
+
+                              <span
+                                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold ${status.bg} ${status.text} ${status.border}`}
+                              >
+                                <StatusIcon className="h-3 w-3" />
+                                {item.status}
+                              </span>
+
+                            </div>
+
+                            <h3 className="text-lg font-bold tracking-tight text-slate-900 transition group-hover:text-teal-700">
+                              {item.project}
+                            </h3>
+
+                            <p className="mt-1 max-w-2xl text-sm text-slate-500">
+                              {item.problem}
+                            </p>
+
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 self-start rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+
+                          <span className="text-xs text-slate-400">
+                            Support
+                          </span>
+
+                          <span className="text-sm font-bold text-slate-800">
+                            {item.amount}
+                          </span>
+
+                          <ArrowRight
+                            className="ml-1 h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-teal-600"
+                          />
+
+                        </div>
+
+                      </div>
+
+                      <div className="mt-6 grid gap-4 border-y border-slate-100 py-5 sm:grid-cols-3">
+
+                        <MetaBlock
+                          label="University Partner"
+                          value={item.university}
+                        />
+
+                        <MetaBlock
+                          label="Support Area"
+                          value={support.label}
+                        />
+
+                        <MetaBlock
+                          label="Proposal Date"
+                          value={item.submitted}
+                        />
+
+                      </div>
+
+                      <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+
+                        <div className="max-w-2xl">
+
+                          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                            Partnership Scope
+                          </p>
+
+                          <p className="mt-1.5 text-sm leading-6 text-slate-600">
+                            {item.description}
+                          </p>
+
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs font-semibold text-teal-700">
+                          {status.description}
+                          <ArrowRight className="h-4 w-4" />
+                        </div>
+
+                      </div>
+
+                    </div>
+                  </article>
+
+                </Link>
+              );
+            })}
+
+          </div>
+        )}
+
       </section>
 
       {/* Collaboration model */}
       <section className="border-t border-slate-200 bg-white">
+
         <div className="mx-auto max-w-7xl px-6 py-12">
+
           <div className="mb-7">
+
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-teal-700">
               Collaboration Model
             </p>
@@ -768,12 +884,14 @@ useEffect(() => {
             </h2>
 
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-              Industry partners can contribute resources, expertise and
-              real-world validation at different stages of innovation.
+              Industry partners can contribute resources,
+              expertise and real-world validation.
             </p>
+
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
             <SupportCard
               icon={CircleDollarSign}
               title="Funding"
@@ -792,41 +910,47 @@ useEffect(() => {
 
             <SupportCard
               icon={FlaskConical}
-              title="Testing & Pilot"
-              description="Help validate solutions through controlled testing and real-world pilots."
+              title="Testing"
+              description="Help validate solutions through controlled testing and real-world validation."
               iconBg="bg-sky-50"
               iconColor="text-sky-700"
             />
 
             <SupportCard
               icon={Wrench}
-              title="Technology"
-              description="Support prototyping, engineering, infrastructure and technical development."
+              title="Prototyping"
+              description="Support engineering, infrastructure and prototype development."
               iconBg="bg-emerald-50"
               iconColor="text-emerald-700"
             />
+
           </div>
         </div>
       </section>
 
       {/* CTA */}
       <section className="bg-slate-950">
+
         <div className="mx-auto max-w-7xl px-6 py-10">
+
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+
             <div>
+
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-teal-400">
-                Grow Your Innovation Portfolio
+                Explore Innovation
               </p>
 
               <h2 className="mt-2 text-2xl font-bold tracking-tight text-white">
-                Find your next high-impact collaboration.
+                Find a project to collaborate on.
               </h2>
 
               <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
-                Discover university-led projects and contribute funding,
-                expertise, technology or field support where it can create
-                measurable community impact.
+                Discover university-led projects and contribute
+                funding, expertise, hardware, testing or
+                prototyping support.
               </p>
+
             </div>
 
             <Link
@@ -836,18 +960,27 @@ useEffect(() => {
               Explore Projects
               <ArrowRight className="h-4 w-4" />
             </Link>
+
           </div>
         </div>
       </section>
 
       {/* Footer */}
       <footer className="border-t border-slate-800 bg-slate-950">
-        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-6 py-5 text-center text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:text-left">
-          <p>© 2026 SamadhanX • Ideas → Action → Impact</p>
 
-          <p>Industry Innovation Network</p>
+        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-6 py-5 text-center text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:text-left">
+
+          <p>
+            © 2026 SamadhanX • Ideas → Action → Impact
+          </p>
+
+          <p>
+            Industry Innovation Network
+          </p>
+
         </div>
       </footer>
+
     </main>
   );
 }
@@ -869,8 +1002,11 @@ function OverviewCard({
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+
       <div className="flex items-start justify-between gap-4">
+
         <div>
+
           <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
             {label}
           </p>
@@ -882,6 +1018,7 @@ function OverviewCard({
           <p className="mt-1 text-xs text-slate-500">
             {description}
           </p>
+
         </div>
 
         <div
@@ -889,6 +1026,7 @@ function OverviewCard({
         >
           <Icon className={`h-5 w-5 ${iconColor}`} />
         </div>
+
       </div>
     </div>
   );
@@ -903,6 +1041,7 @@ function MetaBlock({
 }) {
   return (
     <div>
+
       <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
         {label}
       </p>
@@ -910,6 +1049,7 @@ function MetaBlock({
       <p className="mt-1.5 text-sm font-semibold leading-5 text-slate-700">
         {value}
       </p>
+
     </div>
   );
 }
@@ -927,21 +1067,32 @@ function FilterSelect({
 }) {
   return (
     <div>
+
       <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
         {label}
       </label>
 
       <select
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) =>
+          onChange(e.target.value)
+        }
         className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-teal-400 focus:bg-white"
       >
         {options.map((option) => (
-          <option key={option} value={option}>
-            {option === "All" ? `All ${label.replace("Collaboration ", "").replace("Support ", "")}` : option}
+          <option
+            key={option}
+            value={option}
+          >
+            {option === "All"
+              ? `All ${label
+                  .replace("Collaboration ", "")
+                  .replace("Support ", "")}`
+              : option}
           </option>
         ))}
       </select>
+
     </div>
   );
 }
@@ -961,10 +1112,13 @@ function SupportCard({
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md">
+
       <div
         className={`flex h-10 w-10 items-center justify-center rounded-xl ${iconBg}`}
       >
-        <Icon className={`h-5 w-5 ${iconColor}`} />
+        <Icon
+          className={`h-5 w-5 ${iconColor}`}
+        />
       </div>
 
       <h3 className="mt-4 text-sm font-bold text-slate-900">
@@ -974,6 +1128,8 @@ function SupportCard({
       <p className="mt-1.5 text-xs leading-5 text-slate-500">
         {description}
       </p>
+
     </div>
   );
 }
+

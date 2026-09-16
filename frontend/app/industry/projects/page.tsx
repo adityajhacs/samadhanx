@@ -1,4 +1,5 @@
- "use client";
+
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -7,33 +8,26 @@ import {
   ArrowRight,
   Building2,
   CheckCircle2,
-  CircleDollarSign,
-  FlaskConical,
   GraduationCap,
   Lightbulb,
-  MapPin,
   Search,
-  Target,
-  Users,
-  Wrench,
 } from "lucide-react";
 
+import { getAuthToken } from "@/lib/api/client";
+
 type ProjectStage =
-  | "Solution Proposed"
-  | "Project In Progress"
-  | "Pilot / Validation"
-  | "Impact / Deployment";
+  | "Prototype"
+  | "RealityCheck"
+  | "Testing"
+  | "Pilot / Impact";
 
 type Project = {
   id: string;
   title: string;
   problem: string;
-  category: string;
   university: string;
-  location: string;
   stage: ProjectStage;
   progress: number;
-  support: string;
   description: string;
 };
 
@@ -47,141 +41,175 @@ type ApiProject = {
   created_by: string | null;
   created_at: string | null;
   updated_at: string | null;
+  prototype_name: string | null;
+  prototype_url: string | null;
+  university_name: string | null;
+  member_count?: number;
 };
-
-const categoryOptions = [
-  "All Categories",
-  "Infrastructure",
-  "Water",
-  "Sanitation",
-  "Energy",
-  "Governance",
-  "Healthcare",
-  "Environment",
-  "Transport",
-];
 
 const stageOptions = [
   "All Stages",
-  "Solution Proposed",
-  "Project In Progress",
-  "Pilot / Validation",
-  "Impact / Deployment",
-];
-
-const supportOptions = [
-  "All Support Types",
-  "Funding",
-  "Mentorship",
+  "Prototype",
+  "RealityCheck",
   "Testing",
-  "Prototyping",
-  "Technical Support",
-  "Field Pilot",
+  "Pilot / Impact",
 ];
 
 const PROJECTS_PER_PAGE = 6;
 
+/*
+ * University workflow:
+ *
+ * Prototype
+ *      ↓
+ * RealityCheck
+ *      ↓
+ * Testing
+ *      ↓
+ * Pilot / Impact
+ *
+ * Backend project statuses are mapped to this workflow.
+ */
+
 const statusToStage: Record<string, ProjectStage> = {
-  IDEA: "Solution Proposed",
-  VALIDATION: "Solution Proposed",
-  TEAM_FORMATION: "Project In Progress",
-  SOLUTION_DESIGN: "Project In Progress",
-  PROTOTYPE: "Project In Progress",
-  FIELD_PILOT: "Pilot / Validation",
-  DEPLOYED: "Impact / Deployment",
-  IMPACT_MEASUREMENT: "Impact / Deployment",
+  IDEA: "Prototype",
+  VALIDATION: "Prototype",
+  TEAM_FORMATION: "Prototype",
+  SOLUTION_DESIGN: "Prototype",
+  PROTOTYPE: "Prototype",
+
+  FIELD_PILOT: "RealityCheck",
+
+  DEPLOYED: "Testing",
+
+  IMPACT_MEASUREMENT: "Pilot / Impact",
 };
 
 const statusToProgress: Record<string, number> = {
-  IDEA: 10,
-  VALIDATION: 20,
-  TEAM_FORMATION: 30,
+  IDEA: 25,
+  VALIDATION: 30,
+  TEAM_FORMATION: 35,
   SOLUTION_DESIGN: 40,
-  PROTOTYPE: 60,
-  FIELD_PILOT: 75,
-  DEPLOYED: 90,
+  PROTOTYPE: 50,
+
+  FIELD_PILOT: 70,
+
+  DEPLOYED: 85,
+
   IMPACT_MEASUREMENT: 100,
 };
 
 function mapApiProject(project: ApiProject): Project {
+  const status = project.status ?? "";
+
   return {
     id: project.id,
+
     title: project.title,
-    problem: project.description ?? "No project description available.",
-    category: "Infrastructure",
-    university: "University information unavailable",
-    location: "Location unavailable",
-    stage: statusToStage[project.status ?? ""] ?? "Solution Proposed",
-    progress: statusToProgress[project.status ?? ""] ?? 0,
-    support: "Technical Support",
+
+    problem:
+      project.description ??
+      "No project description available.",
+
+    university:
+      project.university_name ??
+      "University not specified",
+
+    stage:
+      statusToStage[status] ??
+      "Prototype",
+
+    progress:
+      statusToProgress[status] ??
+      25,
+
     description:
-      project.description ?? "No project description available.",
+      project.description ??
+      "No project description available.",
   };
 }
 
 async function getProjects(): Promise<Project[]> {
   const baseUrl =
-    process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+    process.env.NEXT_PUBLIC_API_URL ||
+    "http://127.0.0.1:8000";
 
-  const response = await fetch(`${baseUrl}/api/projects`, {
-    method: "GET",
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-  });
+  const token = getAuthToken();
+
+  if (!token) {
+    throw new Error("Please login first.");
+  }
+
+  const response = await fetch(
+    `${baseUrl}/api/projects`,
+    {
+      method: "GET",
+
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+
+      cache: "no-store",
+    }
+  );
 
   if (!response.ok) {
-    let message = `Failed to load projects (${response.status})`;
+    let message =
+      `Failed to load projects (${response.status})`;
+
     try {
       const body = await response.json();
-      if (body?.detail) message = body.detail;
+
+      if (body?.detail) {
+        message = body.detail;
+      }
     } catch {}
+
     throw new Error(message);
   }
 
-  const data = (await response.json()) as ApiProject[];
+  const data =
+    (await response.json()) as ApiProject[];
+
   return data.map(mapApiProject);
 }
 
 function getStageStyle(stage: ProjectStage) {
   switch (stage) {
-    case "Solution Proposed":
+    case "Prototype":
       return "border-amber-200 bg-amber-50 text-amber-700";
-    case "Project In Progress":
+
+    case "RealityCheck":
       return "border-sky-200 bg-sky-50 text-sky-700";
-    case "Pilot / Validation":
+
+    case "Testing":
       return "border-teal-200 bg-teal-50 text-teal-700";
-    case "Impact / Deployment":
+
+    case "Pilot / Impact":
       return "border-emerald-200 bg-emerald-50 text-emerald-700";
   }
 }
 
-function getSupportIcon(support: string) {
-  switch (support) {
-    case "Funding":
-      return CircleDollarSign;
-    case "Mentorship":
-      return Users;
-    case "Testing":
-      return FlaskConical;
-    case "Prototyping":
-    case "Technical Support":
-      return Wrench;
-    case "Field Pilot":
-      return Target;
-    default:
-      return Lightbulb;
-  }
-}
-
 export default function IndustryProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<Project[]>(
+    []
+  );
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState("");
+
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("All Categories");
-  const [stage, setStage] = useState("All Stages");
-  const [support, setSupport] = useState("All Support Types");
-  const [currentPage, setCurrentPage] = useState(1);
+
+  const [university, setUniversity] =
+    useState("All Universities");
+
+  const [stage, setStage] =
+    useState("All Stages");
+
+  const [currentPage, setCurrentPage] =
+    useState(1);
 
   useEffect(() => {
     let cancelled = false;
@@ -190,17 +218,29 @@ export default function IndustryProjectsPage() {
       try {
         setLoading(true);
         setError("");
+
         const data = await getProjects();
-        if (!cancelled) setProjects(data);
+
+        if (!cancelled) {
+          setProjects(data);
+        }
       } catch (err) {
-        console.error("Failed to load industry projects:", err);
+        console.error(
+          "Failed to load industry projects:",
+          err
+        );
+
         if (!cancelled) {
           setError(
-            err instanceof Error ? err.message : "Failed to load projects."
+            err instanceof Error
+              ? err.message
+              : "Failed to load projects."
           );
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
@@ -211,31 +251,86 @@ export default function IndustryProjectsPage() {
     };
   }, []);
 
+  /*
+   * Get actual universities from projects.
+   *
+   * This means the university filter automatically
+   * updates according to backend data.
+   */
+
+  const universityOptions = useMemo(() => {
+    const universities = projects
+      .map((project) => project.university)
+      .filter(
+        (name) =>
+          name &&
+          name !== "University not specified"
+      );
+
+    return [
+      "All Universities",
+      ...Array.from(
+        new Set(universities)
+      ).sort(),
+    ];
+  }, [projects]);
+
+  /*
+   * Apply filters.
+   *
+   * Only filters based on real project data are used.
+   */
+
   const filteredProjects = useMemo(() => {
-    const query = search.toLowerCase().trim();
+    const query =
+      search.toLowerCase().trim();
 
     return projects.filter((project) => {
       const matchesSearch =
         !query ||
-        project.title.toLowerCase().includes(query) ||
-        project.problem.toLowerCase().includes(query) ||
-        project.university.toLowerCase().includes(query) ||
-        project.location.toLowerCase().includes(query);
+        project.title
+          .toLowerCase()
+          .includes(query) ||
+        project.description
+          .toLowerCase()
+          .includes(query) ||
+        project.university
+          .toLowerCase()
+          .includes(query);
+
+      const matchesUniversity =
+        university === "All Universities" ||
+        project.university === university;
+
+      const matchesStage =
+        stage === "All Stages" ||
+        project.stage === stage;
 
       return (
         matchesSearch &&
-        (category === "All Categories" || project.category === category) &&
-        (stage === "All Stages" || project.stage === stage) &&
-        (support === "All Support Types" || project.support === support)
+        matchesUniversity &&
+        matchesStage
       );
     });
-  }, [projects, search, category, stage, support]);
+  }, [
+    projects,
+    search,
+    university,
+    stage,
+  ]);
 
-  const totalPages = Math.ceil(filteredProjects.length / PROJECTS_PER_PAGE);
-  const visibleProjects = filteredProjects.slice(
-    (currentPage - 1) * PROJECTS_PER_PAGE,
-    currentPage * PROJECTS_PER_PAGE
+  const totalPages = Math.ceil(
+    filteredProjects.length /
+      PROJECTS_PER_PAGE
   );
+
+  const visibleProjects =
+    filteredProjects.slice(
+      (currentPage - 1) *
+        PROJECTS_PER_PAGE,
+      currentPage *
+        PROJECTS_PER_PAGE
+    );
 
   function resetPage() {
     setCurrentPage(1);
@@ -246,8 +341,8 @@ export default function IndustryProjectsPage() {
     resetPage();
   }
 
-  function handleCategory(value: string) {
-    setCategory(value);
+  function handleUniversity(value: string) {
+    setUniversity(value);
     resetPage();
   }
 
@@ -256,165 +351,207 @@ export default function IndustryProjectsPage() {
     resetPage();
   }
 
-  function handleSupport(value: string) {
-    setSupport(value);
-    resetPage();
-  }
+  /*
+   * Active projects are projects currently
+   * between RealityCheck and Testing.
+   */
 
-  const activeProjects = projects.filter(
-    (project) =>
-      project.stage === "Project In Progress" ||
-      project.stage === "Pilot / Validation"
-  ).length;
+  const activeProjects =
+    projects.filter(
+      (project) =>
+        project.stage === "RealityCheck" ||
+        project.stage === "Testing"
+    ).length;
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
-      {/* Navbar */}
-    
-<nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
-  <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-    
-    {/* Logo */}
-    <Link
-      href="/industry/dashboard"
-      className="flex items-center gap-2.5"
-    >
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-700 text-sm font-bold text-white shadow-sm">
-        S
-      </div>
 
-      <div>
-        <p className="text-lg font-bold tracking-tight text-slate-900">
-          SamadhanX
-        </p>
+      {/* ================================================== */}
+      {/* NAVBAR */}
+      {/* ================================================== */}
 
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-          Ideas → Action → Impact
-        </p>
-      </div>
-    </Link>
+      <nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
 
-    {/* Navigation */}
-    <div className="hidden items-center gap-7 md:flex">
+          {/* Logo */}
 
-      <Link
-        href="/industry/dashboard"
-        className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
-      >
-        Dashboard
-      </Link>
+          <Link
+            href="/industry/dashboard"
+            className="flex items-center gap-2.5"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-700 text-sm font-bold text-white shadow-sm">
+              S
+            </div>
 
-      <Link
-        href="/industry/projects"
-       className="text-sm font-semibold text-teal-700"
-      >
-        Projects
-      </Link>
+            <div>
+              <p className="text-lg font-bold tracking-tight text-slate-900">
+                SamadhanX
+              </p>
 
-      <Link
-        href="/industry/collaborations"
-        className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
-      >
-        Collaborations
-      </Link>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Ideas → Action → Impact
+              </p>
+            </div>
+          </Link>
 
-      <Link
-        href="/industry/investments"
-        className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
-      >
-        Investments
-      </Link>
+          {/* Navigation */}
 
-      <Link
-        href="/industry/profile"
-        className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
-      >
-        Profile
-      </Link>
+          <div className="hidden items-center gap-7 md:flex">
 
-      <Link
-        href="/industry/projects"
-        className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800"
-      >
-        Explore Projects
-      </Link>
+            <Link
+              href="/industry/dashboard"
+              className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+            >
+              Dashboard
+            </Link>
 
-    </div>
-  </div>
-</nav>
+            <Link
+              href="/industry/projects"
+              className="text-sm font-semibold text-teal-700"
+            >
+              Projects
+            </Link>
+
+            <Link
+              href="/industry/collaborations"
+              className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+            >
+              Collaborations
+            </Link>
+
+            <Link
+              href="/industry/profile"
+              className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+            >
+              Profile
+            </Link>
+
+            <Link
+              href="/industry/projects"
+              className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800"
+            >
+              Explore Projects
+            </Link>
+
+          </div>
+        </div>
+      </nav>
 
 
+      {/* ================================================== */}
+      {/* HERO */}
+      {/* ================================================== */}
 
-      {/* Hero */}
       <section className="relative overflow-hidden border-b border-teal-900 bg-gradient-to-br from-teal-900 via-teal-800 to-emerald-900">
+
         <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-teal-200/40 blur-3xl" />
+
         <div className="absolute -bottom-32 left-10 h-80 w-80 rounded-full bg-emerald-200/30 blur-3xl" />
 
         <div className="relative mx-auto max-w-7xl px-6 py-12">
+
           <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
+
             <div className="max-w-3xl">
+
               <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-teal-400/40 bg-teal-800/60 px-3 py-1.5 text-xs font-semibold text-teal-100 shadow-sm">
+
                 <Building2 size={14} />
+
                 Industry Innovation Network
+
               </div>
 
-             <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-  Discover Innovation Projects
-  <span className="block text-teal-100">
-    Ready for Industry Support.
-  </span>
-</h1>
+              <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+
+                Discover Innovation Projects
+
+                <span className="block text-teal-100">
+                  Ready for Industry Support.
+                </span>
+
+              </h1>
 
               <p className="mt-4 max-w-2xl text-sm leading-7 text-teal-50 sm:text-base">
-                Explore university-led projects solving real community
-                challenges across Jharkhand. Find opportunities where your
-                organisation can contribute funding, expertise, testing,
-                prototyping, or field support.
+                Explore university-led projects solving
+                real community challenges and discover
+                opportunities for industry collaboration.
               </p>
+
             </div>
 
+
             <div className="grid grid-cols-2 gap-3 sm:w-fit">
+
               <div className="rounded-2xl border border-teal-100 bg-white px-5 py-4 shadow-sm">
-                <p className="text-2xl font-bold text-teal-700">{projects.length}</p>
+
+                <p className="text-2xl font-bold text-teal-700">
+                  {projects.length}
+                </p>
+
                 <p className="mt-1 text-xs text-slate-500">
                   Available Projects
                 </p>
+
               </div>
 
+
               <div className="rounded-2xl border border-emerald-100 bg-white px-5 py-4 shadow-sm">
-                <p className="text-2xl font-bold text-emerald-700">{activeProjects}</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Active Collaborations
+
+                <p className="text-2xl font-bold text-emerald-700">
+                  {activeProjects}
                 </p>
+
+                <p className="mt-1 text-xs text-slate-500">
+                  Active Projects
+                </p>
+
               </div>
+
             </div>
+
           </div>
+
         </div>
       </section>
 
-      {/* Filters */}
+
+      {/* ================================================== */}
+      {/* FILTERS */}
+      {/* ================================================== */}
+
       <section className="mx-auto max-w-7xl px-6 py-7">
+
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
           <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+
             <div>
+
               <h2 className="text-base font-bold text-slate-900">
                 Find the Right Project
               </h2>
 
               <p className="mt-1 text-xs text-slate-500">
-                Filter projects according to your organisation&apos;s
-                collaboration interests.
+                Search and filter projects by university
+                and current project stage.
               </p>
+
             </div>
 
             <div className="w-fit rounded-xl bg-teal-50 px-3 py-2 text-xs font-bold text-teal-700">
               {filteredProjects.length} projects found
             </div>
+
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+
+          <div className="grid gap-3 md:grid-cols-3">
+
             {/* Search */}
-            <div className="relative lg:col-span-1">
+
+            <div className="relative">
+
               <Search
                 size={17}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -422,49 +559,75 @@ export default function IndustryProjectsPage() {
 
               <input
                 value={search}
-                onChange={(e) => handleSearch(e.target.value)}
-                placeholder="Search projects..."
+                onChange={(e) =>
+                  handleSearch(e.target.value)
+                }
+                placeholder="Search projects or universities..."
                 className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm outline-none transition focus:border-teal-500 focus:bg-white focus:ring-2 focus:ring-teal-100"
               />
+
             </div>
 
+
+            {/* University */}
+
             <select
-              value={category}
-              onChange={(e) => handleCategory(e.target.value)}
+              value={university}
+              onChange={(e) =>
+                handleUniversity(e.target.value)
+              }
               className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-teal-500 focus:bg-white focus:ring-2 focus:ring-teal-100"
             >
-              {categoryOptions.map((option) => (
-                <option key={option}>{option}</option>
-              ))}
+              {universityOptions.map(
+                (option) => (
+                  <option
+                    key={option}
+                    value={option}
+                  >
+                    {option}
+                  </option>
+                )
+              )}
             </select>
+
+
+            {/* Stage */}
 
             <select
               value={stage}
-              onChange={(e) => handleStage(e.target.value)}
+              onChange={(e) =>
+                handleStage(e.target.value)
+              }
               className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-teal-500 focus:bg-white focus:ring-2 focus:ring-teal-100"
             >
-              {stageOptions.map((option) => (
-                <option key={option}>{option}</option>
-              ))}
+              {stageOptions.map(
+                (option) => (
+                  <option
+                    key={option}
+                    value={option}
+                  >
+                    {option}
+                  </option>
+                )
+              )}
             </select>
 
-            <select
-              value={support}
-              onChange={(e) => handleSupport(e.target.value)}
-              className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-teal-500 focus:bg-white focus:ring-2 focus:ring-teal-100"
-            >
-              {supportOptions.map((option) => (
-                <option key={option}>{option}</option>
-              ))}
-            </select>
           </div>
+
         </div>
       </section>
 
-      {/* Projects */}
+
+      {/* ================================================== */}
+      {/* PROJECTS */}
+      {/* ================================================== */}
+
       <section className="mx-auto max-w-7xl px-6 pb-10">
+
         <div className="mb-5 flex items-end justify-between">
+
           <div>
+
             <p className="text-xs font-bold uppercase tracking-wider text-teal-700">
               Innovation Pipeline
             </p>
@@ -472,36 +635,71 @@ export default function IndustryProjectsPage() {
             <h2 className="mt-1 text-2xl font-bold text-slate-900">
               Projects Open for Collaboration
             </h2>
+
           </div>
+
 
           {filteredProjects.length > 0 && (
             <p className="hidden text-sm text-slate-500 sm:block">
+
               Showing{" "}
-              {(currentPage - 1) * PROJECTS_PER_PAGE + 1}–
+              {(currentPage - 1) *
+                PROJECTS_PER_PAGE +
+                1}
+              –
               {Math.min(
-                currentPage * PROJECTS_PER_PAGE,
+                currentPage *
+                  PROJECTS_PER_PAGE,
                 filteredProjects.length
               )}{" "}
               of {filteredProjects.length}
+
             </p>
           )}
+
         </div>
 
+
+        {/* Loading */}
+
         {loading ? (
+
           <div className="rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center">
+
             <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-teal-600" />
-            <h3 className="mt-4 text-lg font-bold text-slate-900">Loading projects...</h3>
+
+            <h3 className="mt-4 text-lg font-bold text-slate-900">
+              Loading projects...
+            </h3>
+
             <p className="mt-2 text-sm text-slate-500">
               Fetching projects from the SamadhanX backend.
             </p>
+
           </div>
+
         ) : error ? (
+
+          /* Error */
+
           <div className="rounded-2xl border border-rose-200 bg-white px-6 py-16 text-center">
-            <h3 className="text-lg font-bold text-slate-900">Unable to load projects</h3>
-            <p className="mx-auto mt-2 max-w-md text-sm text-rose-600">{error}</p>
+
+            <h3 className="text-lg font-bold text-slate-900">
+              Unable to load projects
+            </h3>
+
+            <p className="mx-auto mt-2 max-w-md text-sm text-rose-600">
+              {error}
+            </p>
+
           </div>
+
         ) : visibleProjects.length === 0 ? (
+
+          /* Empty */
+
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50 text-teal-600">
               <Search size={24} />
             </div>
@@ -511,41 +709,55 @@ export default function IndustryProjectsPage() {
             </h3>
 
             <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
-              Try changing your search or filters to discover more innovation
-              projects.
+              Try changing your search, university,
+              or project stage filter.
             </p>
-          </div>
-        ) : (
-          <div className="grid gap-5 lg:grid-cols-2">
-            {visibleProjects.map((project) => {
-              const SupportIcon = getSupportIcon(project.support);
 
-              return (
+          </div>
+
+        ) : (
+
+          /* Project cards */
+
+          <div className="grid gap-5 lg:grid-cols-2">
+
+            {visibleProjects.map(
+              (project) => (
+
                 <article
                   key={project.id}
                   className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-teal-200 hover:shadow-lg"
                 >
-                  {/* Color strip */}
+
                   <div className="h-1.5 bg-gradient-to-r from-teal-600 via-emerald-500 to-sky-500" />
 
+
                   <div className="p-6">
-                    {/* Top */}
+
+                    {/* Header */}
+
                     <div className="flex items-start justify-between gap-4">
+
                       <div className="flex min-w-0 items-start gap-3">
+
                         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
                           <Lightbulb size={21} />
                         </div>
 
                         <div className="min-w-0">
+
                           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            {project.id}
+                            Project
                           </p>
 
                           <h3 className="mt-1 text-lg font-bold leading-snug text-slate-900">
                             {project.title}
                           </h3>
+
                         </div>
+
                       </div>
+
 
                       <span
                         className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold ${getStageStyle(
@@ -554,97 +766,165 @@ export default function IndustryProjectsPage() {
                       >
                         {project.stage}
                       </span>
+
                     </div>
 
-                    {/* Problem */}
+
+                    {/* Description */}
+
                     <div className="mt-5 rounded-xl bg-slate-50 p-4">
+
                       <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        Community Challenge
+                        Project Description
                       </p>
 
                       <p className="mt-1 text-sm font-semibold leading-5 text-slate-800">
                         {project.problem}
                       </p>
+
                     </div>
+
 
                     <p className="mt-4 text-sm leading-6 text-slate-500">
                       {project.description}
                     </p>
 
-                    {/* University + Location */}
-                    <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                      <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-white px-3 py-2.5">
-                        <GraduationCap
-                          size={17}
-                          className="shrink-0 text-teal-600"
-                        />
+
+                    {/* University */}
+
+                    <div className="mt-5">
+
+                      <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-3 py-3">
+
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-600">
+
+                          <GraduationCap size={18} />
+
+                        </div>
 
                         <div className="min-w-0">
+
                           <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
                             University
                           </p>
 
-                          <p className="truncate text-xs font-semibold text-slate-700">
+                          <p className="truncate text-sm font-semibold text-slate-700">
                             {project.university}
                           </p>
+
                         </div>
+
                       </div>
 
-                      <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-white px-3 py-2.5">
-                        <MapPin
-                          size={17}
-                          className="shrink-0 text-teal-600"
-                        />
-
-                        <div>
-                          <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
-                            Location
-                          </p>
-
-                          <p className="text-xs font-semibold text-slate-700">
-                            {project.location}
-                          </p>
-                        </div>
-                      </div>
                     </div>
 
+
                     {/* Progress */}
+
                     <div className="mt-5">
+
                       <div className="mb-2 flex items-center justify-between">
+
                         <span className="text-xs font-bold text-slate-500">
-                          Project Progress
+                          University Project Progress
                         </span>
 
                         <span className="text-xs font-bold text-teal-700">
                           {project.progress}%
                         </span>
+
                       </div>
+
 
                       <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+
                         <div
                           className="h-full rounded-full bg-teal-600 transition-all"
-                          style={{ width: `${project.progress}%` }}
+                          style={{
+                            width: `${project.progress}%`,
+                          }}
                         />
+
                       </div>
+
+
+                      {/* Workflow */}
+
+                      <div className="mt-2 flex items-center justify-between text-[10px] font-semibold">
+
+                        <span
+                          className={
+                            project.stage ===
+                            "Prototype"
+                              ? "text-teal-700"
+                              : "text-slate-400"
+                          }
+                        >
+                          Prototype
+                        </span>
+
+                        <span
+                          className={
+                            project.stage ===
+                            "RealityCheck"
+                              ? "text-teal-700"
+                              : "text-slate-400"
+                          }
+                        >
+                          RealityCheck
+                        </span>
+
+                        <span
+                          className={
+                            project.stage ===
+                            "Testing"
+                              ? "text-teal-700"
+                              : "text-slate-400"
+                          }
+                        >
+                          Testing
+                        </span>
+
+                        <span
+                          className={
+                            project.stage ===
+                            "Pilot / Impact"
+                              ? "text-teal-700"
+                              : "text-slate-400"
+                          }
+                        >
+                          Pilot / Impact
+                        </span>
+
+                      </div>
+
                     </div>
 
+
                     {/* Bottom */}
+
                     <div className="mt-5 flex flex-col gap-4 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
+
                       <div className="flex items-center gap-2">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
-                          <SupportIcon size={17} />
+
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                          <CheckCircle2 size={17} />
                         </div>
 
                         <div>
+
                           <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
-                            Support Required
+                            Collaboration
                           </p>
 
                           <p className="text-xs font-bold text-slate-700">
-                            {project.support}
+                            Open for Collaboration
                           </p>
+
                         </div>
+
                       </div>
+
 
                       <Link
                         href={`/industry/projects/${project.id}`}
@@ -653,20 +933,35 @@ export default function IndustryProjectsPage() {
                         View Project
                         <ArrowRight size={16} />
                       </Link>
+
                     </div>
+
                   </div>
+
                 </article>
-              );
-            })}
+
+              )
+            )}
+
           </div>
         )}
 
+
         {/* Pagination */}
+
         {totalPages > 1 && (
+
           <div className="mt-8 flex flex-col items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm sm:flex-row">
+
             <button
               onClick={() =>
-                setCurrentPage((page) => Math.max(page - 1, 1))
+                setCurrentPage(
+                  (page) =>
+                    Math.max(
+                      page - 1,
+                      1
+                    )
+                )
               }
               disabled={currentPage === 1}
               className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-40"
@@ -675,50 +970,82 @@ export default function IndustryProjectsPage() {
               Previous
             </button>
 
+
             <div className="flex items-center gap-2">
-              {Array.from({ length: totalPages }, (_, index) => index + 1).map(
-                (page) => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold transition ${
-                      currentPage === page
-                        ? "bg-teal-600 text-white shadow-sm"
-                        : "text-slate-600 hover:bg-teal-50 hover:text-teal-700"
-                    }`}
-                  >
-                    {page}
-                  </button>
-                )
-              )}
+
+              {Array.from(
+                {
+                  length: totalPages,
+                },
+                (_, index) =>
+                  index + 1
+              ).map((page) => (
+
+                <button
+                  key={page}
+                  onClick={() =>
+                    setCurrentPage(page)
+                  }
+                  className={`flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold transition ${
+                    currentPage === page
+                      ? "bg-teal-600 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-teal-50 hover:text-teal-700"
+                  }`}
+                >
+                  {page}
+                </button>
+
+              ))}
+
             </div>
+
 
             <button
               onClick={() =>
-                setCurrentPage((page) =>
-                  Math.min(page + 1, totalPages)
+                setCurrentPage(
+                  (page) =>
+                    Math.min(
+                      page + 1,
+                      totalPages
+                    )
                 )
               }
-              disabled={currentPage === totalPages}
+              disabled={
+                currentPage === totalPages
+              }
               className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Next
               <ArrowRight size={16} />
             </button>
+
           </div>
+
         )}
+
       </section>
 
+
+      {/* ================================================== */}
       {/* CTA */}
+      {/* ================================================== */}
+
       <section className="mx-auto max-w-7xl px-6 pb-12">
+
         <div className="overflow-hidden rounded-3xl bg-slate-900 p-7 text-white shadow-lg sm:p-9">
+
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+
             <div>
+
               <div className="flex items-center gap-2 text-teal-300">
+
                 <CheckCircle2 size={18} />
+
                 <span className="text-xs font-bold uppercase tracking-wider">
                   Industry × Innovation
                 </span>
+
               </div>
 
               <h2 className="mt-2 text-2xl font-bold">
@@ -726,10 +1053,14 @@ export default function IndustryProjectsPage() {
               </h2>
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-                Connect with university teams and contribute the resources,
-                expertise, testing environment, or industry access they need.
+                Connect with university teams and
+                contribute funding, mentorship,
+                hardware, testing, or prototyping
+                support.
               </p>
+
             </div>
+
 
             <Link
               href="/industry/collaborations"
@@ -738,14 +1069,23 @@ export default function IndustryProjectsPage() {
               Explore Collaborations
               <ArrowRight size={17} />
             </Link>
+
           </div>
+
         </div>
+
       </section>
 
-      {/* Footer */}
+
+      {/* ================================================== */}
+      {/* FOOTER */}
+      {/* ================================================== */}
+
       <footer className="border-t border-slate-200 bg-white py-5 text-center text-[11px] text-slate-400">
         © 2026 SamadhanX • Ideas → Action → Impact
       </footer>
+
     </main>
   );
 }
+

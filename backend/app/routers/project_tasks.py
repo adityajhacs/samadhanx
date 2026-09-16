@@ -149,6 +149,7 @@ def can_view_project_tasks(
         "university",
         "faculty",
         "student",
+        "industry",
     }
 
 
