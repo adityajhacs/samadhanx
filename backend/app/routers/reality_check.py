@@ -1,3 +1,4 @@
+
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -7,11 +8,11 @@ from sqlalchemy.orm import Session
 from app.core.auth import get_current_user
 from app.core.database import get_db
 from app.models.solution import Solution
+from app.models.problem import Problem
+from app.models.university import University
+from app.models.project import Project
 from app.models.user import User
-from app.schemas.reality_check import (
-    RealityCheckResponse,
-    RealityCheckRiskResponse,
-)
+from app.schemas.reality_check import RealityCheckResponse
 from app.services.ai.reality_check_service import run_reality_check
 
 
@@ -19,6 +20,115 @@ router = APIRouter(
     prefix="/api",
     tags=["RealityCheck"],
 )
+
+
+def get_role(current_user: User) -> str:
+    return (current_user.role or "").strip().lower()
+
+
+def can_run_reality_check(
+    current_user: User,
+    solution: Solution,
+    project_owner_id: uuid.UUID | None = None,
+) -> bool:
+    role = get_role(current_user)
+
+    # Admin can always run it.
+    if role == "admin":
+        return True
+
+    # University user must belong to the solution's university.
+    if (
+        role == "university"
+        and current_user.university_id
+        and solution.university_id
+        == current_user.university_id
+    ):
+        return True
+
+    # Project creator/owner can run it.
+    if (
+        project_owner_id
+        and project_owner_id == current_user.id
+    ):
+        return True
+
+    return False
+
+
+def get_reality_check_result(
+    db: Session,
+    solution_id: uuid.UUID,
+):
+    result = db.execute(
+        text(
+            """
+            SELECT
+                id,
+                solution_id,
+                feasibility_score,
+                overall_summary,
+                confidence,
+                uncertainty_notes,
+                created_at
+            FROM public.reality_checks
+            WHERE solution_id = :solution_id
+            ORDER BY created_at DESC
+            LIMIT 1
+            """
+        ),
+        {
+            "solution_id": str(solution_id)
+        },
+    ).mappings().first()
+
+    if not result:
+        return None
+
+    risks = db.execute(
+        text(
+            """
+            SELECT
+                id,
+                reality_check_id,
+                risk_category,
+                risk_description,
+                risk_level,
+                impact,
+                mitigation,
+                created_at
+            FROM public.solution_risks
+            WHERE reality_check_id = :reality_check_id
+            ORDER BY created_at
+            """
+        ),
+        {
+            "reality_check_id": str(result["id"])
+        },
+    ).mappings().all()
+
+    return {
+        "id": result["id"],
+        "solution_id": result["solution_id"],
+        "feasibility_score": result["feasibility_score"],
+        "overall_summary": result["overall_summary"],
+        "confidence": result["confidence"],
+        "uncertainty_notes": result["uncertainty_notes"],
+        "created_at": result["created_at"],
+        "risks": [
+            {
+                "id": risk["id"],
+                "reality_check_id": risk["reality_check_id"],
+                "risk_category": risk["risk_category"],
+                "risk_description": risk["risk_description"],
+                "risk_level": risk["risk_level"],
+                "impact": risk["impact"],
+                "mitigation": risk["mitigation"],
+                "created_at": risk["created_at"],
+            }
+            for risk in risks
+        ],
+    }
 
 
 @router.post(
@@ -43,38 +153,140 @@ def create_reality_check(
             detail="Solution not found",
         )
 
-    # Only the university/project owner or admin can run RealityCheck
-    allowed = (
-        current_user.role == "ADMIN"
-        or solution.university_id == current_user.id
-    )
+    # --------------------------------------------------------
+    # Resolve project owner
+    # --------------------------------------------------------
 
-    if not allowed and solution.project_id:
-        project_owner = db.execute(
-            text("""
+    project_owner_id = None
+
+    if solution.project_id:
+        project_owner_id = db.execute(
+            text(
+                """
                 SELECT created_by
                 FROM public.projects
                 WHERE id = :project_id
-            """),
-            {"project_id": str(solution.project_id)},
+                """
+            ),
+            {
+                "project_id": str(solution.project_id)
+            },
         ).scalar_one_or_none()
 
-        allowed = project_owner == current_user.id
+    # --------------------------------------------------------
+    # Authorization
+    # --------------------------------------------------------
 
-    if not allowed:
+    if not can_run_reality_check(
+        current_user=current_user,
+        solution=solution,
+        project_owner_id=project_owner_id,
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to run RealityCheck",
         )
 
-    # Use the solution title as the MVP RealityCheck input.
-    solution_text = solution.solution_title
+    # --------------------------------------------------------
+    # Get related information
+    # --------------------------------------------------------
 
-    if not solution_text or not solution_text.strip():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Solution does not contain enough information for RealityCheck",
+    problem = None
+
+    if solution.problem_id:
+        problem = (
+            db.query(Problem)
+            .filter(
+                Problem.id == solution.problem_id
+            )
+            .first()
         )
+
+    university = None
+
+    if solution.university_id:
+        university = (
+            db.query(University)
+            .filter(
+                University.id == solution.university_id
+            )
+            .first()
+        )
+
+    project = None
+
+    if solution.project_id:
+        project = (
+            db.query(Project)
+            .filter(
+                Project.id == solution.project_id
+            )
+            .first()
+        )
+
+    # --------------------------------------------------------
+    # Build complete AI input
+    # --------------------------------------------------------
+
+    solution_parts = [
+        f"Solution Title: {solution.solution_title}",
+        f"Solution Description: {solution.description or 'Not provided'}",
+        (
+            "Prototype Status: "
+            f"{solution.prototype_status or 'Not provided'}"
+        ),
+        (
+            "Estimated Cost: "
+            f"{solution.estimated_cost if solution.estimated_cost is not None else 'Not provided'}"
+        ),
+        (
+            "What the Prototype Does: "
+            f"{solution.prototype_description or 'Not provided'}"
+        ),
+        (
+            "How It Works: "
+            f"{solution.how_it_works or 'Not provided'}"
+        ),
+        (
+            "Key Features: "
+            f"{solution.key_features or 'Not provided'}"
+        ),
+        (
+            "How This Solution Solves the Problem: "
+            f"{solution.problem_solution or 'Not provided'}"
+        ),
+    ]
+
+    if problem:
+        solution_parts.extend(
+            [
+                f"Related Problem Title: {problem.title}",
+                (
+                    "Related Problem Description: "
+                    f"{problem.description or 'Not provided'}"
+                ),
+                (
+                    "Problem District: "
+                    f"{problem.district or 'Not provided'}"
+                ),
+                (
+                    "Problem Category: "
+                    f"{problem.category or 'Not provided'}"
+                ),
+            ]
+        )
+
+    if university:
+        solution_parts.append(
+            f"University: {university.name}"
+        )
+
+    if project:
+        solution_parts.append(
+            f"Project: {getattr(project, 'title', None) or 'Not provided'}"
+        )
+
+    solution_text = "\n\n".join(solution_parts)
 
     try:
         return run_reality_check(
@@ -117,23 +329,27 @@ def get_solution_reality_check(
             detail="Solution not found",
         )
 
-    result = db.execute(
-        text("""
-            SELECT
-                id,
-                solution_id,
-                feasibility_score,
-                overall_summary,
-                confidence,
-                uncertainty_notes,
-                created_at
-            FROM public.reality_checks
-            WHERE solution_id = :solution_id
-            ORDER BY created_at DESC
-            LIMIT 1
-        """),
-        {"solution_id": str(solution_id)},
-    ).mappings().first()
+    # Viewing an existing RealityCheck follows solution
+    # portal visibility.
+    role = get_role(current_user)
+
+    if role not in {
+        "university",
+        "faculty",
+        "student",
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Only university, faculty, and student users "
+                "can view RealityCheck results"
+            ),
+        )
+
+    result = get_reality_check_result(
+        db,
+        solution_id,
+    )
 
     if not result:
         raise HTTPException(
@@ -141,46 +357,7 @@ def get_solution_reality_check(
             detail="RealityCheck not found for this solution",
         )
 
-    risks = db.execute(
-        text("""
-            SELECT
-                id,
-                reality_check_id,
-                risk_category,
-                risk_description,
-                risk_level,
-                impact,
-                mitigation,
-                created_at
-            FROM public.solution_risks
-            WHERE reality_check_id = :reality_check_id
-            ORDER BY created_at
-        """),
-        {"reality_check_id": str(result["id"])},
-    ).mappings().all()
-
-    return {
-        "id": result["id"],
-        "solution_id": result["solution_id"],
-        "feasibility_score": result["feasibility_score"],
-        "overall_summary": result["overall_summary"],
-        "confidence": result["confidence"],
-        "uncertainty_notes": result["uncertainty_notes"],
-        "created_at": result["created_at"],
-        "risks": [
-            {
-                "id": risk["id"],
-                "reality_check_id": risk["reality_check_id"],
-                "risk_category": risk["risk_category"],
-                "risk_description": risk["risk_description"],
-                "risk_level": risk["risk_level"],
-                "impact": risk["impact"],
-                "mitigation": risk["mitigation"],
-                "created_at": risk["created_at"],
-            }
-            for risk in risks
-        ],
-    }
+    return result
 
 
 @router.get(
@@ -192,8 +369,24 @@ def get_reality_check(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    role = get_role(current_user)
+
+    if role not in {
+        "university",
+        "faculty",
+        "student",
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Only university, faculty, and student users "
+                "can view RealityCheck results"
+            ),
+        )
+
     result = db.execute(
-        text("""
+        text(
+            """
             SELECT
                 id,
                 solution_id,
@@ -204,8 +397,11 @@ def get_reality_check(
                 created_at
             FROM public.reality_checks
             WHERE id = :reality_check_id
-        """),
-        {"reality_check_id": str(reality_check_id)},
+            """
+        ),
+        {
+            "reality_check_id": str(reality_check_id)
+        },
     ).mappings().first()
 
     if not result:
@@ -215,7 +411,8 @@ def get_reality_check(
         )
 
     risks = db.execute(
-        text("""
+        text(
+            """
             SELECT
                 id,
                 reality_check_id,
@@ -228,8 +425,11 @@ def get_reality_check(
             FROM public.solution_risks
             WHERE reality_check_id = :reality_check_id
             ORDER BY created_at
-        """),
-        {"reality_check_id": str(reality_check_id)},
+            """
+        ),
+        {
+            "reality_check_id": str(reality_check_id)
+        },
     ).mappings().all()
 
     return {
@@ -254,3 +454,4 @@ def get_reality_check(
             for risk in risks
         ],
     }
+

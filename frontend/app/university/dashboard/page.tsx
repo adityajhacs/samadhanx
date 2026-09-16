@@ -1,5 +1,19 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { logout } from "@/lib/api/auth";
+import { getProjects, Project } from "@/lib/api/projects";
+import { getSolutions, Solution } from "@/lib/api/solutions";
+import {
+  getCollaborations,
+  Collaboration,
+} from "@/lib/api/collaborations";
+import {
+  getMyUniversityProblems,
+  getUniversities,
+  University,
+  UniversityProblem,
+} from "@/lib/api/universities";
 import {
   ArrowRight,
   BookOpen,
@@ -8,37 +22,142 @@ import {
   GraduationCap,
   Handshake,
   Lightbulb,
+  LogOut,
   Users,
 } from "lucide-react";
 
-const communityProblems = [
-  {
-    id: 8,
-    title: "Unreliable Water Supply in Local Community",
-    category: "Water Management",
-    description:
-      "Explore a community-reported water supply challenge and opportunities for innovative solutions.",
-    impact: "400+ people affected",
-  },
-  {
-    id: 7,
-    title: "Poor Sanitation and Waste Management",
-    category: "Sanitation",
-    description:
-      "Find opportunities to improve sanitation, waste collection and public health in communities.",
-    impact: "300+ people affected",
-  },
-  {
-    id: 9,
-    title: "Challenges Faced by Local Farmers",
-    category: "Agriculture",
-    description:
-      "Discover challenges faced by local farmers and develop practical technology-driven solutions.",
-    impact: "250+ people affected",
-  },
-];
-
 export default function UniversityDashboard() {
+  const [communityProblems, setCommunityProblems] = useState<
+    UniversityProblem[]
+  >([]);
+
+  const [loadingProblems, setLoadingProblems] = useState(true);
+  const [problemError, setProblemError] = useState("");
+const [projects, setProjects] = useState<Project[]>([]);
+const [loadingProjects, setLoadingProjects] = useState(true);
+const [projectError, setProjectError] = useState("");
+const [solutions, setSolutions] = useState<Solution[]>([]);
+const [loadingSolutions, setLoadingSolutions] = useState(true);
+const [solutionError, setSolutionError] = useState("");
+const [collaborations, setCollaborations] = useState<Collaboration[]>([]);
+const [loadingCollaborations, setLoadingCollaborations] = useState(true);
+const [collaborationError, setCollaborationError] = useState("");
+const [universities, setUniversities] = useState<University[]>([]);
+const [loadingUniversities, setLoadingUniversities] = useState(true);
+  useEffect(() => {
+    async function loadProblems() {
+      try {
+        setLoadingProblems(true);
+        setProblemError("");
+
+        const problems = await getMyUniversityProblems();
+
+        setCommunityProblems(problems);
+      } catch (error) {
+        console.error("Failed to load university problems:", error);
+
+        setProblemError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load community problems."
+        );
+      } finally {
+        setLoadingProblems(false);
+      }
+    }
+
+    loadProblems();
+  }, []);
+  useEffect(() => {
+  async function loadProjects() {
+    try {
+      setLoadingProjects(true);
+      setProjectError("");
+
+      const data = await getProjects();
+
+      setProjects(data);
+    } catch (error) {
+      console.error("Failed to load projects:", error);
+
+      setProjectError(
+        error instanceof Error
+          ? error.message
+          : "Failed to load projects."
+      );
+    } finally {
+      setLoadingProjects(false);
+    }
+  }
+
+  loadProjects();
+}, []);
+useEffect(() => {
+  async function loadSolutions() {
+    try {
+      setLoadingSolutions(true);
+      setSolutionError("");
+
+      const data = await getSolutions();
+
+      setSolutions(data);
+    } catch (error) {
+      console.error("Failed to load solutions:", error);
+
+      setSolutionError(
+        error instanceof Error
+          ? error.message
+          : "Failed to load solutions."
+      );
+    } finally {
+      setLoadingSolutions(false);
+    }
+  }
+
+  loadSolutions();
+}, []);
+useEffect(() => {
+  async function loadCollaborations() {
+    try {
+      setLoadingCollaborations(true);
+      setCollaborationError("");
+
+      const data = await getCollaborations();
+
+      setCollaborations(data);
+    } catch (error) {
+      console.error("Failed to load collaborations:", error);
+
+      setCollaborationError(
+        error instanceof Error
+          ? error.message
+          : "Failed to load collaborations."
+      );
+    } finally {
+      setLoadingCollaborations(false);
+    }
+  }
+
+  loadCollaborations();
+}, []);
+useEffect(() => {
+  async function loadUniversities() {
+    try {
+      setLoadingUniversities(true);
+
+      const data = await getUniversities();
+
+      setUniversities(data);
+    } catch (error) {
+      console.error("Failed to load universities:", error);
+    } finally {
+      setLoadingUniversities(false);
+    }
+  }
+
+  loadUniversities();
+}, []);
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
       {/* ================= NAVBAR ================= */}
@@ -66,48 +185,59 @@ export default function UniversityDashboard() {
 
           {/* Right Navbar */}
           <div className="hidden items-center gap-6 md:flex">
-  <a
-    href="/university/dashboard"
-    className="text-sm font-semibold text-teal-600"
-  >
-    Dashboard
-  </a>
+            <a
+              href="/university/dashboard"
+              className="text-sm font-semibold text-teal-600"
+            >
+              Dashboard
+            </a>
 
-  <a
-    href="/university/problems"
-    className="text-sm text-slate-600 transition hover:text-teal-600"
-  >
-    Problems
-  </a>
+            <a
+              href="/university/problems"
+              className="text-sm text-slate-600 transition hover:text-teal-600"
+            >
+              Problems
+            </a>
 
-  <a
-    href="/university/projects"
-    className="text-sm text-slate-600 transition hover:text-teal-600"
-  >
-    Projects
-  </a>
+            <a
+              href="/university/projects"
+              className="text-sm text-slate-600 transition hover:text-teal-600"
+            >
+              Projects
+            </a>
 
-  <a
-    href="/university/solutions"
-    className="text-sm text-slate-600 transition hover:text-teal-600"
-  >
-    Solutions
-  </a>
+            <a
+              href="/university/solutions"
+              className="text-sm text-slate-600 transition hover:text-teal-600"
+            >
+              Solutions
+            </a>
 
-  <a
-    href="/university/teams"
-    className="text-sm text-slate-600 transition hover:text-teal-600"
-  >
-    Teams
-  </a>
+            <a
+              href="/university/teams"
+              className="text-sm text-slate-600 transition hover:text-teal-600"
+            >
+              Teams
+            </a>
 
-  <a
-    href="/university/profile"
-    className="text-sm text-slate-600 transition hover:text-teal-600"
-  >
-    Profile
-  </a>
-</div>
+            <a
+              href="/university/profile"
+              className="text-sm text-slate-600 transition hover:text-teal-600"
+            >
+              Profile
+            </a>
+
+            <button
+              onClick={() => {
+                logout();
+                window.location.href = "/login";
+              }}
+              className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              <LogOut size={16} />
+              Logout
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -130,7 +260,7 @@ export default function UniversityDashboard() {
 
               <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
                 Discover. Collaborate. Innovate.
-                </h2>
+              </h2>
 
               <p className="mt-3 max-w-xl text-sm leading-6 text-teal-50 md:text-base">
                 Explore real-world community problems, collaborate with
@@ -151,7 +281,7 @@ export default function UniversityDashboard() {
                     <GraduationCap className="h-5 w-5" />
                   </div>
 
-                  <span className="text-2xl font-bold">24</span>
+                  <span className="text-2xl font-bold">{loadingUniversities ? "..." : universities.length}</span>
                 </div>
 
                 <p className="mt-3 text-sm font-semibold">
@@ -173,7 +303,9 @@ export default function UniversityDashboard() {
                     <BookOpen className="h-5 w-5" />
                   </div>
 
-                  <span className="text-2xl font-bold">128</span>
+                  <span className="text-2xl font-bold">
+                    {loadingProblems ? "..." : communityProblems.length}
+                  </span>
                 </div>
 
                 <p className="mt-3 text-sm font-semibold">
@@ -195,7 +327,7 @@ export default function UniversityDashboard() {
                     <FolderKanban className="h-5 w-5" />
                   </div>
 
-                  <span className="text-2xl font-bold">5</span>
+                  <span className="text-2xl font-bold">{loadingProjects ? "..." : projects.length}</span>
                 </div>
 
                 <p className="mt-3 text-sm font-semibold">
@@ -217,7 +349,7 @@ export default function UniversityDashboard() {
                     <Lightbulb className="h-5 w-5" />
                   </div>
 
-                  <span className="text-2xl font-bold">12</span>
+                  <span className="text-2xl font-bold">  {loadingSolutions ? "..." : solutions.length}</span>
                 </div>
 
                 <p className="mt-3 text-sm font-semibold">
@@ -249,86 +381,139 @@ export default function UniversityDashboard() {
         </div>
 
         {/* ================= PROBLEM CARDS ================= */}
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {communityProblems.map((problem) => (
-            <a
-              key={problem.id}
-              href={`/university/problems/${problem.id}`}
-              className="group flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-teal-400 hover:bg-teal-50 hover:shadow-md"
-            >
-              {/* Icon */}
-              <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50 group-hover:bg-white">
-                {problem.category === "Water Management" ? (
-                  <span className="text-teal-600">
-                    <DropletsIcon />
-                  </span>
-                ) : problem.category === "Sanitation" ? (
-                  <CheckCircle2 className="h-6 w-6 text-teal-600" />
-                ) : (
-                  <Users className="h-6 w-6 text-teal-600" />
-                )}
-              </div>
 
-              {/* Category */}
-              <span className="mb-2 w-fit rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700 group-hover:bg-white">
-                {problem.category}
-              </span>
-
-              {/* Title */}
-              <h4 className="text-xl font-bold leading-snug group-hover:text-teal-700">
-                {problem.title}
-              </h4>
-
-              {/* Description */}
-              <p className="mt-3 flex-1 text-sm leading-6 text-slate-500">
-                {problem.description}
+        {loadingProblems ? (
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-sm text-slate-500">
+                Loading community problems...
               </p>
+            </div>
+          </div>
+        ) : problemError ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-6">
+            <p className="text-sm font-semibold text-red-700">
+              {problemError}
+            </p>
+          </div>
+        ) : communityProblems.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <p className="text-sm font-semibold text-slate-700">
+              No matched community problems found.
+            </p>
 
-              {/* Bottom */}
-              <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
-                <span className="text-xs font-medium text-slate-500">
-                  {problem.impact}
+            <p className="mt-1 text-sm text-slate-500">
+              New problems matching your university expertise will appear
+              here.
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {communityProblems.map((problem) => (
+              <a
+                key={problem.id}
+                href={`/university/problems/${problem.id}`}
+                className="group flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-teal-400 hover:bg-teal-50 hover:shadow-md"
+              >
+                {/* Icon */}
+                <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50 group-hover:bg-white">
+                  {problem.category === "Water Management" ||
+                  problem.category === "Water Supply" ||
+                  problem.category === "Water" ? (
+                    <span className="text-teal-600">
+                      <DropletsIcon />
+                    </span>
+                  ) : problem.category === "Sanitation" ? (
+                    <CheckCircle2 className="h-6 w-6 text-teal-600" />
+                  ) : (
+                    <Users className="h-6 w-6 text-teal-600" />
+                  )}
+                </div>
+
+                {/* Category */}
+                <span className="mb-2 w-fit rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700 group-hover:bg-white">
+                  {problem.category || "Community Problem"}
                 </span>
 
-                <span className="flex items-center gap-1 text-sm font-semibold text-teal-600">
-                  Explore
-                  <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
-                </span>
-              </div>
-            </a>
-          ))}
-        </div>
+                {/* Title */}
+                <h4 className="text-xl font-bold leading-snug group-hover:text-teal-700">
+                  {problem.title}
+                </h4>
+
+                {/* Description */}
+                <p className="mt-3 flex-1 text-sm leading-6 text-slate-500">
+                  {problem.ai_summary ||
+                    "Explore a community-reported problem and discover opportunities for university-led solutions."}
+                </p>
+
+                {/* Bottom */}
+                <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
+                  <span className="text-xs font-medium text-slate-500">
+                    {problem.match_score !== null &&
+                    problem.match_score !== undefined
+                      ? `Match: ${Math.round(
+                          problem.match_score * 100
+                        )}%`
+                      : "Match: N/A"}
+                  </span>
+
+                  <span className="flex items-center gap-1 text-sm font-semibold text-teal-600">
+                    Explore
+                    <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+                  </span>
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
 
         {/* ================= PROJECTS + SOLUTIONS ================= */}
         <div className="mt-10 grid gap-6 lg:grid-cols-2">
-          {/* Projects */}
           <a
-            href="/university/projects"
-            className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-teal-400 hover:bg-teal-50 hover:shadow-md"
-          >
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-teal-50 group-hover:bg-white">
-                <FolderKanban className="h-6 w-6 text-teal-600" />
-              </div>
+  href="/university/projects"
+  className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-teal-400 hover:bg-teal-50 hover:shadow-md"
+>
+  <div className="flex items-start gap-4">
+    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-teal-50 group-hover:bg-white">
+      <FolderKanban className="h-6 w-6 text-teal-600" />
+    </div>
 
-              <div className="flex-1">
-                <h3 className="text-xl font-bold group-hover:text-teal-700">
-                  University Projects
-                </h3>
+    <div className="flex-1">
+      <h3 className="text-xl font-bold group-hover:text-teal-700">
+        University Projects
+      </h3>
 
-                <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Explore projects where universities are working together to
-                  address real-world community challenges.
-                </p>
+      {loadingProjects ? (
+        <p className="mt-2 text-sm leading-6 text-slate-500">
+          Loading projects...
+        </p>
+      ) : projectError ? (
+        <p className="mt-2 text-sm leading-6 text-red-600">
+          {projectError}
+        </p>
+      ) : projects.length === 0 ? (
+        <p className="mt-2 text-sm leading-6 text-slate-500">
+          No university projects available yet.
+        </p>
+      ) : (
+        <>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            {projects[0].title}
+          </p>
 
-                <div className="mt-4 flex items-center gap-2 text-sm font-semibold text-teal-600">
-                  Explore Projects
-                  <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
-                </div>
-              </div>
-            </div>
-          </a>
+          <p className="mt-2 text-xs text-slate-400">
+            {projects.length} project{projects.length !== 1 ? "s" : ""} available
+          </p>
+        </>
+      )}
 
+      <div className="mt-4 flex items-center gap-2 text-sm font-semibold text-teal-600">
+        Explore Projects
+        <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+      </div>
+    </div>
+  </div>
+</a>
           {/* Solutions */}
           <a
             href="/university/solutions"
@@ -344,10 +529,29 @@ export default function UniversityDashboard() {
                   University Solutions
                 </h3>
 
-                <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Discover innovative solutions developed by students,
-                  researchers and universities.
-                </p>
+               {loadingSolutions ? (
+  <p className="mt-2 text-sm leading-6 text-slate-500">
+    Loading solutions...
+  </p>
+) : solutionError ? (
+  <p className="mt-2 text-sm leading-6 text-red-600">
+    {solutionError}
+  </p>
+) : solutions.length === 0 ? (
+  <p className="mt-2 text-sm leading-6 text-slate-500">
+    No university solutions available yet.
+  </p>
+) : (
+  <>
+    <p className="mt-2 text-sm leading-6 text-slate-500">
+      {solutions[0].solution_title}
+    </p>
+
+    <p className="mt-2 text-xs text-slate-400">
+      {solutions.length} solution{solutions.length !== 1 ? "s" : ""} available
+    </p>
+  </>
+)}
 
                 <div className="mt-4 flex items-center gap-2 text-sm font-semibold text-teal-600">
                   Explore Solutions
@@ -357,73 +561,93 @@ export default function UniversityDashboard() {
             </div>
           </a>
         </div>
-{/* ================= INDUSTRY SUPPORT ================= */}
-<section className="mt-10 rounded-2xl border border-teal-200 bg-white p-6 shadow-sm">
-  <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-    <div className="flex items-start gap-4">
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-teal-50">
-        <Handshake className="h-6 w-6 text-teal-700" />
-      </div>
 
-      <div>
-        <div className="flex flex-wrap items-center gap-3">
-          <h3 className="text-xl font-bold text-slate-900">
-            Industry Support
-          </h3>
+        {/* ================= INDUSTRY SUPPORT ================= */}
+        <section className="mt-10 rounded-2xl border border-teal-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-teal-50">
+                <Handshake className="h-6 w-6 text-teal-700" />
+              </div>
 
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-            Active
-          </span>
-        </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <h3 className="text-xl font-bold text-slate-900">
+                    Industry Support
+                  </h3>
 
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-          Connect your university projects with industry partners for
-          funding, mentorship, hardware, testing and field deployment.
-        </p>
-      </div>
-    </div>
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                    Active
+                  </span>
+                </div>
 
-    <a
-      href="/university/industry"
-      className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-teal-800"
-    >
-      Find Industry Partners
-      <ArrowRight className="h-4 w-4" />
-    </a>
-  </div>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                  Connect your university projects with industry partners for
+                  funding, mentorship, hardware, testing and field deployment.
+                </p>
+              </div>
+            </div>
 
-  <div className="mt-6 grid gap-4 sm:grid-cols-3">
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-medium text-slate-500">
-        Active Collaborations
-      </p>
+            <a
+              href="/university/industry"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-teal-800"
+            >
+              Find Industry Partners
+              <ArrowRight className="h-4 w-4" />
+            </a>
+          </div>
 
-      <p className="mt-1 text-2xl font-black text-slate-900">
-        2
-      </p>
-    </div>
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-medium text-slate-500">
+                Active Collaborations
+              </p>
 
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-medium text-slate-500">
-        Support Received
-      </p>
+              <p className="mt-1 text-2xl font-black text-slate-900">
+                {loadingCollaborations ? "..." : collaborations.length}
+              </p>
+            </div>
 
-      <p className="mt-1 text-2xl font-black text-slate-900">
-        ₹2.4L
-      </p>
-    </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-medium text-slate-500">
+                Support Received
+              </p>
 
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-medium text-slate-500">
-        Requests Pending
-      </p>
+              <p className="mt-1 text-2xl font-black text-slate-900">
+                {loadingCollaborations
+  ? "..."
+  : `₹${(
+      collaborations
+        .filter(
+          (collaboration) =>
+            collaboration.status === "ACCEPTED" ||
+            collaboration.status === "COMPLETED"
+        )
+        .reduce(
+          (total, collaboration) =>
+            total + Number(collaboration.amount || 0),
+          0
+        ) / 100000
+    ).toFixed(1)}L`}
+              </p>
+            </div>
 
-      <p className="mt-1 text-2xl font-black text-slate-900">
-        3
-      </p>
-    </div>
-  </div>
-</section>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-medium text-slate-500">
+                Requests Pending
+              </p>
+
+              <p className="mt-1 text-2xl font-black text-slate-900">
+                {loadingCollaborations
+  ? "..."
+  : collaborations.filter(
+      (collaboration) => collaboration.status === "REQUESTED"
+    ).length}
+              </p>
+            </div>
+          </div>
+        </section>
+
         {/* ================= BOTTOM CTA ================= */}
         <div className="mt-10 overflow-hidden rounded-3xl bg-teal-600 p-7 text-white shadow-sm md:p-9">
           <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">

@@ -26,6 +26,7 @@ def match_universities(
             WHERE id = :problem_id
         ) p
         WHERE u.embedding IS NOT NULL
+          AND p.embedding IS NOT NULL
         ORDER BY u.embedding <=> p.embedding
         LIMIT :limit
     """)

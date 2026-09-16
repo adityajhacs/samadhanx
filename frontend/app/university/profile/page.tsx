@@ -1,713 +1,834 @@
+
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   ArrowRight,
   Building2,
   CheckCircle2,
-  Edit3,
+  ChevronDown,
+  ChevronUp,
+  FolderKanban,
   GraduationCap,
-  Handshake,
   Mail,
   MapPin,
-  Phone,
-  Plus,
-  Save,
-  Users,
+  Menu,
+  MessageSquare,
+  Sparkles,
   X,
-  BriefcaseBusiness,
-  Lightbulb,
-  Factory,
 } from "lucide-react";
-import { useState } from "react";
 
-const initialExpertise = [
-  "Computer Science",
-  "Civil Engineering",
-  "Environmental Science",
-  "Agriculture",
-  "IoT",
-  "Artificial Intelligence",
-];
-
-const availableExpertise = [
-  "Data Science",
-  "Robotics",
-  "Renewable Energy",
-  "Healthcare Technology",
-  "Smart Infrastructure",
-  "Cybersecurity",
-];
-
-const collaborationOptions = [
-  {
-    title: "Industry Mentorship",
-    description:
-      "Connect students and researchers with industry experts for guidance and domain knowledge.",
-    icon: Users,
-  },
-  {
-    title: "Funding & Grants",
-    description:
-      "Explore industry funding opportunities for promising university solutions and prototypes.",
-    icon: BriefcaseBusiness,
-  },
-  {
-    title: "Prototype Development",
-    description:
-      "Collaborate with companies for technical support, testing and prototype development.",
-    icon: Lightbulb,
-  },
-  {
-    title: "Field Pilot",
-    description:
-      "Partner with industry to test university solutions in real-world environments.",
-    icon: Factory,
-  },
-];
+import { getCurrentUser } from "@/lib/api/auth";
+import {
+  getMyUniversityId,
+  getMyUniversityProblems,
+  getUniversities,
+  University,
+  UniversityProblem,
+} from "@/lib/api/universities";
+import { getProjects, Project } from "@/lib/api/projects";
 
 export default function UniversityProfilePage() {
-  const [editing, setEditing] = useState(false);
+  const [university, setUniversity] = useState<University | null>(null);
+  const [problems, setProblems] = useState<UniversityProblem[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
 
-  const [name, setName] = useState(
-    "National Institute of Technology"
-  );
-  const [email, setEmail] = useState("university@example.com");
-  const [phone, setPhone] = useState("+91 98765 43210");
-  const [location, setLocation] = useState("Ranchi, Jharkhand");
+  const [currentUserEmail, setCurrentUserEmail] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const [expertise, setExpertise] = useState(initialExpertise);
-  const [showExpertiseModal, setShowExpertiseModal] =
-    useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [expertiseOpen, setExpertiseOpen] = useState(true);
 
-  const [newExpertise, setNewExpertise] = useState("");
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        setLoading(true);
+        setError("");
 
-  const [selectedCollaboration, setSelectedCollaboration] =
-    useState<string | null>(null);
+        const [
+          currentUser,
+          universityId,
+          universities,
+          universityProblems,
+          universityProjects,
+        ] = await Promise.all([
+          getCurrentUser(),
+          getMyUniversityId(),
+          getUniversities(),
+          getMyUniversityProblems(),
+          getProjects(),
+        ]);
 
-  const addExpertise = () => {
-    const value = newExpertise.trim();
+        setCurrentUserEmail(currentUser?.email ?? "");
 
-    if (!value) return;
+        const currentUniversity = universities.find(
+          (item) => item.id === universityId
+        );
 
-    if (!expertise.includes(value)) {
-      setExpertise((current) => [...current, value]);
+        if (!currentUniversity) {
+          throw new Error("University profile not found.");
+        }
+
+        setUniversity(currentUniversity);
+        setProblems(universityProblems);
+
+        /*
+         * /api/projects is used with the authenticated university account.
+         * The university-scoped projects returned by the API are displayed here.
+         */
+        setProjects(universityProjects);
+      } catch (err) {
+        console.error("Failed to load university profile:", err);
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load university profile."
+        );
+      } finally {
+        setLoading(false);
+      }
     }
 
-    setNewExpertise("");
-    setShowExpertiseModal(false);
-  };
+    loadProfile();
+  }, []);
 
-  const removeExpertise = (item: string) => {
-    setExpertise((current) =>
-      current.filter((expertiseItem) => expertiseItem !== item)
+  const expertise = useMemo(() => {
+    if (!university?.expertise_area) {
+      return [];
+    }
+
+    if (Array.isArray(university.expertise_area)) {
+      return university.expertise_area;
+    }
+
+    return [university.expertise_area];
+  }, [university]);
+
+  const acceptedProblems = useMemo(() => {
+    return problems.filter((problem) => {
+      const status = String(problem.status ?? "").toLowerCase();
+
+      return status === "accepted" || status === "approved";
+    });
+  }, [problems]);
+
+  if (loading) {
+    return <LoadingState />;
+  }
+
+  if (!university || error) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <UniversityNavbar
+          mobileMenuOpen={mobileMenuOpen}
+          setMobileMenuOpen={setMobileMenuOpen}
+        />
+
+        <main className="mx-auto flex min-h-[70vh] max-w-7xl items-center justify-center px-6 py-12">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600">
+              <Building2 className="h-7 w-7" />
+            </div>
+
+            <h1 className="mt-5 text-xl font-bold text-slate-900">
+              Profile could not be loaded
+            </h1>
+
+            <p className="mt-2 text-sm text-slate-500">
+              {error || "University profile was not found."}
+            </p>
+
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-6 rounded-xl bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-800"
+            >
+              Try Again
+            </button>
+          </div>
+        </main>
+      </div>
     );
-  };
+  }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
-      {/* ================= NAVBAR ================= */}
-      <nav className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          {/* Logo */}
-          <a
-            href="/university/dashboard"
-            className="flex items-center gap-3"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 text-lg font-bold text-white">
-              S
-            </div>
+    <div className="min-h-screen bg-slate-50">
+      <UniversityNavbar
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+      />
 
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">
-                SamadhanX
-              </h1>
-
-              <p className="text-xs text-slate-500">
-                Ideas → Action → Impact
-              </p>
-            </div>
-          </a>
-
-          {/* Navigation */}
-          <div className="hidden items-center gap-6 md:flex">
-            <a
-              href="/university/dashboard"
-              className="text-sm text-slate-600 transition hover:text-teal-600"
-            >
-              Dashboard
-            </a>
-
-            <a
-              href="/university/problems"
-              className="text-sm text-slate-600 transition hover:text-teal-600"
-            >
-              Problems
-            </a>
-
-            <a
-              href="/university/projects"
-              className="text-sm text-slate-600 transition hover:text-teal-600"
-            >
-              Projects
-            </a>
-
-            <a
-              href="/university/solutions"
-              className="text-sm text-slate-600 transition hover:text-teal-600"
-            >
-              Solutions
-            </a>
-
-            <a
-              href="/university/teams"
-              className="text-sm text-slate-600 transition hover:text-teal-600"
-            >
-              Teams
-            </a>
-
-            <a
-            href="/university/profile"
-            className="text-sm font-semibold text-teal-600"
-          >
-            Profile
-          </a>
-
-          </div>
-        </div>
-      </nav>
-
-      {/* ================= MAIN ================= */}
-      <section className="mx-auto max-w-6xl px-6 py-10">
-        {/* Page Header */}
-        <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <h2 className="text-3xl font-bold text-slate-900">
-              University Profile
-            </h2>
-
-            <p className="mt-1 text-slate-500">
-              Manage your university information and account details.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setEditing(!editing)}
-            className="flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white transition hover:bg-teal-700"
-          >
-            {editing ? (
-              <>
-                <Save className="h-5 w-5" />
-                Save Changes
-              </>
-            ) : (
-              <>
-                <Edit3 className="h-5 w-5" />
-                Edit Profile
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* ================= PROFILE + DETAILS ================= */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Profile Card */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-col items-center text-center">
-              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-teal-100">
-                <GraduationCap className="h-12 w-12 text-teal-600" />
-              </div>
-
-              <h3 className="mt-4 text-xl font-bold">
-                {name}
-              </h3>
-
-              <p className="mt-1 text-sm text-slate-500">
-                University Partner
-              </p>
-
-              <div className="mt-4 flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700">
-                <CheckCircle2 className="h-4 w-4" />
-                Verified Institution
+      <main className="mx-auto max-w-7xl px-6 py-8 lg:px-8">
+        {/* Header */}
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="h-36 bg-gradient-to-r from-teal-800 via-teal-700 to-teal-600">
+            <div className="flex h-full items-end px-6 pb-5 lg:px-8">
+              <div className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
+                <Sparkles className="h-3.5 w-3.5" />
+                SamadhanX University Portal
               </div>
             </div>
+          </div>
 
-            <div className="mt-6 border-t border-slate-200 pt-6">
-              <div className="mb-4 flex items-center gap-3">
-                <Building2 className="h-5 w-5 text-teal-600" />
+          <div className="px-6 py-7 lg:px-8">
+            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-5">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-teal-700 text-3xl font-bold text-white shadow-md">
+                  {university.name?.charAt(0)?.toUpperCase() || "U"}
+                </div>
 
-                <div>
-                  <p className="text-xs text-slate-500">
-                    Institution Type
-                  </p>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-2xl font-bold text-slate-900">
+                      {university.name}
+                    </h1>
 
-                  <p className="font-medium">University</p>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      University
+                    </span>
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-500">
+                    {university.district && (
+                      <span className="flex items-center gap-1.5">
+                        <MapPin className="h-4 w-4" />
+                        {university.district}
+                      </span>
+                    )}
+
+                    {university.department && (
+                      <span className="flex items-center gap-1.5">
+                        <Building2 className="h-4 w-4" />
+                        {university.department}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
+              <Link
+                href="/university/dashboard"
+                className="inline-flex w-fit items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+              >
+                Dashboard
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Stats */}
+        <section className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatCard
+            icon={<MessageSquare className="h-5 w-5" />}
+            label="Problems"
+            value={problems.length}
+          />
+
+          <StatCard
+            icon={<FolderKanban className="h-5 w-5" />}
+            label="Projects"
+            value={projects.length}
+          />
+
+          <StatCard
+            icon={<CheckCircle2 className="h-5 w-5" />}
+            label="Accepted"
+            value={acceptedProblems.length}
+          />
+
+          <StatCard
+            icon={<GraduationCap className="h-5 w-5" />}
+            label="Expertise"
+            value={expertise.length}
+          />
+        </section>
+
+        {/* Content */}
+        <section className="mt-6 grid items-start gap-6 lg:grid-cols-12">
+          {/* Left */}
+          <div className="space-y-6 lg:col-span-4">
+            {/* University Information */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-center gap-3">
-                <Users className="h-5 w-5 text-teal-600" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+                  <Building2 className="h-5 w-5" />
+                </div>
 
                 <div>
+                  <h2 className="font-bold text-slate-900">
+                    University Information
+                  </h2>
+
                   <p className="text-xs text-slate-500">
-                    Active Members
+                    Account information
                   </p>
-
-                  <p className="font-medium">128 Members</p>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Institution Details */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
-            <h3 className="mb-6 text-xl font-semibold">
-              Institution Information
-            </h3>
-
-            <div className="grid gap-5 sm:grid-cols-2">
-              {/* Name */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  University Name
-                </label>
-
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={!editing}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100 disabled:bg-slate-50 disabled:text-slate-500"
+              <div className="mt-6 space-y-5">
+                <InfoItem
+                  icon={<Mail className="h-4 w-4" />}
+                  label="Email"
+                  value={currentUserEmail || "Not available"}
                 />
-              </div>
 
-              {/* Email */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Email Address
-                </label>
+                <InfoItem
+                  icon={<MapPin className="h-4 w-4" />}
+                  label="District"
+                  value={university.district || "Not available"}
+                />
 
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
-
-                  <input
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={!editing}
-                    className="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-4 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100 disabled:bg-slate-50 disabled:text-slate-500"
-                  />
-                </div>
-              </div>
-
-              {/* Phone */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Phone Number
-                </label>
-
-                <div className="relative">
-                  <Phone className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
-
-                  <input
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    disabled={!editing}
-                    className="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-4 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100 disabled:bg-slate-50 disabled:text-slate-500"
-                  />
-                </div>
-              </div>
-
-              {/* Location */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Location
-                </label>
-
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
-
-                  <input
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    disabled={!editing}
-                    className="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-4 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100 disabled:bg-slate-50 disabled:text-slate-500"
-                  />
-                </div>
+                <InfoItem
+                  icon={<Building2 className="h-4 w-4" />}
+                  label="Department"
+                  value={university.department || "Not available"}
+                />
               </div>
             </div>
 
             {/* Expertise */}
-            <div className="mt-7 border-t border-slate-200 pt-6">
-              <div className="mb-3 flex items-center justify-between">
-                <h4 className="font-semibold">
-                  Areas of Expertise
-                </h4>
-
-                <button
-                  type="button"
-                  onClick={() => setShowExpertiseModal(true)}
-                  className="flex items-center gap-1.5 rounded-lg border border-teal-200 bg-teal-50 px-3 py-1.5 text-sm font-semibold text-teal-700 transition hover:bg-teal-100"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Expertise
-                </button>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {expertise.map((item) => (
-                  <span
-                    key={item}
-                    className="group flex items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1.5 text-sm text-teal-700"
-                  >
-                    {item}
-
-                    <button
-                      type="button"
-                      onClick={() => removeExpertise(item)}
-                      className="hidden rounded-full text-teal-500 transition hover:text-red-500 group-hover:block"
-                      aria-label={`Remove ${item}`}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ================= ACCOUNT STATS ================= */}
-        <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <a
-            href="/university/problems"
-            className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-teal-400 hover:bg-teal-50 hover:shadow-md"
-          >
-            <p className="text-sm text-slate-500 group-hover:text-teal-700">
-              Matched Problems
-            </p>
-
-            <p className="mt-2 text-2xl font-bold text-slate-900 group-hover:text-teal-700">
-              24
-            </p>
-          </a>
-
-          <a
-            href="/university/problems"
-            className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-teal-400 hover:bg-teal-50 hover:shadow-md"
-          >
-            <p className="text-sm text-slate-500 group-hover:text-teal-700">
-              Accepted Problems
-            </p>
-
-            <p className="mt-2 text-2xl font-bold text-teal-600 group-hover:text-teal-700">
-              8
-            </p>
-          </a>
-
-          <a
-            href="/university/projects"
-            className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-teal-400 hover:bg-teal-50 hover:shadow-md"
-          >
-            <p className="text-sm text-slate-500 group-hover:text-teal-700">
-              Active Projects
-            </p>
-
-            <p className="mt-2 text-2xl font-bold text-slate-900 group-hover:text-teal-700">
-              5
-            </p>
-          </a>
-
-          <a
-            href="/university/solutions"
-            className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-teal-400 hover:bg-teal-50 hover:shadow-md"
-          >
-            <p className="text-sm text-slate-500 group-hover:text-teal-700">
-              Solutions
-            </p>
-
-            <p className="mt-2 text-2xl font-bold text-slate-900 group-hover:text-teal-700">
-              12
-            </p>
-          </a>
-        </div>
-
-        {/* ================= INDUSTRY COLLABORATION ================= */}
-        <div className="mt-8 overflow-hidden rounded-2xl border border-teal-200 bg-teal-50">
-          <div className="p-6 md:p-7">
-            <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
-              <div className="max-w-2xl">
-                <div className="mb-3 flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-100">
-                    <Handshake className="h-6 w-6 text-teal-700" />
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <button
+                type="button"
+                onClick={() => setExpertiseOpen((value) => !value)}
+                className="flex w-full items-center justify-between p-6"
+              >
+                <div className="flex items-center gap-3 text-left">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                    <Sparkles className="h-5 w-5" />
                   </div>
 
                   <div>
-                    <p className="text-sm font-bold uppercase tracking-wide text-teal-700">
-                      Industry Collaboration
-                    </p>
+                    <h2 className="font-bold text-slate-900">
+                      Expertise Areas
+                    </h2>
 
-                    <h3 className="text-2xl font-bold text-slate-900">
-                      Turn university ideas into real-world impact.
-                    </h3>
+                    <p className="text-xs text-slate-500">
+                      University expertise
+                    </p>
                   </div>
                 </div>
 
-                <p className="text-sm leading-6 text-slate-600">
-                  Connect your university with industry partners for
-                  mentorship, funding, prototype development and
-                  real-world pilot opportunities.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setSelectedCollaboration("Industry Collaboration")
-                }
-                className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-teal-700"
-              >
-                Explore Collaboration
-                <ArrowRight className="h-4 w-4" />
+                {expertiseOpen ? (
+                  <ChevronUp className="h-5 w-5 text-slate-400" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-slate-400" />
+                )}
               </button>
-            </div>
 
-            {/* Collaboration Options */}
-            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {collaborationOptions.map((option) => {
-                const Icon = option.icon;
-
-                return (
-                  <button
-                    key={option.title}
-                    type="button"
-                    onClick={() =>
-                      setSelectedCollaboration(option.title)
-                    }
-                    className="group rounded-xl border border-teal-100 bg-white p-4 text-left transition-all duration-200 hover:-translate-y-1 hover:border-teal-400 hover:shadow-md"
-                  >
-                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-teal-50">
-                      <Icon className="h-5 w-5 text-teal-600" />
+              {expertiseOpen && (
+                <div className="border-t border-slate-100 px-6 py-5">
+                  {expertise.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {expertise.map((item, index) => (
+                        <span
+                          key={`${item}-${index}`}
+                          className="rounded-lg bg-teal-50 px-3 py-2 text-xs font-semibold text-teal-700"
+                        >
+                          {item}
+                        </span>
+                      ))}
                     </div>
-
-                    <h4 className="font-semibold text-slate-900 group-hover:text-teal-700">
-                      {option.title}
-                    </h4>
-
-                    <p className="mt-1 text-xs leading-5 text-slate-500">
-                      {option.description}
+                  ) : (
+                    <p className="text-sm text-slate-500">
+                      No expertise areas available.
                     </p>
-                  </button>
-                );
-              })}
+                  )}
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* ================= ADD EXPERTISE MODAL ================= */}
-      {showExpertiseModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="mb-5 flex items-start justify-between">
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">
-                  Add Expertise
-                </h3>
+          {/* Right */}
+          <div className="space-y-6 lg:col-span-8">
+            {/* University Projects */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <SectionHeader
+                icon={<FolderKanban className="h-5 w-5" />}
+                title="University Projects"
+                href="/university/projects"
+              />
 
-                <p className="mt-1 text-sm text-slate-500">
-                  Add another area your university specializes in.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowExpertiseModal(false)}
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Expertise
-            </label>
-
-            <input
-              value={newExpertise}
-              onChange={(e) => setNewExpertise(e.target.value)}
-              placeholder="e.g. Robotics"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
-            />
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              {availableExpertise.map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => setNewExpertise(item)}
-                  className="rounded-full bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 transition hover:bg-teal-100"
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setShowExpertiseModal(false)}
-                className="rounded-xl border border-slate-200 px-4 py-3 font-semibold text-slate-700 transition hover:border-red-400 hover:bg-red-50 hover:text-red-600"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                onClick={addExpertise}
-                className="rounded-xl bg-teal-600 px-4 py-3 font-semibold text-white transition hover:bg-teal-700"
-              >
-                Add Expertise
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================= INDUSTRY MODAL ================= */}
-      {selectedCollaboration && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-7 shadow-2xl">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-100">
-                  <Handshake className="h-6 w-6 text-teal-600" />
-                </div>
-
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900">
-                    {selectedCollaboration}
-                  </h3>
-
-                  <p className="text-sm text-slate-500">
-                    Industry partnership opportunity
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setSelectedCollaboration(null)}
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="mt-6 space-y-3">
-              {[
-                {
-                  name: "Tata Consultancy Services",
-                  focus: "Technology • AI • Digital Solutions",
-                },
-                {
-                  name: "Infosys",
-                  focus: "AI • Software • Smart Solutions",
-                },
-                {
-                  name: "Tata Motors",
-                  focus: "Automotive • Mobility • Engineering",
-                },
-                {
-                  name: "Larsen & Toubro",
-                  focus: "Infrastructure • Engineering • Construction",
-                },
-              ].map((industry) => (
-                <div
-                  key={industry.name}
-                  className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-teal-400 hover:bg-teal-50"
-                >
-                  <div>
-                    <h4 className="font-semibold text-slate-900">
-                      {industry.name}
-                    </h4>
-
-                    <p className="mt-1 text-sm text-slate-500">
-                      {industry.focus}
-                    </p>
+              <div className="mt-6">
+                {projects.length === 0 ? (
+                  <EmptyState
+                    icon={<FolderKanban className="h-6 w-6" />}
+                    title="No university projects yet"
+                    description="Projects created and managed by your university will appear here."
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    {projects.slice(0, 5).map((project) => (
+                      <ProjectCard
+                        key={project.id}
+                        project={project}
+                      />
+                    ))}
                   </div>
-
-                  <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700">
-                    Potential Partner
-                  </span>
-                </div>
-              ))}
+                )}
+              </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setSelectedCollaboration(null)}
-                className="rounded-xl border border-slate-200 px-4 py-3 font-semibold text-slate-700 transition hover:border-red-400 hover:bg-red-50 hover:text-red-600"
-              >
-                Close
-              </button>
+            {/* Problems */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <SectionHeader
+                icon={<MessageSquare className="h-5 w-5" />}
+                title="University Problems"
+                href="/university/problems"
+              />
 
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedCollaboration("Industry Opportunities");
-              }}
-              className="flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-3 font-semibold text-white transition hover:bg-teal-700"
-            >
-              View Opportunities
-              <ArrowRight className="h-4 w-4" />
-            </button>
+              <div className="mt-6">
+                {problems.length === 0 ? (
+                  <EmptyState
+                    icon={<MessageSquare className="h-6 w-6" />}
+                    title="No problems yet"
+                    description="University problem data will appear here."
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    {problems.slice(0, 5).map((problem) => (
+                      <ProblemCard
+                        key={problem.id}
+                        problem={problem}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* ================= FOOTER ================= */}
-      <footer className="mt-12 bg-slate-950 px-6 py-8 text-white">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 md:flex-row">
-          {/* Footer Logo */}
-          <a
-            href="/university/dashboard"
-            className="flex items-center gap-3"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 text-lg font-bold text-white">
-              S
-            </div>
-
-            <div>
-              <p className="text-lg font-bold">SamadhanX</p>
-
-              <p className="text-sm text-slate-400">
-                Ideas → Action → Impact
-              </p>
-            </div>
-          </a>
-
-          <p className="text-sm text-slate-400">
-            © 2026 SamadhanX. All rights reserved.
-          </p>
-
-          <div className="flex gap-5 text-sm text-slate-400">
-            <a
-              href="/help"
-              className="transition hover:text-teal-400"
-            >
-              Help
-            </a>
-
-            <a
-              href="/problems"
-              className="transition hover:text-teal-400"
-            >
-              Problems
-            </a>
-          </div>
-        </div>
-      </footer>
-    </main>
+        </section>
+      </main>
+    </div>
   );
 }
+
+/* ========================================================================== */
+/* NAVBAR                                                                     */
+/* ========================================================================== */
+
+function UniversityNavbar({
+  mobileMenuOpen,
+  setMobileMenuOpen,
+}: {
+  mobileMenuOpen: boolean;
+  setMobileMenuOpen: (value: boolean) => void;
+}) {
+  return (
+    <nav className="sticky top-0 z-40 border-b border-slate-200 bg-white">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
+        <Link
+          href="/university/dashboard"
+          className="flex items-center gap-2.5"
+        >
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-700 text-sm font-bold text-white">
+            S
+          </div>
+
+          <div>
+            <p className="text-lg font-bold tracking-tight text-slate-900">
+              SamadhanX
+            </p>
+
+            <p className="hidden text-[10px] font-semibold uppercase tracking-wider text-slate-400 sm:block">
+              Ideas → Action → Impact
+            </p>
+          </div>
+        </Link>
+
+        <div className="hidden items-center gap-7 md:flex">
+          <NavbarLink href="/university/dashboard">
+            Dashboard
+          </NavbarLink>
+
+          <NavbarLink href="/university/problems">
+            Problems
+          </NavbarLink>
+
+          <NavbarLink href="/university/solutions">
+            Solutions
+          </NavbarLink>
+
+          <NavbarLink href="/university/projects">
+            Projects
+          </NavbarLink>
+
+          <NavbarLink href="/university/teams">
+            Teams
+          </NavbarLink>
+
+          <NavbarLink href="/university/profile" active>
+            Profile
+          </NavbarLink>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 md:hidden"
+        >
+          {mobileMenuOpen ? (
+            <X className="h-5 w-5" />
+          ) : (
+            <Menu className="h-5 w-5" />
+          )}
+        </button>
+      </div>
+
+      {mobileMenuOpen && (
+        <div className="border-t border-slate-200 bg-white px-6 py-4 md:hidden">
+          <div className="flex flex-col gap-1">
+            <MobileLink href="/university/dashboard">
+              Dashboard
+            </MobileLink>
+
+            <MobileLink href="/university/problems">
+              Problems
+            </MobileLink>
+
+            <MobileLink href="/university/solutions">
+              Solutions
+            </MobileLink>
+
+            <MobileLink href="/university/projects">
+              Projects
+            </MobileLink>
+
+            <MobileLink href="/university/teams">
+              Teams
+            </MobileLink>
+
+            <MobileLink href="/university/profile">
+              Profile
+            </MobileLink>
+          </div>
+        </div>
+      )}
+    </nav>
+  );
+}
+
+function NavbarLink({
+  href,
+  children,
+  active = false,
+}: {
+  href: string;
+  children: React.ReactNode;
+  active?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={
+        active
+          ? "text-sm font-semibold text-teal-700"
+          : "text-sm font-medium text-slate-600 transition hover:text-teal-700"
+      }
+    >
+      {children}
+    </Link>
+  );
+}
+
+function MobileLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-teal-50 hover:text-teal-700"
+    >
+      {children}
+    </Link>
+  );
+}
+
+/* ========================================================================== */
+/* STAT CARD                                                                  */
+/* ========================================================================== */
+
+function StatCard({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+          {icon}
+        </div>
+
+        <span className="text-2xl font-bold text-slate-900">{value}</span>
+      </div>
+
+      <p className="mt-4 text-sm font-semibold text-slate-800">{label}</p>
+    </div>
+  );
+}
+
+/* ========================================================================== */
+/* INFO ITEM                                                                  */
+/* ========================================================================== */
+
+function InfoItem({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+        {icon}
+      </div>
+
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          {label}
+        </p>
+
+        <p className="mt-1 break-words text-sm font-medium text-slate-800">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ========================================================================== */
+/* SECTION HEADER                                                             */
+/* ========================================================================== */
+
+function SectionHeader({
+  icon,
+  title,
+  href,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  href: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+          {icon}
+        </div>
+
+        <h2 className="font-bold text-slate-900">{title}</h2>
+      </div>
+
+      <Link
+        href={href}
+        className="hidden items-center gap-1 text-sm font-semibold text-teal-700 hover:text-teal-800 sm:flex"
+      >
+        View all
+        <ArrowRight className="h-4 w-4" />
+      </Link>
+    </div>
+  );
+}
+
+/* ========================================================================== */
+/* PROJECT CARD                                                               */
+/* ========================================================================== */
+
+function ProjectCard({ project }: { project: Project }) {
+  return (
+    <Link
+      href={`/university/projects/${project.id}`}
+      className="group block rounded-xl border border-slate-200 p-4 transition hover:border-teal-200 hover:bg-teal-50/30"
+    >
+      <div className="flex items-start gap-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 group-hover:bg-teal-100 group-hover:text-teal-700">
+          <FolderKanban className="h-5 w-5" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-semibold text-slate-900 group-hover:text-teal-700">
+                {project.title}
+              </h3>
+
+              {project.description && (
+                <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
+                  {project.description}
+                </p>
+              )}
+            </div>
+
+            <span className="w-fit shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+              {project.status || "Not specified"}
+            </span>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between">
+            <span className="text-[11px] text-slate-400">
+              {project.member_count !== undefined
+                ? `${project.member_count} members`
+                : "Project"}
+            </span>
+
+            <ArrowRight className="h-4 w-4 text-slate-300 transition group-hover:translate-x-1 group-hover:text-teal-600" />
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+/* ========================================================================== */
+/* PROBLEM CARD                                                               */
+/* ========================================================================== */
+
+function ProblemCard({ problem }: { problem: UniversityProblem }) {
+  const status = String(problem.status ?? "Pending");
+  const normalizedStatus = status.toLowerCase();
+
+  const accepted =
+    normalizedStatus === "accepted" || normalizedStatus === "approved";
+
+  return (
+    <div className="rounded-xl border border-slate-200 p-4 transition hover:border-slate-300">
+      <div className="flex items-start gap-4">
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+            accepted
+              ? "bg-emerald-50 text-emerald-600"
+              : "bg-slate-100 text-slate-500"
+          }`}
+        >
+          {accepted ? (
+            <CheckCircle2 className="h-5 w-5" />
+          ) : (
+            <MessageSquare className="h-5 w-5" />
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-slate-900">
+                {problem.title}
+              </h3>
+
+              {problem.description && (
+                <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
+                  {problem.description}
+                </p>
+              )}
+            </div>
+
+            <span
+              className={`w-fit shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                accepted
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-slate-100 text-slate-600"
+              }`}
+            >
+              {status}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ========================================================================== */
+/* EMPTY STATE                                                                */
+/* ========================================================================== */
+
+function EmptyState({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-white text-slate-400 shadow-sm">
+        {icon}
+      </div>
+
+      <h3 className="mt-4 text-sm font-semibold text-slate-800">{title}</h3>
+
+      <p className="mx-auto mt-1 max-w-sm text-xs leading-5 text-slate-500">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+/* ========================================================================== */
+/* LOADING                                                                    */
+/* ========================================================================== */
+
+function LoadingState() {
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <div className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 animate-pulse rounded-xl bg-slate-200" />
+            <div className="h-5 w-24 animate-pulse rounded bg-slate-200" />
+          </div>
+
+          <div className="hidden gap-7 md:flex">
+            <div className="h-4 w-16 animate-pulse rounded bg-slate-100" />
+            <div className="h-4 w-16 animate-pulse rounded bg-slate-100" />
+            <div className="h-4 w-16 animate-pulse rounded bg-slate-100" />
+            <div className="h-4 w-16 animate-pulse rounded bg-slate-100" />
+          </div>
+        </div>
+      </div>
+
+      <main className="mx-auto max-w-7xl px-6 py-8 lg:px-8">
+        <div className="animate-pulse">
+          <div className="h-36 rounded-2xl bg-slate-200" />
+
+          <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <div className="h-28 rounded-2xl bg-slate-200" />
+            <div className="h-28 rounded-2xl bg-slate-200" />
+            <div className="h-28 rounded-2xl bg-slate-200" />
+            <div className="h-28 rounded-2xl bg-slate-200" />
+          </div>
+
+          <div className="mt-6 grid gap-6 lg:grid-cols-12">
+            <div className="space-y-6 lg:col-span-4">
+              <div className="h-64 rounded-2xl bg-slate-200" />
+              <div className="h-48 rounded-2xl bg-slate-200" />
+            </div>
+
+            <div className="space-y-6 lg:col-span-8">
+              <div className="h-72 rounded-2xl bg-slate-200" />
+              <div className="h-64 rounded-2xl bg-slate-200" />
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+

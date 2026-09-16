@@ -5,10 +5,13 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.core.database import get_db
+
 from app.models.collaboration import Collaboration
 from app.models.industry_partner import IndustryPartner
 from app.models.project import Project
+from app.models.solution import Solution
 from app.models.user import User
+
 from app.schemas.collaboration import (
     CollaborationCreate,
     CollaborationUpdate,
@@ -25,6 +28,167 @@ project_collaborations_router = APIRouter(
     prefix="/api/projects",
     tags=["Collaborations"],
 )
+
+
+# ============================================================
+# ROLE HELPERS
+# ============================================================
+
+def normalize_role(role: str | None) -> str:
+    return (role or "").strip().lower()
+
+
+def is_admin(user: User) -> bool:
+    return normalize_role(user.role) == "admin"
+
+
+def get_project_university_id(
+    project: Project,
+    db: Session,
+):
+    """
+    Project university is currently inferred through:
+
+    Project -> Solution -> University
+    """
+
+    if not project.solution_id:
+        return None
+
+    solution = (
+        db.query(Solution)
+        .filter(Solution.id == project.solution_id)
+        .first()
+    )
+
+    if not solution:
+        return None
+
+    return solution.university_id
+
+
+def belongs_to_same_university(
+    user: User,
+    project: Project,
+    db: Session,
+) -> bool:
+    """
+    Checks whether the current user belongs to the
+    university owning the project.
+    """
+
+    if not user.university_id:
+        return False
+
+    project_university_id = get_project_university_id(
+        project,
+        db,
+    )
+
+    if not project_university_id:
+        return False
+
+    return user.university_id == project_university_id
+
+
+def is_project_creator(
+    user: User,
+    project: Project,
+) -> bool:
+    """
+    Only the Faculty who created the project is
+    considered the project owner/manager.
+    """
+
+    return project.created_by == user.id
+
+
+def can_request_collaboration(
+    user: User,
+    project: Project,
+    db: Session,
+) -> bool:
+    """
+    Collaboration request permissions:
+
+    Admin:
+        Any project.
+
+    University:
+        Own university's project.
+
+    Faculty:
+        Only projects created by that Faculty.
+
+    Student:
+        Cannot request collaboration.
+
+    Industry:
+        Cannot initiate collaboration requests here.
+    """
+
+    role = normalize_role(user.role)
+
+    if role == "admin":
+        return True
+
+    if role == "university":
+        return belongs_to_same_university(
+            user,
+            project,
+            db,
+        )
+
+    if role == "faculty":
+        return is_project_creator(
+            user,
+            project,
+        )
+
+    return False
+
+
+def can_manage_project_collaboration(
+    user: User,
+    project: Project,
+    db: Session,
+) -> bool:
+    """
+    Permissions for modifying/deleting collaboration
+    fields other than status.
+
+    Admin:
+        Any project.
+
+    University:
+        Own university's project.
+
+    Faculty:
+        Only project creator/owner.
+
+    Student:
+        Cannot manage collaboration.
+    """
+
+    role = normalize_role(user.role)
+
+    if role == "admin":
+        return True
+
+    if role == "university":
+        return belongs_to_same_university(
+            user,
+            project,
+            db,
+        )
+
+    if role == "faculty":
+        return is_project_creator(
+            user,
+            project,
+        )
+
+    return False
 
 
 # ============================================================
@@ -53,6 +217,11 @@ def get_project_or_404(
 # ============================================================
 # GET ALL COLLABORATIONS
 # GET /api/collaborations
+#
+# University / Faculty / Student / Industry / Admin
+# can view collaboration information.
+#
+# Read-only.
 # ============================================================
 
 @router.get(
@@ -69,6 +238,8 @@ def get_collaborations(
 # ============================================================
 # GET SINGLE COLLABORATION
 # GET /api/collaborations/{collaboration_id}
+#
+# Read-only.
 # ============================================================
 
 @router.get(
@@ -82,7 +253,9 @@ def get_collaboration(
 ):
     collaboration = (
         db.query(Collaboration)
-        .filter(Collaboration.id == collaboration_id)
+        .filter(
+            Collaboration.id == collaboration_id
+        )
         .first()
     )
 
@@ -98,6 +271,14 @@ def get_collaboration(
 # ============================================================
 # CREATE COLLABORATION
 # POST /api/collaborations
+#
+# Allowed:
+#   Admin
+#   University -> own university project
+#   Faculty -> project created by that Faculty
+#
+# Student -> FORBIDDEN
+# Industry -> FORBIDDEN
 # ============================================================
 
 @router.post(
@@ -115,16 +296,17 @@ def create_collaboration(
         db,
     )
 
-    # University / project owner / admin can request
-    allowed_roles = ["UNIVERSITY", "FACULTY", "STUDENT", "ADMIN"]
-
-    if (
-        current_user.role not in allowed_roles
-        and project.created_by != current_user.id
+    if not can_request_collaboration(
+        current_user,
+        project,
+        db,
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to request collaboration",
+            detail=(
+                "You are not authorized to request "
+                "collaboration for this project"
+            ),
         )
 
     partner = (
@@ -161,6 +343,14 @@ def create_collaboration(
 # ============================================================
 # CREATE COLLABORATION FOR PROJECT
 # POST /api/projects/{project_id}/collaborations
+#
+# Allowed:
+#   Admin
+#   University -> own university project
+#   Faculty -> project creator only
+#
+# Student -> FORBIDDEN
+# Industry -> FORBIDDEN
 # ============================================================
 
 @project_collaborations_router.post(
@@ -179,22 +369,31 @@ def create_project_collaboration(
         db,
     )
 
+    # --------------------------------------------------------
     # URL project_id and body project_id must match
+    # --------------------------------------------------------
+
     if collaboration_data.project_id != project_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Project ID in request body does not match URL",
         )
 
-    allowed_roles = ["UNIVERSITY", "FACULTY", "STUDENT", "ADMIN"]
+    # --------------------------------------------------------
+    # Check collaboration request permission
+    # --------------------------------------------------------
 
-    if (
-        current_user.role not in allowed_roles
-        and project.created_by != current_user.id
+    if not can_request_collaboration(
+        current_user,
+        project,
+        db,
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to request collaboration",
+            detail=(
+                "You are not authorized to request "
+                "collaboration for this project"
+            ),
         )
 
     partner = (
@@ -231,6 +430,11 @@ def create_project_collaboration(
 # ============================================================
 # GET PROJECT COLLABORATIONS
 # GET /api/projects/{project_id}/collaborations
+#
+# Read-only.
+#
+# University / Faculty / Student can view.
+# Other universities' collaborations are also viewable.
 # ============================================================
 
 @project_collaborations_router.get(
@@ -261,6 +465,17 @@ def get_project_collaborations(
 # ============================================================
 # UPDATE COLLABORATION
 # PATCH /api/collaborations/{collaboration_id}
+#
+# STATUS:
+#   Industry / Admin
+#
+# OTHER FIELDS:
+#   University -> own university project
+#   Faculty -> own project only
+#   Admin
+#
+# Student:
+#   Cannot update
 # ============================================================
 
 @router.patch(
@@ -275,7 +490,9 @@ def update_collaboration(
 ):
     collaboration = (
         db.query(Collaboration)
-        .filter(Collaboration.id == collaboration_id)
+        .filter(
+            Collaboration.id == collaboration_id
+        )
         .first()
     )
 
@@ -294,6 +511,8 @@ def update_collaboration(
         exclude_unset=True
     )
 
+    role = normalize_role(current_user.role)
+
     # --------------------------------------------------------
     # STATUS UPDATE
     # --------------------------------------------------------
@@ -302,14 +521,16 @@ def update_collaboration(
 
         new_status = update_data["status"]
 
-        # Industry / Admin can change collaboration status
-        if current_user.role not in ["INDUSTRY", "ADMIN"]:
+        # Only Industry / Admin can update status
+        if role not in {"industry", "admin"}:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only industry partner or admin can update collaboration status",
+                detail=(
+                    "Only industry partners or admin "
+                    "can update collaboration status"
+                ),
             )
 
-        # MVP status flow
         allowed_statuses = {
             "REQUESTED",
             "UNDER_REVIEW",
@@ -334,13 +555,18 @@ def update_collaboration(
     )
 
     if non_status_update:
-        if (
-            project.created_by != current_user.id
-            and current_user.role != "ADMIN"
+
+        if not can_manage_project_collaboration(
+            current_user,
+            project,
+            db,
         ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="You are not authorized to modify this collaboration",
+                detail=(
+                    "You are not authorized to modify "
+                    "this collaboration"
+                ),
             )
 
     # --------------------------------------------------------
@@ -363,6 +589,21 @@ def update_collaboration(
 # ============================================================
 # DELETE COLLABORATION
 # DELETE /api/collaborations/{collaboration_id}
+#
+# Admin:
+#   Allowed
+#
+# University:
+#   Own university project only
+#
+# Faculty:
+#   Project creator only
+#
+# Student:
+#   FORBIDDEN
+#
+# Industry:
+#   FORBIDDEN
 # ============================================================
 
 @router.delete(
@@ -376,7 +617,9 @@ def delete_collaboration(
 ):
     collaboration = (
         db.query(Collaboration)
-        .filter(Collaboration.id == collaboration_id)
+        .filter(
+            Collaboration.id == collaboration_id
+        )
         .first()
     )
 
@@ -391,13 +634,17 @@ def delete_collaboration(
         db,
     )
 
-    if (
-        project.created_by != current_user.id
-        and current_user.role != "ADMIN"
+    if not can_manage_project_collaboration(
+        current_user,
+        project,
+        db,
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to delete this collaboration",
+            detail=(
+                "You are not authorized to delete "
+                "this collaboration"
+            ),
         )
 
     db.delete(collaboration)

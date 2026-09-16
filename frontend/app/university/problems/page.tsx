@@ -1,63 +1,26 @@
+
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
   CheckCircle2,
-  GraduationCap,
   MapPin,
   Search,
   Sparkles,
   X,
 } from "lucide-react";
 
-const problems = [
-  {
-    id: 8,
-    title: "Unreliable Water Supply in Local Community",
-    category: "Water Management",
-    severity: "High",
-    location: "Ranchi, Jharkhand",
-    match: "94%",
-    expertise: "Water Resources",
-    reason:
-      "Your university has expertise in water management and environmental engineering.",
-  },
-  {
-    id: 7,
-    title: "Poor Sanitation and Waste Management",
-    category: "Sanitation",
-    severity: "High",
-    location: "Ranchi, Jharkhand",
-    match: "89%",
-    expertise: "Environmental Engineering",
-    reason:
-      "Your university has relevant expertise in sanitation and sustainable waste management.",
-  },
-  {
-    id: 9,
-    title: "Challenges Faced by Local Farmers",
-    category: "Agriculture",
-    severity: "Medium",
-    location: "Ranchi, Jharkhand",
-    match: "84%",
-    expertise: "Agricultural Technology",
-    reason:
-      "Your university has expertise related to agriculture and rural development.",
-  },
-  {
-    id: 1,
-    title: "Poor Road Conditions in Residential Area",
-    category: "Road Infrastructure",
-    severity: "High",
-    location: "Ranchi, Jharkhand",
-    match: "78%",
-    expertise: "Civil Engineering",
-    reason:
-      "Your university has civil engineering expertise relevant to infrastructure problems.",
-  },
-];
+import { getCurrentUser } from "@/lib/api/auth";
+
+import {
+  acceptUniversityProblem,
+  getMyUniversityId,
+  getMyUniversityProblems,
+  rejectUniversityProblem,
+  UniversityProblem,
+} from "@/lib/api/universities";
 
 const categories = [
   "All",
@@ -76,117 +39,223 @@ export default function UniversityProblemsPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
 
-  const [acceptedProblems, setAcceptedProblems] = useState<number[]>([]);
+  const [problems, setProblems] = useState<UniversityProblem[]>([]);
 
-  // Problem waiting for confirmation
+  const [universityId, setUniversityId] = useState("");
+  const [userRole, setUserRole] = useState("");
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
   const [pendingProblem, setPendingProblem] = useState<{
-    id: number;
+    id: string;
     title: string;
   } | null>(null);
+
+  // ============================================================
+  // ROLE-BASED MANAGEMENT ACCESS
+  // ============================================================
+
+  const canManageProblems =
+    userRole === "university" || userRole === "faculty";
+
+  // ============================================================
+  // LOAD MATCHED PROBLEMS
+  // ============================================================
+
+  useEffect(() => {
+    async function loadProblems() {
+      try {
+        setLoading(true);
+        setError("");
+
+        const [user, id, data] = await Promise.all([
+          getCurrentUser(),
+          getMyUniversityId(),
+          getMyUniversityProblems(),
+        ]);
+
+        setUserRole((user.role || "").trim().toLowerCase());
+        setUniversityId(id);
+        setProblems(data);
+      } catch (error) {
+        console.error("Failed to load university problems:", error);
+
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load community problems."
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadProblems();
+  }, []);
+
+  // ============================================================
+  // FILTER
+  // ============================================================
 
   const filteredProblems = useMemo(() => {
     return problems.filter((problem) => {
       const searchText = search.toLowerCase().trim();
 
+      const title = problem.title?.toLowerCase() || "";
+      const categoryText = problem.category?.toLowerCase() || "";
+      const district = problem.district?.toLowerCase() || "";
+
       const matchesSearch =
-        problem.title.toLowerCase().includes(searchText) ||
-        problem.category.toLowerCase().includes(searchText) ||
-        problem.location.toLowerCase().includes(searchText);
+        title.includes(searchText) ||
+        categoryText.includes(searchText) ||
+        district.includes(searchText);
 
       const matchesCategory =
         category === "All" || problem.category === category;
 
       return matchesSearch && matchesCategory;
     });
-  }, [search, category]);
+  }, [problems, search, category]);
 
-  const confirmAccept = () => {
-    if (!pendingProblem) return;
+  // ============================================================
+  // ACCEPT PROBLEM
+  // ============================================================
 
-    if (!acceptedProblems.includes(pendingProblem.id)) {
-      setAcceptedProblems([
-        ...acceptedProblems,
-        pendingProblem.id,
-      ]);
+  const confirmAccept = async () => {
+    if (!pendingProblem || !universityId || !canManageProblems) return;
+
+    try {
+      setActionLoading(pendingProblem.id);
+
+      await acceptUniversityProblem(
+        universityId,
+        pendingProblem.id
+      );
+
+      // Reload from backend so UI reflects actual DB state
+      const updatedProblems = await getMyUniversityProblems();
+
+      setProblems(updatedProblems);
+      setPendingProblem(null);
+    } catch (error) {
+      console.error("Failed to accept problem:", error);
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to accept problem."
+      );
+    } finally {
+      setActionLoading(null);
     }
+  };
 
-    setPendingProblem(null);
+  // ============================================================
+  // REJECT PROBLEM
+  // ============================================================
+
+  const handleReject = async (problemId: string) => {
+    if (!universityId || !canManageProblems) return;
+
+    try {
+      setActionLoading(problemId);
+
+      await rejectUniversityProblem(
+        universityId,
+        problemId
+      );
+
+      // Reload from backend
+      const updatedProblems = await getMyUniversityProblems();
+
+      setProblems(updatedProblems);
+    } catch (error) {
+      console.error("Failed to reject problem:", error);
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to reject problem."
+      );
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
-{/* ================= NAVBAR ================= */}
-<nav className="border-b border-slate-200 bg-white">
-  <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+      {/* ================= NAVBAR ================= */}
+      <nav className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+          {/* Logo */}
+          <a
+            href="/university/dashboard"
+            className="flex items-center gap-3"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 text-lg font-bold text-white">
+              S
+            </div>
 
-    {/* Logo */}
-    <a
-      href="/university/dashboard"
-      className="flex items-center gap-3"
-    >
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 text-lg font-bold text-white">
-        S
-      </div>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">
+                SamadhanX
+              </h1>
 
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">
-          SamadhanX
-        </h1>
+              <p className="text-xs text-slate-500">
+                Ideas → Action → Impact
+              </p>
+            </div>
+          </a>
 
-        <p className="text-xs text-slate-500">
-          Ideas → Action → Impact
-        </p>
-      </div>
-    </a>
+          {/* Right Navbar */}
+          <div className="hidden items-center gap-6 md:flex">
+            <a
+              href="/university/dashboard"
+              className="text-sm text-slate-600 transition hover:text-teal-600"
+            >
+              Dashboard
+            </a>
 
-    {/* Right Navbar */}
-    <div className="hidden items-center gap-6 md:flex">
+            <a
+              href="/university/problems"
+              className="text-sm font-semibold text-teal-600"
+            >
+              Problems
+            </a>
 
-      <a
-        href="/university/dashboard"
-        className="text-sm text-slate-600 transition hover:text-teal-600"
-      >
-        Dashboard
-      </a>
+            <a
+              href="/university/projects"
+              className="text-sm text-slate-600 transition hover:text-teal-600"
+            >
+              Projects
+            </a>
 
-      <a
-        href="/university/problems"
-        className="text-sm font-semibold text-teal-600"
-      >
-        Problems
-      </a>
+            <a
+              href="/university/solutions"
+              className="text-sm text-slate-600 transition hover:text-teal-600"
+            >
+              Solutions
+            </a>
 
-      <a
-        href="/university/projects"
-        className="text-sm text-slate-600 transition hover:text-teal-600"
-      >
-        Projects
-      </a>
+            <a
+              href="/university/teams"
+              className="text-sm text-slate-600 transition hover:text-teal-600"
+            >
+              Teams
+            </a>
 
-      <a
-        href="/university/solutions"
-        className="text-sm text-slate-600 transition hover:text-teal-600"
-      >
-        Solutions
-      </a>
-
-      <a
-        href="/university/teams"
-        className="text-sm text-slate-600 transition hover:text-teal-600"
-      >
-        Teams
-      </a>
-
-      <a
-        href="/university/profile"
-        className="text-sm text-slate-600 transition hover:text-teal-600"
-      >
-        Profile
-      </a>
-
-    </div>
-  </div>
-</nav>
+            <a
+              href="/university/profile"
+              className="text-sm text-slate-600 transition hover:text-teal-600"
+            >
+              Profile
+            </a>
+          </div>
+        </div>
+      </nav>
 
       {/* ================= MAIN ================= */}
       <section className="mx-auto max-w-7xl px-6 py-8">
@@ -246,7 +315,6 @@ export default function UniversityProblemsPage() {
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-11 text-sm text-slate-800 outline-none transition focus:border-teal-500 focus:bg-white focus:ring-2 focus:ring-teal-100"
               />
 
-              {/* Small Clear Button */}
               {search && (
                 <button
                   type="button"
@@ -272,149 +340,230 @@ export default function UniversityProblemsPage() {
           </div>
         </div>
 
+        {/* ================= ERROR ================= */}
+        {error && (
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {/* ================= LOADING ================= */}
+        {loading && (
+          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
+            <p className="text-sm font-medium text-slate-500">
+              Loading matched community problems...
+            </p>
+          </div>
+        )}
+
         {/* ================= PROBLEMS ================= */}
-        <div className="space-y-5">
-          {filteredProblems.map((problem) => {
-            const isAccepted = acceptedProblems.includes(problem.id);
+        {!loading && filteredProblems.length > 0 && (
+          <div className="space-y-5">
+            {filteredProblems.map((problem) => {
+              const isAccepted =
+                problem.status?.toUpperCase() === "ACCEPTED";
 
-            return (
-              <div
-                key={problem.id}
-                className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition duration-200 hover:border-teal-300 hover:shadow-md"
-              >
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-                  {/* ================= PROBLEM CONTENT ================= */}
-                  <div className="min-w-0 flex-1">
-                    {/* Tags */}
-                    <div className="mb-4 flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-teal-50 px-3 py-1.5 text-xs font-bold text-teal-700">
-                        {problem.category}
-                      </span>
+              const isRejected =
+                problem.status?.toUpperCase() === "REJECTED";
 
-                      {/* Severity */}
-                      <span
-                        className={`rounded-full px-3 py-1.5 text-xs font-bold ${
-                          problem.severity === "High"
-                            ? "bg-red-50 text-red-600"
-                            : "bg-amber-50 text-amber-700"
-                        }`}
-                      >
-                        {problem.severity} Severity
-                      </span>
+              const matchPercentage =
+                problem.match_score !== null &&
+                problem.match_score !== undefined
+                  ? Math.round(problem.match_score * 100)
+                  : null;
 
-                      {isAccepted && (
-                        <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          Accepted
+              const severity =
+                problem.severity_score !== null &&
+                problem.severity_score !== undefined
+                  ? problem.severity_score >= 70
+                    ? "High"
+                    : problem.severity_score >= 40
+                      ? "Medium"
+                      : "Low"
+                  : "Unknown";
+
+              const location = problem.district
+                ? `${problem.district}, Jharkhand`
+                : "Location unavailable";
+
+              const expertise =
+                problem.match_reasons &&
+                problem.match_reasons.length > 0
+                  ? problem.match_reasons[0]
+                  : "Relevant university expertise";
+
+              const reason =
+                problem.match_reasons &&
+                problem.match_reasons.length > 0
+                  ? problem.match_reasons.join(" • ")
+                  : "This problem has been matched with your university based on available expertise and AI similarity.";
+
+              return (
+                <div
+                  key={problem.id}
+                  className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition duration-200 hover:border-teal-300 hover:shadow-md"
+                >
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+                    {/* ================= PROBLEM CONTENT ================= */}
+                    <div className="min-w-0 flex-1">
+                      {/* Tags */}
+                      <div className="mb-4 flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-teal-50 px-3 py-1.5 text-xs font-bold text-teal-700">
+                          {problem.category || "Community Problem"}
                         </span>
-                      )}
-                    </div>
 
-                    {/* Title */}
-                    <a
-                      href={`/university/problems/${problem.id}`}
-                      className="block text-xl font-bold leading-snug text-slate-900 transition group-hover:text-teal-700 md:text-2xl"
-                    >
-                      {problem.title}
-                    </a>
+                        {/* Severity */}
+                        <span
+                          className={`rounded-full px-3 py-1.5 text-xs font-bold ${
+                            severity === "High"
+                              ? "bg-red-50 text-red-600"
+                              : severity === "Medium"
+                                ? "bg-amber-50 text-amber-700"
+                                : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          {severity} Severity
+                        </span>
 
-                    {/* Location */}
-                    <div className="mt-3 flex items-center gap-2 text-sm text-slate-500">
-                      <MapPin className="h-4 w-4 text-teal-600" />
-                      {problem.location}
-                    </div>
+                        {isAccepted && (
+                          <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Accepted
+                          </span>
+                        )}
 
-                    {/* Expertise Match - Teal */}
-                    <div className="mt-5 rounded-xl border border-teal-100 bg-teal-50 p-5">
-                      <p className="text-xs font-bold uppercase tracking-wide text-teal-600">
-                        Expertise Match
-                      </p>
+                        {isRejected && (
+                          <span className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600">
+                            Rejected
+                          </span>
+                        )}
+                      </div>
 
-                      <p className="mt-1 font-semibold text-slate-900">
-                        {problem.expertise}
-                      </p>
-
-                      <p className="mt-2 text-sm leading-6 text-slate-600">
-                        {problem.reason}
-                      </p>
-                    </div>
-
-                    {/* Buttons */}
-                    <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-5">
-                      <button
-                        type="button"
-                       onClick={() => {
-                        if (isAccepted) {
-                            setAcceptedProblems(
-                            acceptedProblems.filter((item) => item !== problem.id)
-                            );
-                        } else {
-                            setPendingProblem({
-                            id: problem.id,
-                            title: problem.title,
-                            });
-                        }
-                        }}
-                        className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition ${
-                          isAccepted
-                        ? "bg-teal-50 text-teal-700 hover:bg-red-50 hover:text-red-600"
-                        : "bg-teal-600 text-white hover:bg-teal-700"
-                        }`}
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-
-                        {isAccepted
-                        ? "Unaccept Problem"
-                        : "Accept Problem"}
-                      </button>
-
+                      {/* Title */}
                       <a
                         href={`/university/problems/${problem.id}`}
-                        className="flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700"
+                        className="block text-xl font-bold leading-snug text-slate-900 transition group-hover:text-teal-700 md:text-2xl"
                       >
-                        Explore Problem
-                        <ArrowRight className="h-4 w-4" />
+                        {problem.title}
                       </a>
-                    </div>
-                  </div>
 
-                  {/* ================= AI MATCH SCORE ================= */}
-                  <div className="flex w-full shrink-0 items-start justify-center lg:w-[190px] lg:pt-[116px]">
-                    <div className="w-full rounded-2xl border border-teal-100 bg-teal-50 p-5 lg:w-[180px]">
-                      <div className="text-center">
-                        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                          AI Match Score
+                      {/* Location */}
+                      <div className="mt-3 flex items-center gap-2 text-sm text-slate-500">
+                        <MapPin className="h-4 w-4 text-teal-600" />
+                        {location}
+                      </div>
+
+                      {/* Expertise Match */}
+                      <div className="mt-5 rounded-xl border border-teal-100 bg-teal-50 p-5">
+                        <p className="text-xs font-bold uppercase tracking-wide text-teal-600">
+                          Expertise Match
                         </p>
 
-                        <p className="mt-1 text-2xl font-bold text-teal-600">
-                          {problem.match}
+                        <p className="mt-1 font-semibold text-slate-900">
+                          {expertise}
                         </p>
 
-                        <div className="mt-3 h-1.5 rounded-full bg-teal-100">
-                          <div
-                            className="h-1.5 rounded-full bg-teal-600"
-                            style={{ width: problem.match }}
-                          />
-                        </div>
+                        <p className="mt-2 text-sm leading-6 text-slate-600">
+                          {reason}
+                        </p>
+                      </div>
+
+                      {/* Buttons */}
+                      <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-5">
+                        {canManageProblems &&
+                          !isRejected &&
+                          !isAccepted && (
+                            <button
+                              type="button"
+                              disabled={actionLoading === problem.id}
+                              onClick={() =>
+                                setPendingProblem({
+                                  id: problem.id,
+                                  title: problem.title,
+                                })
+                              }
+                              className="flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+
+                              {actionLoading === problem.id
+                                ? "Processing..."
+                                : "Accept Problem"}
+                            </button>
+                          )}
+
+                        {canManageProblems && isAccepted && (
+                          <button
+                            type="button"
+                            disabled={actionLoading === problem.id}
+                            onClick={() =>
+                              handleReject(problem.id)
+                            }
+                            className="flex items-center gap-2 rounded-xl bg-teal-50 px-5 py-2.5 text-sm font-semibold text-teal-700 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+
+                            {actionLoading === problem.id
+                              ? "Processing..."
+                              : "Reject Problem"}
+                          </button>
+                        )}
 
                         <a
                           href={`/university/problems/${problem.id}`}
-                          className="mt-4 flex items-center justify-center gap-1 text-xs font-bold text-slate-700 transition hover:text-teal-700"
+                          className="flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700"
                         >
-                          View details
-                          <ArrowRight className="h-3.5 w-3.5" />
+                          Explore Problem
+                          <ArrowRight className="h-4 w-4" />
                         </a>
+                      </div>
+                    </div>
+
+                    {/* ================= AI MATCH SCORE ================= */}
+                    <div className="flex w-full shrink-0 items-start justify-center lg:w-[190px] lg:pt-[116px]">
+                      <div className="w-full rounded-2xl border border-teal-100 bg-teal-50 p-5 lg:w-[180px]">
+                        <div className="text-center">
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                            AI Match Score
+                          </p>
+
+                          <p className="mt-1 text-2xl font-bold text-teal-600">
+                            {matchPercentage !== null
+                              ? `${matchPercentage}%`
+                              : "N/A"}
+                          </p>
+
+                          <div className="mt-3 h-1.5 rounded-full bg-teal-100">
+                            <div
+                              className="h-1.5 rounded-full bg-teal-600"
+                              style={{
+                                width:
+                                  matchPercentage !== null
+                                    ? `${matchPercentage}%`
+                                    : "0%",
+                              }}
+                            />
+                          </div>
+
+                          <a
+                            href={`/university/problems/${problem.id}`}
+                            className="mt-4 flex items-center justify-center gap-1 text-xs font-bold text-slate-700 transition hover:text-teal-700"
+                          >
+                            View details
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </a>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* ================= EMPTY STATE ================= */}
-        {filteredProblems.length === 0 && (
+        {!loading && filteredProblems.length === 0 && (
           <div className="rounded-2xl border border-dashed border-teal-300 bg-teal-50 p-12 text-center">
             <Search className="mx-auto h-10 w-10 text-teal-500" />
 
@@ -438,38 +587,10 @@ export default function UniversityProblemsPage() {
             </button>
           </div>
         )}
-
-        {/* ================= CTA ================= */}
-        <div className="mt-10 overflow-hidden rounded-3xl bg-gradient-to-r from-teal-700 to-teal-600 p-7 text-white shadow-sm md:p-9">
-          <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-            <div className="max-w-2xl">
-              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-teal-100 md:text-sm">
-                Have a Problem?
-              </p>
-
-              <h3 className="text-xl font-bold leading-snug md:text-2xl">
-                Your challenge could inspire the next solution.
-              </h3>
-
-              <p className="mt-3 max-w-2xl text-sm leading-5 text-teal-50 md:text-[15px]">
-                Share a real-world problem and help innovators discover
-                opportunities to make an impact.
-              </p>
-            </div>
-
-            <a
-              href="/problems#report"
-              className="flex shrink-0 items-center gap-2 rounded-xl bg-white px-5 py-3 font-semibold text-teal-700 transition hover:bg-teal-50"
-            >
-              Submit a Problem
-              <ArrowRight className="h-5 w-5" />
-            </a>
-          </div>
-        </div>
       </section>
 
       {/* ================= CONFIRMATION MODAL ================= */}
-      {pendingProblem && (
+      {pendingProblem && canManageProblems && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-6 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white p-7 shadow-2xl">
             {/* Icon */}
@@ -495,16 +616,19 @@ export default function UniversityProblemsPage() {
                 type="button"
                 onClick={() => setPendingProblem(null)}
                 className="flex-1 rounded-xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-600"
-                >
+              >
                 Cancel
-                </button>
+              </button>
 
               <button
                 type="button"
+                disabled={actionLoading === pendingProblem.id}
                 onClick={confirmAccept}
-                className="flex-1 rounded-xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-700"
+                className="flex-1 rounded-xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Yes, Accept
+                {actionLoading === pendingProblem.id
+                  ? "Accepting..."
+                  : "Yes, Accept"}
               </button>
             </div>
           </div>
@@ -558,3 +682,4 @@ export default function UniversityProblemsPage() {
     </main>
   );
 }
+

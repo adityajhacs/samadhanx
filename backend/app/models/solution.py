@@ -40,7 +40,30 @@ class Solution(Base):
         Text,
         nullable=False
     )
+    description: Mapped[str | None] = mapped_column(
+    Text,
+    nullable=True
+)
 
+    prototype_description: Mapped[str | None] = mapped_column(
+    Text,
+    nullable=True
+)
+
+    how_it_works: Mapped[str | None] = mapped_column(
+    Text,
+    nullable=True
+)
+
+    key_features: Mapped[str | None] = mapped_column(
+    Text,
+    nullable=True
+)
+
+    problem_solution: Mapped[str | None] = mapped_column(
+    Text,
+    nullable=True
+)
     prototype_status: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,

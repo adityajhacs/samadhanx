@@ -11,12 +11,14 @@ import {
   GraduationCap,
   Handshake,
   Lightbulb,
+  LogOut,
   MapPin,
   Target,
   TrendingUp,
   Users,
   Wrench,
 } from "lucide-react";
+import { logout } from "@/lib/api/auth";
 
 const stats = [
   {
@@ -220,7 +222,16 @@ export default function IndustryDashboard() {
       >
         Explore Projects
       </Link>
-
+<button
+  onClick={() => {
+    logout();
+    window.location.href = "/login";
+  }}
+  className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+>
+  <LogOut size={16} />
+  Logout
+</button>
     </div>
   </div>
 </nav>

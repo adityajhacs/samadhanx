@@ -16,8 +16,11 @@ import {
   TrendingUp,
   BarChart3,
   Handshake,
+  LogOut,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+
+import { logout } from "@/lib/api/auth";
 
 /* =========================================================
    NAVIGATION DATA
@@ -676,7 +679,49 @@ export default function Sidebar() {
             </>
           )}
         </div>
+ {/* LOGOUT BUTTON */}
 
+        <button
+          type="button"
+          onClick={() => {
+            logout();
+            window.location.href = "/login";
+          }}
+          title={collapsed ? "Logout" : undefined}
+          className={`
+            mt-2
+            flex w-full items-center
+            rounded-xl
+            text-slate-600
+            transition-all duration-200
+            hover:bg-red-50
+            hover:text-red-600
+            ${collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"}
+          `}
+        >
+          <span
+            className="
+              flex h-9 w-9 shrink-0
+              items-center justify-center
+              rounded-lg
+              text-slate-400
+              transition-colors
+              group-hover:bg-red-50
+              group-hover:text-red-600
+            "
+          >
+            <LogOut
+              size={18}
+              strokeWidth={1.9}
+            />
+          </span>
+
+          {!collapsed && (
+            <span className="text-[13px] font-semibold">
+              Logout
+            </span>
+          )}
+        </button>
         {/* COLLAPSE BUTTON */}
 
         <button

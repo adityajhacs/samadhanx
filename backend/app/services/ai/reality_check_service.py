@@ -1,3 +1,4 @@
+
 from uuid import UUID
 
 from sqlalchemy import text
@@ -9,14 +10,21 @@ from app.services.ai.reality_check import analyze_reality_check
 def run_reality_check(
     solution_id: UUID,
     solution: str,
-    db: Session
+    db: Session,
 ):
+    # --------------------------------------------------------
     # Run AI RealityCheck
+    # --------------------------------------------------------
+
     analysis = analyze_reality_check(solution)
 
+    # --------------------------------------------------------
     # Save main RealityCheck result
+    # --------------------------------------------------------
+
     reality_check_result = db.execute(
-        text("""
+        text(
+            """
             INSERT INTO reality_checks (
                 solution_id,
                 feasibility_score,
@@ -31,23 +39,35 @@ def run_reality_check(
                 :confidence,
                 :uncertainty_notes
             )
-            RETURNING id
-        """),
+            RETURNING
+                id,
+                created_at
+            """
+        ),
         {
             "solution_id": str(solution_id),
             "feasibility_score": analysis.feasibility_score,
             "overall_summary": analysis.overall_summary,
             "confidence": analysis.confidence,
             "uncertainty_notes": analysis.uncertainty_notes,
-        }
+        },
     )
 
-    reality_check_id = reality_check_result.scalar_one()
+    reality_check_row = reality_check_result.mappings().one()
 
+    reality_check_id = reality_check_row["id"]
+    reality_check_created_at = reality_check_row["created_at"]
+
+    # --------------------------------------------------------
     # Save individual risks
+    # --------------------------------------------------------
+
+    saved_risks = []
+
     for risk in analysis.risks:
-        db.execute(
-            text("""
+        risk_result = db.execute(
+            text(
+                """
                 INSERT INTO solution_risks (
                     reality_check_id,
                     risk_category,
@@ -64,7 +84,17 @@ def run_reality_check(
                     :impact,
                     :mitigation
                 )
-            """),
+                RETURNING
+                    id,
+                    reality_check_id,
+                    risk_category,
+                    risk_description,
+                    risk_level,
+                    impact,
+                    mitigation,
+                    created_at
+                """
+            ),
             {
                 "reality_check_id": str(reality_check_id),
                 "risk_category": risk.risk_category,
@@ -72,10 +102,39 @@ def run_reality_check(
                 "risk_level": risk.risk_level,
                 "impact": risk.impact,
                 "mitigation": risk.mitigation,
+            },
+        )
+
+        saved_risk = risk_result.mappings().one()
+
+        saved_risks.append(
+            {
+                "id": saved_risk["id"],
+                "reality_check_id": saved_risk[
+                    "reality_check_id"
+                ],
+                "risk_category": saved_risk[
+                    "risk_category"
+                ],
+                "risk_description": saved_risk[
+                    "risk_description"
+                ],
+                "risk_level": saved_risk["risk_level"],
+                "impact": saved_risk["impact"],
+                "mitigation": saved_risk["mitigation"],
+                "created_at": saved_risk["created_at"],
             }
         )
 
+    # --------------------------------------------------------
+    # Commit everything
+    # --------------------------------------------------------
+
     db.commit()
+
+    # --------------------------------------------------------
+    # Return exactly what RealityCheckResponse expects
+    # --------------------------------------------------------
 
     return {
         "id": reality_check_id,
@@ -84,8 +143,7 @@ def run_reality_check(
         "overall_summary": analysis.overall_summary,
         "confidence": analysis.confidence,
         "uncertainty_notes": analysis.uncertainty_notes,
-        "risks": [
-            risk.model_dump()
-            for risk in analysis.risks
-        ],
+        "created_at": reality_check_created_at,
+        "risks": saved_risks,
     }
+

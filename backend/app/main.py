@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-
+from fastapi.staticfiles import StaticFiles
 from app.core.auth import get_current_user
 
 # Models
@@ -76,7 +76,9 @@ from app.routers.resource_optimization import (
     router as resource_optimization_router,
 )
 from app.routers import engagement
-
+from app.routers import users
+from app.routers import project_tasks
+from app.routers import project_prototypes
 # --------------------------------------------------
 # FastAPI Application
 # --------------------------------------------------
@@ -87,7 +89,11 @@ app = FastAPI(
     version="1.0.0",
 )
 
-
+app.mount(
+    "/uploads",
+    StaticFiles(directory="uploads"),
+    name="uploads",
+)
 # --------------------------------------------------
 # CORS
 # --------------------------------------------------
@@ -187,7 +193,11 @@ app.include_router(pilot_analysis_router)
 app.include_router(impact_measurement_router)
 app.include_router(resource_optimization_router)
 app.include_router(engagement.router)
-
+app.include_router(users.router)
+app.include_router(project_tasks.router)
+app.include_router(
+    project_prototypes.router
+)
 # --------------------------------------------------
 # Health Check
 # --------------------------------------------------

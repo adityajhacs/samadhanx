@@ -1,130 +1,237 @@
+
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
+  ChevronDown,
   GraduationCap,
-  Plus,
   Search,
-  Trash2,
+  ShieldCheck,
   Users,
-  UserPlus,
-  X,
+  User,
+  Building2,
 } from "lucide-react";
 
-type Member = {
-  id: number;
-  name: string;
-  role: string;
-  domain: string;
-};
+import {
+  getProjectMemberDetails,
+  type ProjectMemberDetail,
+} from "@/lib/api/projectMembers";
 
-const initialMembers: Member[] = [
-  {
-    id: 1,
-    name: "Aarav Sharma",
-    role: "Student",
-    domain: "Computer Science",
-  },
-  {
-    id: 2,
-    name: "Priya Singh",
-    role: "Researcher",
-    domain: "Environmental Science",
-  },
-  {
-    id: 3,
-    name: "Rahul Verma",
-    role: "Faculty",
-    domain: "Civil Engineering",
-  },
-];
+import {
+  getProjects,
+  type Project,
+} from "@/lib/api/projects";
 
-const availableMembers: Member[] = [
-  {
-    id: 4,
-    name: "Ananya Gupta",
-    role: "Student",
-    domain: "Information Technology",
-  },
-  {
-    id: 5,
-    name: "Rohan Mehta",
-    role: "Researcher",
-    domain: "Water Resources",
-  },
-  {
-    id: 6,
-    name: "Sneha Kumari",
-    role: "Faculty",
-    domain: "Environmental Engineering",
-  },
-  {
-    id: 7,
-    name: "Kunal Singh",
-    role: "Student",
-    domain: "Mechanical Engineering",
-  },
-];
+import { getCurrentUser } from "@/lib/api/auth";
 
 export default function UniversityTeamsPage() {
-  const [members, setMembers] = useState<Member[]>(initialMembers);
-  const [teamName, setTeamName] = useState(
-    "Water Management Innovation Team"
-  );
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+
+  const [members, setMembers] = useState<ProjectMemberDetail[]>([]);
+
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+
   const [search, setSearch] = useState("");
+  const [error, setError] = useState("");
 
-  const [showAddMember, setShowAddMember] = useState(false);
-  const [showCreateConfirmation, setShowCreateConfirmation] =
-    useState(false);
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [currentUserRole, setCurrentUserRole] = useState("");
 
-  const removeMember = (id: number) => {
-    setMembers((current) =>
-      current.filter((member) => member.id !== id)
-    );
-  };
+  // ============================================================
+  // LOAD CURRENT USER
+  // ============================================================
 
-  const addMember = (member: Member) => {
-    setMembers((current) => {
-      if (current.some((existing) => existing.id === member.id)) {
-        return current;
+  useEffect(() => {
+    async function loadCurrentUser() {
+      try {
+        const user = await getCurrentUser();
+
+        setCurrentUserId(user.id);
+
+        setCurrentUserRole(
+          String(user.role ?? "").toLowerCase()
+        );
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load current user."
+        );
       }
+    }
 
-      return [...current, member];
+    loadCurrentUser();
+  }, []);
+
+  // ============================================================
+  // LOAD PROJECTS
+  // ============================================================
+
+  useEffect(() => {
+    async function loadProjects() {
+      try {
+        setLoadingProjects(true);
+        setError("");
+
+        const data = await getProjects();
+
+        setProjects(data);
+
+        if (data.length > 0) {
+          setSelectedProjectId(data[0].id);
+        }
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load projects."
+        );
+      } finally {
+        setLoadingProjects(false);
+      }
+    }
+
+    loadProjects();
+  }, []);
+
+  // ============================================================
+  // LOAD SELECTED PROJECT TEAM
+  // ============================================================
+
+  useEffect(() => {
+    if (!selectedProjectId) {
+      setMembers([]);
+      return;
+    }
+
+    async function loadProjectTeam() {
+      try {
+        setLoadingMembers(true);
+        setError("");
+
+        const data = await getProjectMemberDetails(
+          selectedProjectId
+        );
+
+        setMembers(data);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load project team."
+        );
+      } finally {
+        setLoadingMembers(false);
+      }
+    }
+
+    loadProjectTeam();
+  }, [selectedProjectId]);
+
+  // ============================================================
+  // SELECTED PROJECT
+  // ============================================================
+
+  const selectedProject = useMemo(() => {
+    return projects.find(
+      (project) => project.id === selectedProjectId
+    );
+  }, [projects, selectedProjectId]);
+
+  // ============================================================
+  // PROJECT TEAM ACCESS
+  // ============================================================
+
+  const canManageTeam = useMemo(() => {
+    if (!selectedProject) {
+      return false;
+    }
+
+    const role = currentUserRole.toLowerCase();
+
+    // University users can manage projects available to
+    // their university through the authenticated projects API.
+    if (role === "university") {
+      return true;
+    }
+
+    // Faculty can manage only projects created by themselves.
+    if (
+      role === "faculty" &&
+      selectedProject.created_by === currentUserId
+    ) {
+      return true;
+    }
+
+    return false;
+  }, [
+    selectedProject,
+    currentUserRole,
+    currentUserId,
+  ]);
+
+  // ============================================================
+  // SEARCH
+  // ============================================================
+
+  const filteredMembers = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    if (!query) {
+      return members;
+    }
+
+    return members.filter((member) => {
+      return (
+        member.name.toLowerCase().includes(query) ||
+        member.email.toLowerCase().includes(query) ||
+        member.role.toLowerCase().includes(query) ||
+        String(member.project_role ?? "")
+          .toLowerCase()
+          .includes(query)
+      );
     });
+  }, [members, search]);
 
-    setShowAddMember(false);
-  };
-
-  const filteredMembers = members.filter(
-    (member) =>
-      member.name.toLowerCase().includes(search.toLowerCase()) ||
-      member.domain.toLowerCase().includes(search.toLowerCase()) ||
-      member.role.toLowerCase().includes(search.toLowerCase())
-  );
+  // ============================================================
+  // TEAM COUNTS
+  // ============================================================
 
   const students = members.filter(
-    (member) => member.role === "Student"
-  ).length;
+    (member) =>
+      member.role.toLowerCase() === "student"
+  );
 
   const faculty = members.filter(
-    (member) => member.role === "Faculty"
-  ).length;
-
-  const researchers = members.filter(
-    (member) => member.role === "Researcher"
-  ).length;
-
-  const expertise = Array.from(
-    new Set(members.map((member) => member.domain))
+    (member) =>
+      member.role.toLowerCase() === "faculty"
   );
+
+  // ============================================================
+  // PROJECT SELECTOR
+  // ============================================================
+
+  const handleProjectChange = (
+    projectId: string
+  ) => {
+    setSelectedProjectId(projectId);
+    setSearch("");
+    setError("");
+  };
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
-      {/* ================= NAVBAR ================= */}
+
+      {/* ====================================================== */}
+      {/* NAVBAR */}
+      {/* ====================================================== */}
+
       <nav className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          {/* Logo */}
+
           <a
             href="/university/dashboard"
             className="flex items-center gap-3"
@@ -144,8 +251,8 @@ export default function UniversityTeamsPage() {
             </div>
           </a>
 
-          {/* Navigation */}
           <div className="hidden items-center gap-6 md:flex">
+
             <a
               href="/university/dashboard"
               className="text-sm text-slate-600 transition hover:text-teal-600"
@@ -192,375 +299,485 @@ export default function UniversityTeamsPage() {
         </div>
       </nav>
 
-      {/* ================= MAIN ================= */}
+      {/* ====================================================== */}
+      {/* MAIN */}
+      {/* ====================================================== */}
+
       <section className="mx-auto max-w-7xl px-6 py-10">
-        {/* Page Heading */}
+
+        {/* PAGE HEADER */}
+
         <div className="mb-8">
+
           <div className="flex items-center gap-3">
+
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-100">
               <Users className="h-7 w-7 text-teal-600" />
             </div>
 
             <div>
               <h2 className="text-3xl font-bold text-slate-900">
-                Team Builder
+                Project Teams
               </h2>
 
               <p className="text-slate-500">
-                Build a multidisciplinary team to solve real-world
-                problems.
+                View the teams working on your university projects.
               </p>
             </div>
+
           </div>
+
         </div>
 
-        {/* ================= TEAM DETAILS ================= */}
+        {/* ERROR */}
+
+        {error && (
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            {error}
+          </div>
+        )}
+
+        {/* ==================================================== */}
+        {/* PROJECT SELECTOR */}
+        {/* ==================================================== */}
+
         <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 className="mb-4 text-lg font-semibold">
-            Team Details
-          </h3>
 
-          <label className="mb-2 block text-sm font-medium text-slate-700">
-            Team Name
-          </label>
+          <div className="mb-4 flex items-center gap-3">
 
-          <div className="relative">
-            <input
-              type="text"
-              value={teamName}
-              onChange={(e) => setTeamName(e.target.value)}
-              placeholder="Enter team name"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 pr-11 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
-            />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-100">
+              <Building2 className="h-5 w-5 text-teal-600" />
+            </div>
 
-            {teamName && (
-              <button
-                type="button"
-                onClick={() => setTeamName("")}
-                aria-label="Clear team name"
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
+            <div>
+              <h3 className="font-semibold text-slate-900">
+                Select Project
+              </h3>
+
+              <p className="text-sm text-slate-500">
+                Select a project to view its assigned team.
+              </p>
+            </div>
+
           </div>
+
+          {loadingProjects ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-500">
+              Loading your university projects...
+            </div>
+          ) : projects.length === 0 ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-700">
+              No projects are available for your university.
+            </div>
+          ) : (
+            <div className="relative">
+
+              <select
+                value={selectedProjectId}
+                onChange={(event) =>
+                  handleProjectChange(event.target.value)
+                }
+                className="w-full appearance-none rounded-xl border border-slate-300 bg-white px-4 py-3 pr-10 text-sm font-medium text-slate-800 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+              >
+                {projects.map((project) => (
+                  <option
+                    key={project.id}
+                    value={project.id}
+                  >
+                    {project.title}
+                  </option>
+                ))}
+              </select>
+
+              <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+            </div>
+          )}
+
         </div>
 
-        {/* ================= CONTENT GRID ================= */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* ================= MEMBERS ================= */}
-          <div className="lg:col-span-2">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              {/* Header */}
-              <div className="mb-5 flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold">
-                    Team Members
-                  </h3>
+        {/* ==================================================== */}
+        {/* SELECTED PROJECT */}
+        {/* ==================================================== */}
 
-                  <p className="text-sm text-slate-500">
-                    {members.length} members added
+        {selectedProject && (
+          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
+            <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+
+              <div>
+
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-teal-600">
+                  Current Project
+                </p>
+
+                <h3 className="text-2xl font-bold text-slate-900">
+                  {selectedProject.title}
+                </h3>
+
+                {selectedProject.description && (
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+                    {selectedProject.description}
+                  </p>
+                )}
+
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2 rounded-xl bg-teal-50 px-4 py-3">
+
+                <ShieldCheck className="h-5 w-5 text-teal-600" />
+
+                <div>
+                  <p className="text-xs font-semibold text-teal-700">
+                    {canManageTeam
+                      ? "Project Manager"
+                      : "Read Only"}
+                  </p>
+
+                  <p className="text-[11px] text-teal-600">
+                    {canManageTeam
+                      ? "You have management access to this project."
+                      : "You can view this project team."}
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setShowAddMember(true)}
-                  className="flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700"
-                >
-                  <UserPlus className="h-4 w-4" />
-                  Add Member
-                </button>
               </div>
 
-              {/* Search */}
-              <div className="relative mb-5">
-                <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
-
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search members..."
-                  className="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-11 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
-                />
-
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => setSearch("")}
-                    aria-label="Clear member search"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-
-              {/* Member List */}
-              <div className="space-y-3">
-                {filteredMembers.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between rounded-xl border border-slate-200 p-4 transition hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-sm"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-teal-100">
-                        <GraduationCap className="h-5 w-5 text-teal-600" />
-                      </div>
-
-                      <div>
-                        <p className="font-semibold">
-                          {member.name}
-                        </p>
-
-                        <p className="text-sm text-slate-500">
-                          {member.role} • {member.domain}
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => removeMember(member.id)}
-                      aria-label={`Remove ${member.name}`}
-                      className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-500"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </button>
-                  </div>
-                ))}
-
-                {filteredMembers.length === 0 && (
-                  <div className="rounded-xl border border-dashed border-slate-300 py-10 text-center text-slate-500">
-                    No team members found.
-                  </div>
-                )}
-              </div>
             </div>
+
           </div>
+        )}
 
-          {/* ================= RIGHT SIDEBAR ================= */}
-          <div className="space-y-6">
-            {/* Team Composition */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="mb-4 font-semibold">
-                Team Composition
-              </h3>
+        {/* ==================================================== */}
+        {/* TEAM CONTENT */}
+        {/* ==================================================== */}
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">
-                    Students
-                  </span>
+        {selectedProject && (
+          <div className="grid gap-6 lg:grid-cols-3">
 
-                  <span className="rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-600">
-                    {students}
-                  </span>
-                </div>
+            {/* ================================================= */}
+            {/* MEMBERS */}
+            {/* ================================================= */}
 
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">
-                    Faculty
-                  </span>
+            <div className="lg:col-span-2">
 
-                  <span className="rounded-full bg-purple-50 px-3 py-1 text-sm font-medium text-purple-600">
-                    {faculty}
-                  </span>
-                </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">
-                    Researchers
-                  </span>
-
-                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-600">
-                    {researchers}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Expertise */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="mb-4 font-semibold">
-                Expertise Covered
-              </h3>
-
-              <div className="flex flex-wrap gap-2">
-                {expertise.map((domain) => (
-                  <span
-                    key={domain}
-                    className="rounded-full bg-teal-50 px-3 py-1.5 text-sm text-teal-700"
-                  >
-                    {domain}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Create Team */}
-            <button
-              type="button"
-              onClick={() => {
-                if (!teamName.trim()) {
-                  alert("Please enter a team name.");
-                  return;
-                }
-
-                setShowCreateConfirmation(true);
-              }}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white transition hover:bg-teal-700"
-            >
-              <Plus className="h-5 w-5" />
-              Create Team
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* ================= ADD MEMBER MODAL ================= */}
-      {showAddMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-100">
-                    <UserPlus className="h-5 w-5 text-teal-600" />
-                  </div>
+                <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
                   <div>
-                    <h3 className="text-xl font-bold">
-                      Add Member
+
+                    <h3 className="text-lg font-semibold">
+                      Project Team
                     </h3>
 
                     <p className="text-sm text-slate-500">
-                      Add another member to your university team.
+                      {members.length} member
+                      {members.length !== 1 ? "s" : ""} currently assigned
                     </p>
+
                   </div>
+
+                  {canManageTeam && (
+                    <div className="rounded-lg bg-teal-50 px-3 py-2 text-xs font-semibold text-teal-700">
+                      Project management access
+                    </div>
+                  )}
+
                 </div>
+
+                {/* SEARCH */}
+
+                <div className="relative mb-5">
+
+                  <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(event) =>
+                      setSearch(event.target.value)
+                    }
+                    placeholder="Search team members..."
+                    className="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-4 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                  />
+
+                </div>
+
+                {/* LOADING */}
+
+                {loadingMembers && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+                    Loading project team...
+                  </div>
+                )}
+
+                {/* EMPTY */}
+
+                {!loadingMembers && members.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center">
+
+                    <Users className="mx-auto mb-3 h-8 w-8 text-slate-400" />
+
+                    <p className="font-medium text-slate-700">
+                      No team members assigned
+                    </p>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      This project currently has no Student or Faculty members assigned.
+                    </p>
+
+                  </div>
+                )}
+
+                {/* MEMBER LIST */}
+
+                {!loadingMembers && members.length > 0 && (
+                  <div className="space-y-3">
+
+                    {filteredMembers.map((member) => {
+
+                      const memberRole =
+                        member.role.toLowerCase();
+
+                      const isStudent =
+                        memberRole === "student";
+
+                      return (
+                        <div
+                          key={member.id}
+                          className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 transition hover:border-teal-200 hover:shadow-sm"
+                        >
+
+                          <div className="flex min-w-0 items-center gap-4">
+
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teal-100">
+
+                              {isStudent ? (
+                                <GraduationCap className="h-5 w-5 text-teal-600" />
+                              ) : (
+                                <User className="h-5 w-5 text-teal-600" />
+                              )}
+
+                            </div>
+
+                            <div className="min-w-0">
+
+                              <p className="truncate font-semibold text-slate-900">
+                                {member.name}
+                              </p>
+
+                              <p className="truncate text-sm text-slate-500">
+                                {member.email}
+                              </p>
+
+                              <div className="mt-2 flex flex-wrap gap-2">
+
+                                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600">
+                                  {member.role}
+                                </span>
+
+                                {member.project_role && (
+                                  <span className="rounded-full bg-teal-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-teal-700">
+                                    {member.project_role}
+                                  </span>
+                                )}
+
+                              </div>
+
+                            </div>
+
+                          </div>
+
+                          <div className="ml-4 shrink-0">
+
+                            <CheckCircle2 className="h-5 w-5 text-teal-600" />
+
+                          </div>
+
+                        </div>
+                      );
+                    })}
+
+                    {filteredMembers.length === 0 && (
+                      <div className="rounded-xl border border-dashed border-slate-300 py-10 text-center text-sm text-slate-500">
+                        No team members found.
+                      </div>
+                    )}
+
+                  </div>
+                )}
+
               </div>
 
-              <button
-                type="button"
-                onClick={() => setShowAddMember(false)}
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-              >
-                <X className="h-5 w-5" />
-              </button>
             </div>
 
-            <div className="space-y-3">
-              {availableMembers
-                .filter(
-                  (member) =>
-                    !members.some(
-                      (existing) => existing.id === member.id
-                    )
-                )
-                .map((member) => (
-                  <button
-                    key={member.id}
-                    type="button"
-                    onClick={() => addMember(member)}
-                    className="flex w-full items-center justify-between rounded-xl border border-slate-200 p-4 text-left transition hover:-translate-y-0.5 hover:border-teal-400 hover:bg-teal-50"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100">
-                        <GraduationCap className="h-5 w-5 text-teal-600" />
-                      </div>
+            {/* ================================================= */}
+            {/* SIDEBAR */}
+            {/* ================================================= */}
 
-                      <div>
-                        <p className="font-semibold text-slate-900">
-                          {member.name}
-                        </p>
+            <div className="space-y-6">
 
-                        <p className="text-sm text-slate-500">
-                          {member.role} • {member.domain}
-                        </p>
-                      </div>
+              {/* TEAM SUMMARY */}
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
+                <h3 className="mb-5 font-semibold">
+                  Team Summary
+                </h3>
+
+                <div className="space-y-4">
+
+                  <div className="flex items-center justify-between">
+
+                    <span className="text-sm text-slate-600">
+                      Students
+                    </span>
+
+                    <span className="rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-600">
+                      {students.length}
+                    </span>
+
+                  </div>
+
+                  <div className="flex items-center justify-between">
+
+                    <span className="text-sm text-slate-600">
+                      Faculty
+                    </span>
+
+                    <span className="rounded-full bg-purple-50 px-3 py-1 text-sm font-medium text-purple-600">
+                      {faculty.length}
+                    </span>
+
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+
+                    <span className="text-sm font-medium text-slate-700">
+                      Total Members
+                    </span>
+
+                    <span className="rounded-full bg-teal-50 px-3 py-1 text-sm font-semibold text-teal-700">
+                      {members.length}
+                    </span>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+              {/* PROJECT RESPONSIBILITY */}
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
+                <div className="mb-4 flex items-center gap-3">
+
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-100">
+                    <ShieldCheck className="h-5 w-5 text-teal-600" />
+                  </div>
+
+                  <h3 className="font-semibold">
+                    Project Responsibility
+                  </h3>
+
+                </div>
+
+                <p className="text-sm leading-6 text-slate-500">
+                  This team is assigned to work on:
+                </p>
+
+                <p className="mt-2 font-semibold text-slate-900">
+                  {selectedProject.title}
+                </p>
+
+                <div className="mt-4 rounded-xl bg-slate-50 p-4">
+
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Access
+                  </p>
+
+                  <p className="mt-1 text-sm text-slate-700">
+                    {canManageTeam
+                      ? "You have management access to this project."
+                      : "You have read-only access to this project team."}
+                  </p>
+
+                </div>
+
+              </div>
+
+              {/* READ ONLY NOTICE */}
+
+              {!canManageTeam && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
+                  <div className="flex items-start gap-3">
+
+                    <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
+
+                    <div>
+
+                      <h3 className="font-semibold text-slate-800">
+                        Read-only access
+                      </h3>
+
+                      <p className="mt-2 text-sm leading-6 text-slate-500">
+                        Students and non-owner Faculty can view the
+                        project team, but cannot modify team members.
+                      </p>
+
                     </div>
 
-                    <Plus className="h-5 w-5 text-teal-600" />
-                  </button>
-                ))}
-            </div>
+                  </div>
 
-            <button
-              type="button"
-              onClick={() => setShowAddMember(false)}
-              className="mt-5 w-full rounded-xl border border-slate-200 px-5 py-3 font-semibold text-slate-700 transition hover:border-red-400 hover:bg-red-50 hover:text-red-600"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
+                </div>
+              )}
 
-      {/* ================= CREATE TEAM CONFIRMATION ================= */}
-      {showCreateConfirmation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl bg-white p-7 text-center shadow-2xl">
-            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-teal-50">
-              <CheckCircle2 className="h-8 w-8 text-teal-600" />
-            </div>
+              {/* PROJECT PAGE */}
 
-            <h3 className="text-2xl font-bold text-slate-900">
-              Create Team?
-            </h3>
-
-            <p className="mt-3 leading-6 text-slate-500">
-              Are you sure you want to create{" "}
-              <span className="font-semibold text-slate-700">
-                {teamName}
-              </span>{" "}
-              with {members.length} members?
-            </p>
-
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setShowCreateConfirmation(false)}
-                className="rounded-xl border border-slate-200 px-5 py-3 font-semibold text-slate-700 transition hover:border-red-400 hover:bg-red-50 hover:text-red-600"
+              <a
+                href={`/university/projects/${selectedProject.id}`}
+                className="flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 font-semibold text-slate-700 transition hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700"
               >
-                Cancel
-              </button>
+                View Project
+              </a>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCreateConfirmation(false);
-                  alert(`Team "${teamName}" created successfully!`);
-                }}
-                className="rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white transition hover:bg-teal-700"
-              >
-                Yes, Create
-              </button>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* ================= FOOTER ================= */}
+          </div>
+        )}
+
+      </section>
+
+      {/* ====================================================== */}
+      {/* FOOTER */}
+      {/* ====================================================== */}
+
       <footer className="mt-12 bg-slate-950 px-6 py-8 text-white">
+
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 md:flex-row">
-          {/* Footer Logo */}
+
           <a
             href="/university/dashboard"
             className="flex items-center gap-3"
           >
+
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 text-lg font-bold text-white">
               S
             </div>
 
             <div>
-              <p className="text-lg font-bold">SamadhanX</p>
+              <p className="text-lg font-bold">
+                SamadhanX
+              </p>
 
               <p className="text-sm text-slate-400">
                 Ideas → Action → Impact
               </p>
             </div>
+
           </a>
 
           <p className="text-sm text-slate-400">
@@ -568,6 +785,7 @@ export default function UniversityTeamsPage() {
           </p>
 
           <div className="flex gap-5 text-sm text-slate-400">
+
             <a
               href="/help"
               className="transition hover:text-teal-400"
@@ -581,9 +799,14 @@ export default function UniversityTeamsPage() {
             >
               Problems
             </a>
+
           </div>
+
         </div>
+
       </footer>
+
     </main>
   );
 }
+

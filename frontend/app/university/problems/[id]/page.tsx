@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
@@ -11,20 +12,262 @@ import {
   Sparkles,
   Users,
   X,
+  Image as ImageIcon,
+  Video,
 } from "lucide-react";
 
+import { getCurrentUser } from "@/lib/api/auth";
+
+import {
+  acceptUniversityProblem,
+  getMyUniversityId,
+  getUniversityProblem,
+  rejectUniversityProblem,
+  type UniversityProblem,
+} from "@/lib/api/universities";
+
 export default function UniversityProblemDetails() {
-  const [accepted, setAccepted] = useState(false);
+  const params = useParams();
+  const problemId = params.id as string;
+
+  const [problem, setProblem] = useState<UniversityProblem | null>(null);
+  const [universityId, setUniversityId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState("");
+
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState("");
+
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const handleAccept = () => {
-    setAccepted(true);
-    setShowConfirm(false);
+  // =========================
+  // LOAD PROBLEM
+  // =========================
+  const loadProblem = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const [user, currentUniversityId] = await Promise.all([
+        getCurrentUser(),
+        getMyUniversityId(),
+      ]);
+
+      const normalizedRole = (user.role || "").trim().toLowerCase();
+
+      setUserRole(normalizedRole);
+      setUniversityId(currentUniversityId);
+
+      const data = await getUniversityProblem(
+        currentUniversityId,
+        problemId
+      );
+
+      setProblem(data);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to load problem."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleUnaccept = () => {
-    setAccepted(false);
+  useEffect(() => {
+    if (problemId) {
+      loadProblem();
+    }
+  }, [problemId]);
+
+  // University + Faculty can manage the problem.
+  // Student can only view.
+  const canManageProblem =
+    userRole === "university" || userRole === "faculty";
+
+  // =========================
+  // ACCEPT
+  // =========================
+  const handleAccept = async () => {
+    if (!canManageProblem || !universityId || !problem) return;
+
+    try {
+      setActionLoading(true);
+      setError("");
+
+      await acceptUniversityProblem(
+        universityId,
+        problem.id
+      );
+
+      setShowConfirm(false);
+
+      await loadProblem();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to accept problem."
+      );
+    } finally {
+      setActionLoading(false);
+    }
   };
+
+  // =========================
+  // REJECT
+  // =========================
+  const handleReject = async () => {
+    if (!canManageProblem || !universityId || !problem) return;
+
+    try {
+      setActionLoading(true);
+      setError("");
+
+      await rejectUniversityProblem(
+        universityId,
+        problem.id
+      );
+
+      await loadProblem();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to reject problem."
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // =========================
+  // LOADING
+  // =========================
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-900">
+        <div className="text-center">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-teal-200 border-t-teal-700" />
+
+          <p className="mt-4 text-sm font-medium text-slate-500">
+            Loading problem...
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  // =========================
+  // ERROR / NOT FOUND
+  // =========================
+  if (error || !problem) {
+    return (
+      <main className="min-h-screen bg-slate-50 px-6 py-10 text-slate-900">
+        <div className="mx-auto max-w-2xl rounded-2xl border border-red-200 bg-white p-8 text-center shadow-sm">
+          <h2 className="text-xl font-bold">
+            Unable to load problem
+          </h2>
+
+          <p className="mt-3 text-sm text-slate-500">
+            {error || "Problem not found."}
+          </p>
+
+          <a
+            href="/university/problems"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-teal-700"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Problems
+          </a>
+        </div>
+      </main>
+    );
+  }
+
+  // =========================
+  // DERIVED DATA
+  // =========================
+
+  const severityScore = problem.severity_score ?? 0;
+
+  const severity =
+    severityScore >= 70
+      ? "High"
+      : severityScore >= 40
+        ? "Medium"
+        : "Low";
+
+  const severityClass =
+    severity === "High"
+      ? "bg-red-50 text-red-600"
+      : severity === "Medium"
+        ? "bg-amber-50 text-amber-600"
+        : "bg-emerald-50 text-emerald-700";
+
+  const currentStatus =
+    problem.status?.toUpperCase() || "PENDING";
+
+  const accepted = currentStatus === "ACCEPTED";
+  const rejected = currentStatus === "REJECTED";
+
+  const location = problem.district
+    ? `${problem.district}, Jharkhand`
+    : "Jharkhand";
+
+  const matchPercentage =
+    problem.match_score != null
+      ? Math.round(problem.match_score * 100)
+      : 0;
+
+  const matchReasons =
+    problem.match_reasons?.length
+      ? problem.match_reasons
+      : [];
+
+  const aiAnalysis = problem.ai_analysis;
+
+  const aiSummary =
+    aiAnalysis?.ai_summary ||
+    problem.ai_summary ||
+    "AI-generated summary is not available for this problem yet.";
+
+  const affectedSector =
+    aiAnalysis?.affected_sector ||
+    problem.category ||
+    "Community";
+
+  const estimatedImpact =
+    aiAnalysis?.estimated_affected_people != null
+      ? `${aiAnalysis.estimated_affected_people}+ people`
+      : "Community impact";
+
+  const rootCause =
+    aiAnalysis?.root_cause ||
+    "AI analysis indicates that this challenge requires further field verification and domain-specific assessment.";
+
+  const universityExpertise =
+    problem.university_expertise?.length
+      ? problem.university_expertise
+      : [];
+
+  const similarProblems =
+    problem.similar_problems || [];
+
+  // =========================
+  // CITIZEN EVIDENCE
+  // =========================
+  const evidenceImage = (problem as UniversityProblem & {
+    image_url?: string | null;
+  }).image_url;
+
+  const evidenceVideo = (problem as UniversityProblem & {
+    video_url?: string | null;
+  }).video_url;
+
+  const hasEvidence =
+    Boolean(evidenceImage) || Boolean(evidenceVideo);
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -55,6 +298,7 @@ export default function UniversityProblemDetails() {
 
           {/* Right Navbar */}
           <div className="hidden items-center gap-7 md:flex">
+
             <a
               href="/university/dashboard"
               className="text-[15px] font-medium text-slate-600 transition hover:text-teal-600"
@@ -118,11 +362,13 @@ export default function UniversityProblemDetails() {
           <div className="flex flex-wrap items-center gap-2">
 
             <span className="rounded-full bg-teal-50 px-3 py-1.5 text-xs font-bold text-teal-700">
-              Water Management
+              {problem.category || "Community Challenge"}
             </span>
 
-            <span className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600">
-              High Severity
+            <span
+              className={`rounded-full px-3 py-1.5 text-xs font-bold ${severityClass}`}
+            >
+              {severity} Severity
             </span>
 
             {accepted && (
@@ -131,33 +377,46 @@ export default function UniversityProblemDetails() {
                 Accepted
               </span>
             )}
+
+            {rejected && (
+              <span className="flex items-center gap-1 rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600">
+                <X className="h-3.5 w-3.5" />
+                Rejected
+              </span>
+            )}
           </div>
 
           <h2 className="mt-5 text-3xl font-bold leading-tight tracking-tight md:text-4xl">
-            Unreliable Water Supply in Local Community
+            {problem.title}
           </h2>
 
           <div className="mt-4 flex flex-wrap items-center gap-5 text-sm text-slate-500">
 
             <span className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-teal-600" />
-              Ranchi, Jharkhand
+              {location}
             </span>
 
             <span className="flex items-center gap-2">
               <Users className="h-4 w-4 text-teal-600" />
-              400+ people affected
+              {estimatedImpact}
             </span>
 
           </div>
 
           <p className="mt-6 max-w-5xl text-base leading-7 text-slate-600">
-            Residents are experiencing difficulties due to irregular water
-            supply and limited access to reliable water resources in the area.
-            The challenge creates a direct impact on households, sanitation and
-            daily community activities.
+            {problem.description ||
+              problem.ai_summary ||
+              "This community challenge has been identified as relevant for university collaboration and solution development."}
           </p>
         </div>
+
+        {/* Error */}
+        {error && (
+          <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700">
+            {error}
+          </div>
+        )}
 
         {/* ================= TWO COLUMN ================= */}
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_330px]">
@@ -165,10 +424,106 @@ export default function UniversityProblemDetails() {
           {/* ================= LEFT ================= */}
           <div className="space-y-6">
 
+            {/* ================= CITIZEN EVIDENCE ================= */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
+              <div className="flex items-center gap-3">
+
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-100">
+                  <ImageIcon className="h-5 w-5 text-teal-700" />
+                </div>
+
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-teal-700">
+                    Citizen Evidence
+                  </p>
+
+                  <h3 className="text-xl font-bold">
+                    Uploaded Evidence
+                  </h3>
+                </div>
+
+              </div>
+
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Photos and videos uploaded by the citizen to help document
+                this community problem.
+              </p>
+
+              {hasEvidence ? (
+                <div className="mt-5 space-y-5">
+
+                  {/* Image Evidence */}
+                  {evidenceImage && (
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+
+                      <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-3">
+                        <ImageIcon className="h-4 w-4 text-teal-700" />
+
+                        <p className="text-sm font-semibold text-slate-800">
+                          Photo Evidence
+                        </p>
+                      </div>
+
+                      <div className="p-4">
+                        <img
+                          src={evidenceImage}
+                          alt={`Evidence for ${problem.title}`}
+                          className="max-h-[500px] w-full rounded-xl object-contain"
+                        />
+                      </div>
+
+                    </div>
+                  )}
+
+                  {/* Video Evidence */}
+                  {evidenceVideo && (
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+
+                      <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-3">
+                        <Video className="h-4 w-4 text-teal-700" />
+
+                        <p className="text-sm font-semibold text-slate-800">
+                          Video Evidence
+                        </p>
+                      </div>
+
+                      <div className="p-4">
+                        <video
+                          src={evidenceVideo}
+                          controls
+                          className="max-h-[500px] w-full rounded-xl"
+                        >
+                          Your browser does not support video playback.
+                        </video>
+                      </div>
+
+                    </div>
+                  )}
+
+                </div>
+              ) : (
+                <div className="mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+
+                  <ImageIcon className="mx-auto h-8 w-8 text-slate-400" />
+
+                  <p className="mt-3 text-sm font-semibold text-slate-700">
+                    No evidence uploaded
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    The citizen has not uploaded any photo or video evidence
+                    for this problem.
+                  </p>
+
+                </div>
+              )}
+
+            </div>
+
             {/* ================= AI ANALYSIS ================= */}
             <div className="rounded-2xl border border-teal-300 bg-teal-200 p-6 shadow-sm">
 
-              {/* Header */}
               <div className="flex items-center gap-3">
 
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-sm">
@@ -187,56 +542,53 @@ export default function UniversityProblemDetails() {
 
               </div>
 
-              {/* AI Information */}
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
 
-                {/* AI Category */}
                 <div className="rounded-xl bg-white p-4 shadow-sm">
                   <p className="text-xs font-bold uppercase tracking-wide text-teal-700">
                     AI Category
                   </p>
 
                   <p className="mt-2 font-semibold text-slate-900">
-                    Water Management
+                    {aiAnalysis?.subcategory ||
+                      problem.category ||
+                      "Community Challenge"}
                   </p>
                 </div>
 
-                {/* Severity */}
                 <div className="rounded-xl bg-white p-4 shadow-sm">
                   <p className="text-xs font-bold uppercase tracking-wide text-teal-700">
                     Severity
                   </p>
 
                   <p className="mt-2 font-semibold text-red-600">
-                    High
+                    {aiAnalysis?.severity_level ||
+                      severity.toUpperCase()}
                   </p>
                 </div>
 
-                {/* Affected Sector */}
                 <div className="rounded-xl bg-white p-4 shadow-sm">
                   <p className="text-xs font-bold uppercase tracking-wide text-teal-700">
                     Affected Sector
                   </p>
 
                   <p className="mt-2 font-semibold text-slate-900">
-                    Water Resources
+                    {affectedSector}
                   </p>
                 </div>
 
-                {/* Estimated Impact */}
                 <div className="rounded-xl bg-white p-4 shadow-sm">
                   <p className="text-xs font-bold uppercase tracking-wide text-teal-700">
                     Estimated Impact
                   </p>
 
                   <p className="mt-2 font-semibold text-slate-900">
-                    400+ people
+                    {estimatedImpact}
                   </p>
                 </div>
 
               </div>
 
-              {/* Root Cause */}
               <div className="mt-4 rounded-xl bg-white p-5 shadow-sm">
 
                 <p className="text-xs font-bold uppercase tracking-wide text-teal-700">
@@ -244,13 +596,11 @@ export default function UniversityProblemDetails() {
                 </p>
 
                 <p className="mt-2 text-sm leading-6 text-slate-700">
-                  Inconsistent water distribution, limited monitoring and
-                  inadequate access to reliable local water infrastructure.
+                  {rootCause}
                 </p>
 
               </div>
 
-              {/* AI Summary */}
               <div className="mt-4 rounded-xl border border-teal-300 bg-white p-5 shadow-sm">
 
                 <div className="flex items-center gap-2">
@@ -264,9 +614,7 @@ export default function UniversityProblemDetails() {
                 </div>
 
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  The problem could benefit from technology-based monitoring,
-                  improved resource planning and community-level water
-                  management solutions.
+                  {aiSummary}
                 </p>
 
               </div>
@@ -299,12 +647,35 @@ export default function UniversityProblemDetails() {
               <div className="mt-5 rounded-xl border border-teal-200 bg-teal-100 p-5">
 
                 <p className="text-sm leading-7 text-slate-700">
-                  AI identifies this challenge as a strong opportunity for
-                  university involvement because it combines a significant
-                  community impact with areas such as environmental engineering,
-                  water management, data monitoring and sustainable technology.
+                  This problem received a{" "}
+                  <span className="font-bold text-teal-800">
+                    {matchPercentage}% university match
+                  </span>{" "}
+                  because the AI matching system found a relationship between
+                  the problem requirements, the university&apos;s expertise,
+                  and the semantic meaning of the problem.
                 </p>
 
+                {universityExpertise.length > 0 && (
+                  <p className="mt-3 text-sm leading-7 text-slate-700">
+                    The university&apos;s relevant expertise includes{" "}
+                    <span className="font-semibold text-teal-800">
+                      {universityExpertise.join(", ")}
+                    </span>
+                    .
+                  </p>
+                )}
+
+                {aiAnalysis?.affected_sector && (
+                  <p className="mt-2 text-sm leading-7 text-slate-700">
+                    The problem affects the{" "}
+                    <span className="font-semibold text-teal-800">
+                      {aiAnalysis.affected_sector}
+                    </span>{" "}
+                    sector, which helps the matching system identify its
+                    domain relevance.
+                  </p>
+                )}
               </div>
 
             </div>
@@ -327,36 +698,48 @@ export default function UniversityProblemDetails() {
                 </div>
 
                 <div className="rounded-xl bg-teal-100 px-4 py-3 text-center">
+
                   <p className="text-2xl font-bold text-teal-700">
-                    94%
+                    {matchPercentage}%
                   </p>
 
                   <p className="text-[11px] font-semibold text-slate-500">
                     Match
                   </p>
+
                 </div>
 
               </div>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
 
-                <div className="rounded-xl border border-teal-200 bg-teal-100 p-4">
-                  <p className="text-xs font-semibold text-teal-800">
-                    Water Resources
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-teal-200 bg-teal-100 p-4">
-                  <p className="text-xs font-semibold text-teal-800">
-                    Environmental Engineering
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-teal-200 bg-teal-100 p-4">
-                  <p className="text-xs font-semibold text-teal-800">
-                    Sustainable Technology
-                  </p>
-                </div>
+                {universityExpertise.length > 0 ? (
+                  universityExpertise.slice(0, 3).map(
+                    (expertise, index) => (
+                      <div
+                        key={`${expertise}-${index}`}
+                        className="rounded-xl border border-teal-200 bg-teal-100 p-4"
+                      >
+                        <p className="text-xs font-semibold text-teal-800">
+                          {expertise}
+                        </p>
+                      </div>
+                    )
+                  )
+                ) : (
+                  matchReasons.slice(0, 3).map(
+                    (reason, index) => (
+                      <div
+                        key={`${reason}-${index}`}
+                        className="rounded-xl border border-teal-200 bg-teal-100 p-4"
+                      >
+                        <p className="text-xs font-semibold text-teal-800">
+                          {reason}
+                        </p>
+                      </div>
+                    )
+                  )
+                )}
 
               </div>
 
@@ -367,10 +750,50 @@ export default function UniversityProblemDetails() {
                 </p>
 
                 <p className="mt-2 text-sm leading-6 text-slate-700">
-                  The university's academic and research capabilities align
-                  closely with the technical requirements of this water
-                  management challenge.
+                  The AI matching system calculated a{" "}
+                  <span className="font-bold text-teal-800">
+                    {matchPercentage}% similarity
+                  </span>{" "}
+                  between this problem and the university profile.
+
+                  {universityExpertise.length > 0 && (
+                    <>
+                      {" "}The university has expertise in{" "}
+                      <span className="font-semibold text-teal-800">
+                        {universityExpertise.join(", ")}
+                      </span>
+                      , which is relevant to developing a solution for this
+                      challenge.
+                    </>
+                  )}
+
+                  {problem.category && (
+                    <>
+                      {" "}The problem is classified under{" "}
+                      <span className="font-semibold text-teal-800">
+                        {problem.category}
+                      </span>
+                      , and the AI analysis identifies the affected sector as{" "}
+                      <span className="font-semibold text-teal-800">
+                        {affectedSector}
+                      </span>
+                      .
+                    </>
+                  )}
                 </p>
+
+                {matchReasons.length > 0 && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {matchReasons.map((reason, index) => (
+                      <span
+                        key={`${reason}-${index}`}
+                        className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-teal-700"
+                      >
+                        {reason}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
               </div>
 
@@ -395,45 +818,43 @@ export default function UniversityProblemDetails() {
 
               <div className="mt-5 grid gap-4 md:grid-cols-2">
 
-                <a
-                  href="/university/problems/7"
-                  className="group rounded-xl border border-teal-200 bg-teal-100 p-5 transition hover:border-teal-400 hover:bg-teal-200"
-                >
+                {similarProblems.length > 0 ? (
+                  similarProblems.map((similarProblem) => (
+                    <a
+                      key={similarProblem.id}
+                      href={`/university/problems/${similarProblem.id}`}
+                      className="group rounded-xl border border-teal-200 bg-teal-100 p-5 transition hover:border-teal-400 hover:bg-teal-200"
+                    >
 
-                  <p className="text-xs font-bold text-teal-700">
-                    Sanitation
-                  </p>
+                      <p className="text-xs font-bold text-teal-700">
+                        {similarProblem.category ||
+                          "Related Challenge"}
+                      </p>
 
-                  <h4 className="mt-2 font-bold text-slate-900 group-hover:text-teal-800">
-                    Poor Sanitation and Waste Management
-                  </h4>
+                      <h4 className="mt-2 font-bold text-slate-900 group-hover:text-teal-800">
+                        {similarProblem.title}
+                      </h4>
 
-                  <span className="mt-3 flex items-center gap-1 text-sm font-semibold text-teal-700">
-                    View problem
-                    <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
-                  </span>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {similarProblem.district
+                          ? `${similarProblem.district}, Jharkhand`
+                          : "Jharkhand"}
+                      </p>
 
-                </a>
+                      <span className="mt-3 flex items-center gap-1 text-sm font-semibold text-teal-700">
+                        View problem
+                        <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+                      </span>
 
-                <a
-                  href="/university/problems/9"
-                  className="group rounded-xl border border-teal-200 bg-teal-100 p-5 transition hover:border-teal-400 hover:bg-teal-200"
-                >
-
-                  <p className="text-xs font-bold text-teal-700">
-                    Agriculture
-                  </p>
-
-                  <h4 className="mt-2 font-bold text-slate-900 group-hover:text-teal-800">
-                    Challenges Faced by Local Farmers
-                  </h4>
-
-                  <span className="mt-3 flex items-center gap-1 text-sm font-semibold text-teal-700">
-                    View problem
-                    <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
-                  </span>
-
-                </a>
+                    </a>
+                  ))
+                ) : (
+                  <div className="rounded-xl border border-teal-200 bg-teal-100 p-5 md:col-span-2">
+                    <p className="text-sm text-slate-600">
+                      No similar problems are available yet.
+                    </p>
+                  </div>
+                )}
 
               </div>
 
@@ -457,39 +878,64 @@ export default function UniversityProblemDetails() {
                   Current Status
                 </p>
 
-                <p className="mt-1 font-bold text-amber-600">
-                  Under Review
+                <p
+                  className={`mt-1 font-bold ${
+                    accepted
+                      ? "text-emerald-600"
+                      : rejected
+                        ? "text-red-600"
+                        : "text-amber-600"
+                  }`}
+                >
+                  {accepted
+                    ? "Accepted"
+                    : rejected
+                      ? "Rejected"
+                      : "Under Review"}
                 </p>
 
               </div>
 
-              {!accepted ? (
-                <button
-                  type="button"
-                  onClick={() => setShowConfirm(true)}
-                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-700"
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  Accept Problem
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleUnaccept}
-                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-teal-100 px-4 py-3 text-sm font-semibold text-teal-800 transition hover:bg-red-100 hover:text-red-600"
-                >
-                  <X className="h-4 w-4" />
-                  Unaccept Problem
-                </button>
+              {/* ================= ACCEPT / REJECT ================= */}
+              {canManageProblem && (
+                <>
+                  {!accepted ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirm(true)}
+                      disabled={actionLoading}
+                      className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+
+                      {actionLoading
+                        ? "Processing..."
+                        : "Accept Problem"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleReject}
+                      disabled={actionLoading}
+                      className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-teal-100 px-4 py-3 text-sm font-semibold text-teal-800 transition hover:bg-red-100 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <X className="h-4 w-4" />
+
+                      {actionLoading
+                        ? "Processing..."
+                        : "Reject Problem"}
+                    </button>
+                  )}
+                </>
               )}
 
               <a
-  href="/university/solutions"
-  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-teal-300 hover:bg-teal-100 hover:text-teal-800"
->
-  Propose a Solution
-  <ArrowRight className="h-4 w-4" />
-</a>
+                href="/university/solutions"
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-teal-300 hover:bg-teal-100 hover:text-teal-800"
+              >
+                Propose a Solution
+                <ArrowRight className="h-4 w-4" />
+              </a>
 
             </div>
 
@@ -509,16 +955,20 @@ export default function UniversityProblemDetails() {
               <div className="mt-4 rounded-xl border border-teal-200 bg-teal-100 p-5 transition hover:border-teal-400 hover:bg-teal-200">
 
                 <h4 className="font-bold text-slate-900">
-                  Smart Water Monitoring
+                  Explore Available Solutions
                 </h4>
 
                 <p className="mt-1 text-sm text-slate-600">
-                  IoT-based water monitoring solution
+                  Review solutions proposed for community challenges.
                 </p>
 
-                <p className="mt-3 text-xs font-bold text-teal-700">
-                  Prototype Ready
-                </p>
+                <a
+                  href="/university/solutions"
+                  className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-teal-700"
+                >
+                  View solutions
+                  <ArrowRight className="h-4 w-4" />
+                </a>
 
               </div>
 
@@ -551,12 +1001,12 @@ export default function UniversityProblemDetails() {
             </div>
 
             <a
-  href="/university/solutions"
-  className="flex shrink-0 items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-teal-700 transition hover:bg-teal-50"
->
-  Propose a Solution
-  <ArrowRight className="h-4 w-4" />
-</a>
+              href="/university/solutions"
+              className="flex shrink-0 items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-teal-700 transition hover:bg-teal-50"
+            >
+              Propose a Solution
+              <ArrowRight className="h-4 w-4" />
+            </a>
 
           </div>
 
@@ -565,7 +1015,7 @@ export default function UniversityProblemDetails() {
       </section>
 
       {/* ================= CONFIRMATION MODAL ================= */}
-      {showConfirm && (
+      {showConfirm && canManageProblem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-6 backdrop-blur-sm">
 
           <div className="w-full max-w-md rounded-2xl bg-white p-7 shadow-2xl">
@@ -579,11 +1029,15 @@ export default function UniversityProblemDetails() {
             </h3>
 
             <p className="mt-3 text-center text-sm leading-6 text-slate-500">
+
               Do you want to accept{" "}
+
               <span className="font-semibold text-slate-800">
-                Unreliable Water Supply in Local Community
+                {problem.title}
               </span>{" "}
+
               and work towards developing a solution for this challenge?
+
             </p>
 
             <div className="mt-6 flex gap-3">
@@ -591,7 +1045,8 @@ export default function UniversityProblemDetails() {
               <button
                 type="button"
                 onClick={() => setShowConfirm(false)}
-                className="flex-1 rounded-xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-600"
+                disabled={actionLoading}
+                className="flex-1 rounded-xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-60"
               >
                 Cancel
               </button>
@@ -599,9 +1054,12 @@ export default function UniversityProblemDetails() {
               <button
                 type="button"
                 onClick={handleAccept}
-                className="flex-1 rounded-xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-700"
+                disabled={actionLoading}
+                className="flex-1 rounded-xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:opacity-60"
               >
-                Yes, Accept
+                {actionLoading
+                  ? "Accepting..."
+                  : "Yes, Accept"}
               </button>
 
             </div>

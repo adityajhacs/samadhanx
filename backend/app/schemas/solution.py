@@ -1,3 +1,4 @@
+
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -15,6 +16,15 @@ PROTOTYPE_STATUSES = [
 ]
 
 
+PrototypeStatus = Literal[
+    "IDEA",
+    "DESIGN",
+    "PROTOTYPE",
+    "FIELD_TEST",
+    "DEPLOYED",
+]
+
+
 class SolutionCreate(BaseModel):
     problem_id: uuid.UUID
     university_id: uuid.UUID
@@ -24,18 +34,21 @@ class SolutionCreate(BaseModel):
         min_length=1
     )
 
-    prototype_status: Literal[
-        "IDEA",
-        "DESIGN",
-        "PROTOTYPE",
-        "FIELD_TEST",
-        "DEPLOYED",
-    ] = "IDEA"
+    description: str = Field(
+        min_length=1
+    )
+
+    prototype_status: PrototypeStatus = "IDEA"
 
     estimated_cost: Decimal | None = Field(
         default=None,
         ge=0
     )
+
+    prototype_description: str | None = None
+    how_it_works: str | None = None
+    key_features: str | None = None
+    problem_solution: str | None = None
 
     funding_received: Decimal = Field(
         default=0,
@@ -53,18 +66,22 @@ class SolutionUpdate(BaseModel):
         min_length=1
     )
 
-    prototype_status: Literal[
-        "IDEA",
-        "DESIGN",
-        "PROTOTYPE",
-        "FIELD_TEST",
-        "DEPLOYED",
-    ] | None = None
+    description: str | None = Field(
+        default=None,
+        min_length=1
+    )
+
+    prototype_status: PrototypeStatus | None = None
 
     estimated_cost: Decimal | None = Field(
         default=None,
         ge=0
     )
+
+    prototype_description: str | None = None
+    how_it_works: str | None = None
+    key_features: str | None = None
+    problem_solution: str | None = None
 
     funding_received: Decimal | None = Field(
         default=None,
@@ -80,11 +97,20 @@ class SolutionResponse(BaseModel):
     project_id: uuid.UUID | None
 
     solution_title: str
+    description: str | None
+
     prototype_status: str | None
     estimated_cost: Decimal | None
+
+    prototype_description: str | None
+    how_it_works: str | None
+    key_features: str | None
+    problem_solution: str | None
+
     funding_received: Decimal | None
     created_at: datetime | None
 
     model_config = ConfigDict(
         from_attributes=True
     )
+

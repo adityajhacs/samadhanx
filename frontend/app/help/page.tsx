@@ -69,59 +69,77 @@ export default function HelpPage() {
     <main className="min-h-screen bg-slate-50 text-slate-950">
 
       {/* Navbar */}
-      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 text-xl text-white">
-              S
-            </div>
+      {/* Navbar */}
+<header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
+  <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+    
+    {/* Logo */}
+    <Link
+      href="/citizen/dashboard"
+      className="flex items-center gap-3"
+    >
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 text-xl text-white">
+        S
+      </div>
 
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">SamadhanX</h1>
-              <p className="text-xs text-slate-500">
-                Ideas → Action → Impact
-              </p>
-            </div>
-          </Link>
+      <div>
+        <h1 className="text-xl font-bold tracking-tight">
+          SamadhanX
+        </h1>
 
-          <nav className="hidden items-center gap-8 md:flex">
-            <Link
-              href="/"
-              className="text-sm text-slate-600 hover:text-teal-600"
-            >
-              Home
-            </Link>
+        <p className="text-xs text-slate-500">
+          Ideas → Action → Impact
+        </p>
+      </div>
+    </Link>
 
-            <Link
-              href="/problems"
-              className="text-sm text-slate-600 hover:text-teal-600"
-            >
-              Problems
-            </Link>
+    {/* Navigation */}
+    <nav className="hidden items-center gap-7 md:flex">
+      <Link
+        href="/citizen/dashboard"
+        className="text-sm font-medium text-slate-600 transition hover:text-teal-600"
+      >
+        Dashboard
+      </Link>
 
-            <Link
-              href="/problems#report"
-              className="text-sm text-slate-600 hover:text-teal-600"
-            >
-              Report Problem
-            </Link>
+      <Link
+        href="/problems"
+        className="text-sm font-medium text-slate-600 transition hover:text-teal-600"
+      >
+        All Problems
+      </Link>
 
-            <Link
-              href="/help"
-              className="text-sm font-semibold text-teal-600"
-            >
-              Help
-            </Link>
+      <Link
+        href="/citizen/problems"
+        className="text-sm font-medium text-slate-600 transition hover:text-teal-600"
+      >
+        My Problems
+      </Link>
 
-            <Link
-              href="/problems#report"
-              className="rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-teal-700"
-            >
-              Get Started
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <Link
+        href="/help"
+        className="text-sm font-semibold text-teal-600"
+      >
+        Help
+      </Link>
+
+      <Link
+        href="/citizen/report"
+        className="rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700"
+      >
+        Report Problem
+      </Link>
+    </nav>
+
+    {/* Mobile action */}
+    <Link
+      href="/citizen/report"
+      className="rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700 md:hidden"
+    >
+      Report Problem
+    </Link>
+  </div>
+</header>
 
       {/* Hero */}
       <section className="mx-auto max-w-7xl px-6 py-10">
@@ -255,40 +273,50 @@ export default function HelpPage() {
       </section>
 
       {/* Footer */}
-        <footer className="border-t border-slate-800 bg-slate-950 px-6 py-8 text-white">
-          <div className="relative mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 text-center md:flex-row md:text-left">
+<footer className="border-t border-slate-800 bg-slate-950">
+  <div className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-8 sm:flex-row sm:items-center sm:justify-between">
+    
+    <div>
+      <p className="font-semibold text-white">
+        SamadhanX
+      </p>
 
-            <div>
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 text-lg font-bold">
-                  S
-                </div>
+      <p className="mt-1 text-xs text-slate-400">
+        Ideas → Action → Impact
+      </p>
+    </div>
 
-                <div>
-                  <p className="font-semibold">SamadhanX</p>
-                  <p className="text-sm text-slate-400">
-                    Ideas → Action → Impact
-                  </p>
-                </div>
-              </div>
-            </div>
+    <div className="flex flex-wrap items-center gap-5 text-sm text-slate-400">
+      <Link
+        href="/citizen/dashboard"
+        className="transition hover:text-white"
+      >
+        Dashboard
+      </Link>
 
-            <div className="text-center text-sm text-slate-400 md:absolute md:left-1/2 md:-translate-x-1/2">
-              <p>© 2026 SamadhanX. Building solutions that matter.</p>
-            </div>
+      <Link
+        href="/problems"
+        className="transition hover:text-white"
+      >
+        All Problems
+      </Link>
 
-            <div className="flex flex-wrap justify-center gap-5 text-sm text-slate-300">
-              <Link href="/" className="hover:text-white">
-                Home
-              </Link>
+      <Link
+        href="/citizen/problems"
+        className="transition hover:text-white"
+      >
+        My Problems
+      </Link>
 
-              <Link href="/problems" className="hover:text-white">
-                Problems
-              </Link>
-            </div>
-
-          </div>
-        </footer>
+      <Link
+        href="/help"
+        className="transition hover:text-white"
+      >
+        Help
+      </Link>
+    </div>
+  </div>
+</footer>
     </main>
   );
 }

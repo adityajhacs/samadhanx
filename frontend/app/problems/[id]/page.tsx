@@ -51,35 +51,76 @@ export default function ProblemDetailsPage({
     loadProblem();
   }, [id]);
 
-
-
   // Loading state
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-50 text-slate-950">
-        <nav className="border-b border-slate-200 bg-white">
+        <nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-            <Link href="/" className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 text-xl text-white">
+            {/* Logo */}
+            <Link
+              href="/citizen/dashboard"
+              className="flex items-center gap-2.5"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-700 text-sm font-bold text-white shadow-sm">
                 S
               </div>
 
               <div>
-                <div className="text-xl font-bold tracking-tight">
+                <p className="text-lg font-bold tracking-tight text-slate-900">
                   SamadhanX
-                </div>
+                </p>
 
-                <div className="text-xs text-slate-500">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                   Ideas → Action → Impact
-                </div>
+                </p>
               </div>
             </Link>
 
+            {/* Navigation */}
+            <div className="hidden items-center gap-7 md:flex">
+              <Link
+                href="/citizen/dashboard"
+                className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+              >
+                Dashboard
+              </Link>
+
+              <Link
+                href="/problems"
+                className="text-sm font-semibold text-teal-700"
+              >
+                All Problems
+              </Link>
+
+              <Link
+                href="/citizen/problems"
+                className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+              >
+                My Problems
+              </Link>
+
+              <Link
+                href="/help"
+                className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+              >
+                Help
+              </Link>
+
+              <Link
+                href="/citizen/report"
+                className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800"
+              >
+                Report Problem
+              </Link>
+            </div>
+
+            {/* Mobile */}
             <Link
-              href="/problems"
-              className="text-sm font-medium text-teal-600"
+              href="/citizen/report"
+              className="rounded-xl bg-teal-700 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800 md:hidden"
             >
-              Problems
+              Report Problem
             </Link>
           </div>
         </nav>
@@ -99,29 +140,72 @@ export default function ProblemDetailsPage({
   if (error || !problem) {
     return (
       <main className="min-h-screen bg-slate-50 text-slate-950">
-        <nav className="border-b border-slate-200 bg-white">
+        <nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-            <Link href="/" className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 text-xl text-white">
+            {/* Logo */}
+            <Link
+              href="/citizen/dashboard"
+              className="flex items-center gap-2.5"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-700 text-sm font-bold text-white shadow-sm">
                 S
               </div>
 
               <div>
-                <div className="text-xl font-bold tracking-tight">
+                <p className="text-lg font-bold tracking-tight text-slate-900">
                   SamadhanX
-                </div>
+                </p>
 
-                <div className="text-xs text-slate-500">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                   Ideas → Action → Impact
-                </div>
+                </p>
               </div>
             </Link>
 
+            {/* Navigation */}
+            <div className="hidden items-center gap-7 md:flex">
+              <Link
+                href="/citizen/dashboard"
+                className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+              >
+                Dashboard
+              </Link>
+
+              <Link
+                href="/problems"
+                className="text-sm font-semibold text-teal-700"
+              >
+                All Problems
+              </Link>
+
+              <Link
+                href="/citizen/problems"
+                className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+              >
+                My Problems
+              </Link>
+
+              <Link
+                href="/help"
+                className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+              >
+                Help
+              </Link>
+
+              <Link
+                href="/citizen/report"
+                className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800"
+              >
+                Report Problem
+              </Link>
+            </div>
+
+            {/* Mobile */}
             <Link
-              href="/problems"
-              className="text-sm font-medium text-slate-600 hover:text-teal-600"
+              href="/citizen/report"
+              className="rounded-xl bg-teal-700 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800 md:hidden"
             >
-              Problems
+              Report Problem
             </Link>
           </div>
         </nav>
@@ -176,44 +260,74 @@ export default function ProblemDetailsPage({
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
-      {/* Navbar */}
-      <nav className="border-b border-slate-200 bg-white">
+      {/* ==================== NAVBAR ==================== */}
+      <nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 text-xl text-white">
+          {/* Logo */}
+          <Link
+            href="/citizen/dashboard"
+            className="flex items-center gap-2.5"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-700 text-sm font-bold text-white shadow-sm">
               S
             </div>
 
             <div>
-              <div className="text-xl font-bold tracking-tight">
+              <p className="text-lg font-bold tracking-tight text-slate-900">
                 SamadhanX
-              </div>
+              </p>
 
-              <div className="text-xs text-slate-500">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 Ideas → Action → Impact
-              </div>
+              </p>
             </div>
           </Link>
 
-          <div className="flex items-center gap-6">
+          {/* Navigation */}
+          <div className="hidden items-center gap-7 md:flex">
             <Link
-              href="/"
-              className="text-sm font-medium text-slate-600 hover:text-teal-600"
+              href="/citizen/dashboard"
+              className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
             >
-              Home
+              Dashboard
             </Link>
 
             <Link
               href="/problems"
-              className="text-sm font-medium text-teal-600"
+              className="text-sm font-semibold text-teal-700"
             >
-              Problems
+              All Problems
             </Link>
 
-            <button className="rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-700">
-              Get Started
-            </button>
+            <Link
+              href="/citizen/problems"
+              className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+            >
+              My Problems
+            </Link>
+
+            <Link
+              href="/help"
+              className="text-sm font-medium text-slate-600 transition hover:text-teal-700"
+            >
+              Help
+            </Link>
+
+            <Link
+              href="/citizen/report"
+              className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800"
+            >
+              Report Problem
+            </Link>
           </div>
+
+          {/* Mobile */}
+          <Link
+            href="/citizen/report"
+            className="rounded-xl bg-teal-700 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800 md:hidden"
+          >
+            Report Problem
+          </Link>
         </div>
       </nav>
 
@@ -256,7 +370,6 @@ export default function ProblemDetailsPage({
           <div className="mt-6 flex flex-wrap gap-8 text-sm text-slate-500">
             <span className="flex items-center gap-2">
               <MapPin size={17} />
-
               <span>{location}</span>
             </span>
 
@@ -274,7 +387,6 @@ export default function ProblemDetailsPage({
 
             <span className="flex items-center gap-2">
               <Users size={17} />
-
               <span>Community reported</span>
             </span>
           </div>
@@ -425,69 +537,64 @@ export default function ProblemDetailsPage({
 
             {/* Support + Feedback */}
             <ProblemActions
-  problemId={id}
-  supporters={0}
-/>
+              problemId={id}
+              supporters={0}
+            />
 
-            
-{/* Evidence */}
-<div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-  <h2 className="text-xl font-bold">
-    Evidence
-  </h2>
+            {/* Evidence */}
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-bold">
+                Evidence
+              </h2>
 
-  <p className="mt-2 text-sm leading-6 text-slate-500">
-    Photos and videos submitted by citizens to help
-    understand the problem.
-  </p>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Photos and videos submitted by citizens to help
+                understand the problem.
+              </p>
 
-  <div className="mt-5 space-y-3">
-    {/* Photo */}
-    {problem.image_url ? (
-      <a
-        href={problem.image_url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-teal-700 transition hover:bg-teal-50"
-      >
-        <Camera size={18} />
-        View Photo
-      </a>
-    ) : (
-      <div className="flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-500">
-        <Camera size={18} />
-        No photo submitted
-      </div>
-    )}
+              <div className="mt-5 space-y-3">
+                {/* Photo */}
+                {problem.image_url ? (
+                  <a
+                    href={problem.image_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-teal-700 transition hover:bg-teal-50"
+                  >
+                    <Camera size={18} />
+                    View Photo
+                  </a>
+                ) : (
+                  <div className="flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-500">
+                    <Camera size={18} />
+                    No photo submitted
+                  </div>
+                )}
 
-    {/* Video */}
-    {problem.video_url ? (
-      <a
-        href={problem.video_url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-teal-700 transition hover:bg-teal-50"
-      >
-        <Video size={18} />
-        View Video
-      </a>
-    ) : (
-      <div className="flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-500">
-        <Video size={18} />
-        No video submitted
-      </div>
-    )}
-  </div>
-</div>
-
-
-
-
+                {/* Video */}
+                {problem.video_url ? (
+                  <a
+                    href={problem.video_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-teal-700 transition hover:bg-teal-50"
+                  >
+                    <Video size={18} />
+                    View Video
+                  </a>
+                ) : (
+                  <div className="flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-500">
+                    <Video size={18} />
+                    No video submitted
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
+      {/* ==================== FOOTER ==================== */}
       <footer className="border-t border-slate-800 bg-slate-950 px-6 py-8 text-white">
         <div className="relative mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 text-center md:flex-row md:text-left">
           <div>
@@ -510,26 +617,34 @@ export default function ProblemDetailsPage({
 
           <div className="text-center text-sm text-slate-400 md:absolute md:left-1/2 md:-translate-x-1/2">
             <p>
-              © 2026 SamadhanX. Building solutions together.
+              © 2026 SamadhanX. Building solutions that matter.
             </p>
           </div>
 
           <div className="flex flex-wrap justify-center gap-5 text-sm text-slate-300">
-            <span className="cursor-pointer hover:text-white">
-              About
-            </span>
+            <Link
+              href="/"
+              className="transition hover:text-white"
+            >
+              Home
+            </Link>
 
-            <span className="cursor-pointer hover:text-white">
-              Contact
-            </span>
+            <Link
+              href="/problems"
+              className="transition hover:text-white"
+            >
+              Problems
+            </Link>
 
-            <span className="cursor-pointer hover:text-white">
-              Privacy
-            </span>
+            <Link
+              href="/help"
+              className="transition hover:text-white"
+            >
+              Help
+            </Link>
           </div>
         </div>
       </footer>
     </main>
   );
 }
-

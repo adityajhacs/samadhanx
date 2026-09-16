@@ -6,9 +6,12 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.core.database import get_db
+
 from app.models.project_member import ProjectMember
 from app.models.project import Project
+from app.models.solution import Solution
 from app.models.user import User
+
 from app.schemas.project_member import (
     ProjectMemberCreate,
     ProjectMemberUpdate,
@@ -25,6 +28,243 @@ project_members_router = APIRouter(
     prefix="/api/projects",
     tags=["Project Members"],
 )
+
+
+# ============================================================
+# HELPERS
+# ============================================================
+
+def get_role(
+    current_user: User,
+) -> str:
+    return (
+        current_user.role or ""
+    ).strip().lower()
+
+
+def get_project(
+    project_id: uuid.UUID,
+    db: Session,
+) -> Project:
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id)
+        .first()
+    )
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found",
+        )
+
+    return project
+
+
+def get_project_university_id(
+    project: Project,
+    db: Session,
+):
+    """
+    Determine project university through:
+
+    Project
+        ↓
+    Solution
+        ↓
+    University
+    """
+
+    if not project.solution_id:
+        return None
+
+    solution = (
+        db.query(Solution)
+        .filter(
+            Solution.id == project.solution_id
+        )
+        .first()
+    )
+
+    if not solution:
+        return None
+
+    return solution.university_id
+
+
+def belongs_to_same_university(
+    project: Project,
+    current_user: User,
+    db: Session,
+) -> bool:
+    if not current_user.university_id:
+        return False
+
+    project_university_id = get_project_university_id(
+        project,
+        db,
+    )
+
+    if not project_university_id:
+        return False
+
+    return (
+        project_university_id
+        == current_user.university_id
+    )
+
+
+def is_project_creator(
+    project: Project,
+    current_user: User,
+) -> bool:
+    """
+    The Faculty who created the project
+    is the project owner/manager.
+    """
+
+    return project.created_by == current_user.id
+
+
+# ============================================================
+# MEMBER MANAGEMENT PERMISSION
+#
+# Admin:
+#     All projects.
+#
+# University:
+#     Own university projects.
+#
+# Project creator Faculty:
+#     Own project.
+#
+# Other Faculty:
+#     Cannot manage members.
+#
+# Student:
+#     Cannot manage members.
+# ============================================================
+
+def can_manage_project_members(
+    project: Project,
+    current_user: User,
+    db: Session,
+) -> bool:
+
+    role = get_role(current_user)
+
+    # --------------------------------------------------------
+    # ADMIN
+    # --------------------------------------------------------
+
+    if role == "admin":
+        return True
+
+    # --------------------------------------------------------
+    # UNIVERSITY
+    # --------------------------------------------------------
+
+    if role == "university":
+        return belongs_to_same_university(
+            project,
+            current_user,
+            db,
+        )
+
+    # --------------------------------------------------------
+    # FACULTY
+    #
+    # ONLY project creator can manage members.
+    # Being a ProjectMember does NOT grant management rights.
+    # --------------------------------------------------------
+
+    if role == "faculty":
+        return is_project_creator(
+            project,
+            current_user,
+        )
+
+    # --------------------------------------------------------
+    # STUDENT
+    # --------------------------------------------------------
+
+    if role == "student":
+        return False
+
+    return False
+
+
+# ============================================================
+# VALIDATE MEMBER USER
+#
+# Member must:
+#     1. Exist
+#     2. Be Student or Faculty
+#     3. Belong to project's university
+# ============================================================
+
+def validate_member_user(
+    project: Project,
+    user_id: uuid.UUID,
+    db: Session,
+):
+    user = (
+        db.query(User)
+        .filter(
+            User.id == user_id
+        )
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    role = (
+        user.role or ""
+    ).strip().lower()
+
+    if role not in {
+        "student",
+        "faculty",
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Only Student or Faculty users "
+                "can be added to a project"
+            ),
+        )
+
+    project_university_id = get_project_university_id(
+        project,
+        db,
+    )
+
+    if not project_university_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Project is not associated "
+                "with a university"
+            ),
+        )
+
+    if user.university_id != project_university_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Only Student or Faculty users "
+                "from the project's university "
+                "can be added"
+            ),
+        )
+
+    return user
+
+
 # ============================================================
 # ADD PROJECT MEMBER
 # ============================================================
@@ -39,42 +279,49 @@ def add_project_member(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    project = (
-        db.query(Project)
-        .filter(Project.id == member_data.project_id)
-        .first()
+    project = get_project(
+        member_data.project_id,
+        db,
     )
 
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
-        )
+    # --------------------------------------------------------
+    # AUTHORIZATION
+    # --------------------------------------------------------
 
-    # Only project owner or ADMIN can add members
-    if project.created_by != current_user.id and current_user.role != "ADMIN":
+    if not can_manage_project_members(
+        project,
+        current_user,
+        db,
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to modify this project",
+            detail=(
+                "You are not authorized to "
+                "manage members of this project"
+            ),
         )
 
-    user = (
-        db.query(User)
-        .filter(User.id == member_data.user_id)
-        .first()
+    # --------------------------------------------------------
+    # VALIDATE USER
+    # --------------------------------------------------------
+
+    validate_member_user(
+        project,
+        member_data.user_id,
+        db,
     )
 
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
+    # --------------------------------------------------------
+    # CHECK DUPLICATE
+    # --------------------------------------------------------
 
     existing_member = (
         db.query(ProjectMember)
         .filter(
-            ProjectMember.project_id == member_data.project_id,
-            ProjectMember.user_id == member_data.user_id,
+            ProjectMember.project_id
+            == member_data.project_id,
+            ProjectMember.user_id
+            == member_data.user_id,
         )
         .first()
     )
@@ -84,6 +331,10 @@ def add_project_member(
             status_code=status.HTTP_409_CONFLICT,
             detail="User is already a member of this project",
         )
+
+    # --------------------------------------------------------
+    # CREATE MEMBER
+    # --------------------------------------------------------
 
     member = ProjectMember(
         project_id=member_data.project_id,
@@ -98,6 +349,11 @@ def add_project_member(
 
     return member
 
+
+# ============================================================
+# ADD MEMBER USING PROJECT URL
+# ============================================================
+
 @project_members_router.post(
     "/{project_id}/members",
     response_model=ProjectMemberResponse,
@@ -109,17 +365,10 @@ def add_project_member_to_project(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    project = (
-        db.query(Project)
-        .filter(Project.id == project_id)
-        .first()
+    project = get_project(
+        project_id,
+        db,
     )
-
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
-        )
 
     if member_data.project_id != project_id:
         raise HTTPException(
@@ -127,29 +376,43 @@ def add_project_member_to_project(
             detail="Project ID in request body does not match URL",
         )
 
-    if project.created_by != current_user.id and current_user.role != "ADMIN":
+    # --------------------------------------------------------
+    # AUTHORIZATION
+    # --------------------------------------------------------
+
+    if not can_manage_project_members(
+        project,
+        current_user,
+        db,
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to modify this project",
+            detail=(
+                "You are not authorized to "
+                "manage members of this project"
+            ),
         )
 
-    user = (
-        db.query(User)
-        .filter(User.id == member_data.user_id)
-        .first()
+    # --------------------------------------------------------
+    # VALIDATE USER
+    # --------------------------------------------------------
+
+    validate_member_user(
+        project,
+        member_data.user_id,
+        db,
     )
 
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
+    # --------------------------------------------------------
+    # CHECK DUPLICATE
+    # --------------------------------------------------------
 
     existing_member = (
         db.query(ProjectMember)
         .filter(
             ProjectMember.project_id == project_id,
-            ProjectMember.user_id == member_data.user_id,
+            ProjectMember.user_id
+            == member_data.user_id,
         )
         .first()
     )
@@ -159,6 +422,10 @@ def add_project_member_to_project(
             status_code=status.HTTP_409_CONFLICT,
             detail="User is already a member of this project",
         )
+
+    # --------------------------------------------------------
+    # CREATE MEMBER
+    # --------------------------------------------------------
 
     member = ProjectMember(
         project_id=project_id,
@@ -172,8 +439,15 @@ def add_project_member_to_project(
     db.refresh(member)
 
     return member
+
+
 # ============================================================
 # GET PROJECT MEMBERS
+#
+# University / Faculty / Student can VIEW members
+# of ANY project.
+#
+# No membership or university restriction.
 # ============================================================
 
 @router.get(
@@ -185,25 +459,43 @@ def get_project_members(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    project = (
-        db.query(Project)
-        .filter(Project.id == project_id)
-        .first()
+    project = get_project(
+        project_id,
+        db,
     )
 
-    if not project:
+    role = get_role(current_user)
+
+    if role not in {
+        "admin",
+        "university",
+        "faculty",
+        "student",
+    }:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "You are not authorized to "
+                "view project members"
+            ),
         )
 
     members = (
         db.query(ProjectMember)
-        .filter(ProjectMember.project_id == project_id)
+        .filter(
+            ProjectMember.project_id == project.id
+        )
         .all()
     )
 
     return members
+
+
+# ============================================================
+# GET PROJECT MEMBERS USING PROJECT URL
+#
+# Read-only for all University Portal roles.
+# ============================================================
 
 @project_members_router.get(
     "/{project_id}/members",
@@ -214,27 +506,55 @@ def get_project_members_by_project(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    project = (
-        db.query(Project)
-        .filter(Project.id == project_id)
-        .first()
+    project = get_project(
+        project_id,
+        db,
     )
 
-    if not project:
+    role = get_role(current_user)
+
+    if role not in {
+        "admin",
+        "university",
+        "faculty",
+        "student",
+    }:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "You are not authorized to "
+                "view project members"
+            ),
         )
 
     members = (
         db.query(ProjectMember)
-        .filter(ProjectMember.project_id == project_id)
+        .filter(
+            ProjectMember.project_id == project.id
+        )
         .all()
     )
 
     return members
+
+
 # ============================================================
 # UPDATE PROJECT MEMBER
+#
+# Admin:
+#     All.
+#
+# University:
+#     Own university project.
+#
+# Project creator Faculty:
+#     Own project.
+#
+# Other Faculty:
+#     Not allowed.
+#
+# Student:
+#     Not allowed.
 # ============================================================
 
 @router.patch(
@@ -249,7 +569,9 @@ def update_project_member(
 ):
     member = (
         db.query(ProjectMember)
-        .filter(ProjectMember.id == member_id)
+        .filter(
+            ProjectMember.id == member_id
+        )
         .first()
     )
 
@@ -259,23 +581,26 @@ def update_project_member(
             detail="Project member not found",
         )
 
-    project = (
-        db.query(Project)
-        .filter(Project.id == member.project_id)
-        .first()
+    project = get_project(
+        member.project_id,
+        db,
     )
 
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
-        )
+    # --------------------------------------------------------
+    # AUTHORIZATION
+    # --------------------------------------------------------
 
-    # Only project owner or ADMIN can update members
-    if project.created_by != current_user.id and current_user.role != "ADMIN":
+    if not can_manage_project_members(
+        project,
+        current_user,
+        db,
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to modify this project",
+            detail=(
+                "You are not authorized to "
+                "modify project members"
+            ),
         )
 
     update_data = member_data.model_dump(
@@ -283,7 +608,11 @@ def update_project_member(
     )
 
     for field, value in update_data.items():
-        setattr(member, field, value)
+        setattr(
+            member,
+            field,
+            value,
+        )
 
     db.commit()
     db.refresh(member)
@@ -306,7 +635,9 @@ def remove_project_member(
 ):
     member = (
         db.query(ProjectMember)
-        .filter(ProjectMember.id == member_id)
+        .filter(
+            ProjectMember.id == member_id
+        )
         .first()
     )
 
@@ -316,29 +647,38 @@ def remove_project_member(
             detail="Project member not found",
         )
 
-    project = (
-        db.query(Project)
-        .filter(Project.id == member.project_id)
-        .first()
+    project = get_project(
+        member.project_id,
+        db,
     )
 
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
-        )
+    # --------------------------------------------------------
+    # AUTHORIZATION
+    # --------------------------------------------------------
 
-    # Only project owner or ADMIN can remove members
-    if project.created_by != current_user.id and current_user.role != "ADMIN":
+    if not can_manage_project_members(
+        project,
+        current_user,
+        db,
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to modify this project",
+            detail=(
+                "You are not authorized to "
+                "remove project members"
+            ),
         )
 
     db.delete(member)
     db.commit()
 
     return None
+
+
+# ============================================================
+# DELETE PROJECT MEMBER USING PROJECT URL
+# ============================================================
+
 @project_members_router.delete(
     "/{project_id}/members/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -349,22 +689,26 @@ def remove_project_member_from_project(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    project = (
-        db.query(Project)
-        .filter(Project.id == project_id)
-        .first()
+    project = get_project(
+        project_id,
+        db,
     )
 
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
-        )
+    # --------------------------------------------------------
+    # AUTHORIZATION
+    # --------------------------------------------------------
 
-    if project.created_by != current_user.id and current_user.role != "ADMIN":
+    if not can_manage_project_members(
+        project,
+        current_user,
+        db,
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to modify this project",
+            detail=(
+                "You are not authorized to "
+                "remove project members"
+            ),
         )
 
     member = (
@@ -386,3 +730,66 @@ def remove_project_member_from_project(
     db.commit()
 
     return None
+
+
+# ============================================================
+# GET PROJECT MEMBER DETAILS
+#
+# Read-only.
+# University / Faculty / Student can view
+# details for ANY project.
+# ============================================================
+
+@project_members_router.get(
+    "/{project_id}/members/details",
+)
+def get_project_member_details(
+    project_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    project = get_project(
+        project_id,
+        db,
+    )
+
+    role = get_role(current_user)
+
+    if role not in {
+        "admin",
+        "university",
+        "faculty",
+        "student",
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "You are not authorized to "
+                "view project member details"
+            ),
+        )
+
+    members = (
+        db.query(ProjectMember, User)
+        .join(
+            User,
+            ProjectMember.user_id == User.id,
+        )
+        .filter(
+            ProjectMember.project_id == project.id
+        )
+        .all()
+    )
+
+    return [
+        {
+            "id": member.id,
+            "user_id": user.id,
+            "name": user.full_name,
+            "email": user.email,
+            "role": user.role,
+            "project_role": member.role,
+            "joined_at": member.joined_at,
+        }
+        for member, user in members
+    ]

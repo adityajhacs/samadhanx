@@ -153,4 +153,46 @@ export async function uploadProblemFile(
 
   return response.json();
 }
+export async function getMyProblems(): Promise<Problem[]> {
+  const token = getAuthToken();
+
+  if (!token) {
+    throw new Error("Please login to view your problems.");
+  }
+
+  return apiRequest<Problem[]>("/api/problems/my", {
+    method: "GET",
+    token,
+  });
+}
+export interface ProblemProgressStage {
+  key: string;
+  label: string;
+  completed: boolean;
+}
+
+export interface ProblemProgress {
+  problem_id: string;
+  progress: number;
+  current_stage: string;
+  stages: ProblemProgressStage[];
+}
+
+export async function getProblemProgress(
+  problemId: string
+): Promise<ProblemProgress> {
+  const token = getAuthToken();
+
+  if (!token) {
+    throw new Error("Please login to view problem progress.");
+  }
+
+  return apiRequest<ProblemProgress>(
+    `/api/problems/${problemId}/progress`,
+    {
+      method: "GET",
+      token,
+    }
+  );
+}
 

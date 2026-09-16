@@ -1,3 +1,4 @@
+
 "use client";
 
 import { FormEvent, useState } from "react";
@@ -54,19 +55,23 @@ export default function LoginPage() {
       setSuccess("Login successful. Redirecting...");
 
       // 3. Role-based redirect
-      const role = user.role?.toLowerCase();
+     const role = user.role?.toLowerCase();
 
-      setTimeout(() => {
-        if (role === "government" || role === "admin") {
-          router.push("/government/dashboard");
-        } else if (role === "university") {
-          router.push("/university/dashboard");
-        } else if (role === "industry") {
-          router.push("/industry/dashboard");
-        } else {
-          router.push("/");
-        }
-      }, 500);
+setTimeout(() => {
+  if (role === "government" || role === "admin") {
+    router.push("/government/dashboard");
+  } else if (
+    role === "university" ||
+    role === "student" ||
+    role === "faculty"
+  ) {
+    router.push("/university/dashboard");
+  } else if (role === "industry") {
+    router.push("/industry/dashboard");
+  } else {
+    router.push("/");
+  }
+}, 500);
     } catch (err) {
       console.error("Login error:", err);
 
@@ -440,6 +445,20 @@ export default function LoginPage() {
                 )}
               </button>
 
+              {/* New User */}
+
+              <div className="pt-2 text-center">
+                <p className="text-sm text-slate-500">
+                  New to SamadhanX?{" "}
+                  <Link
+                    href="/register"
+                    className="font-semibold text-teal-700 transition hover:text-teal-800"
+                  >
+                    Create an account
+                  </Link>
+                </p>
+              </div>
+
             </form>
 
             {/* Bottom info */}
@@ -465,3 +484,4 @@ export default function LoginPage() {
     </main>
   );
 }
+

@@ -1,24 +1,20 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Eye,
-  EyeOff,
-  LockKeyhole,
-  Mail,
-  ShieldCheck,
-  ArrowRight,
-  Loader2,
-  AlertCircle,
-  CheckCircle2,
   UserRound,
   Building2,
   GraduationCap,
   Factory,
+  UsersRound,
+  BriefcaseBusiness,
+  Loader2,
 } from "lucide-react";
+
 import { register } from "@/lib/api/auth";
-import { useRouter } from "next/navigation";
+import { getUniversities, University } from "@/lib/api/universities";
 
 const roles = [
   {
@@ -37,6 +33,16 @@ const roles = [
     icon: GraduationCap,
   },
   {
+    value: "student",
+    label: "Student",
+    icon: UsersRound,
+  },
+  {
+    value: "faculty",
+    label: "Faculty",
+    icon: BriefcaseBusiness,
+  },
+  {
     value: "industry",
     label: "Industry",
     icon: Factory,
@@ -51,539 +57,716 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("citizen");
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [universities, setUniversities] = useState<University[]>([]);
+  const [loadingUniversities, setLoadingUniversities] = useState(false);
+
+  const [universityId, setUniversityId] = useState("");
+  const [course, setCourse] = useState("");
+  const [year, setYear] = useState("");
+
+  const [facultyDepartment, setFacultyDepartment] = useState("");
+  const [designation, setDesignation] = useState("");
+
+  const [universityName, setUniversityName] = useState("");
+  const [expertiseArea, setExpertiseArea] = useState("");
+  const [universityDistrict, setUniversityDistrict] = useState("");
+  const [universityDepartment, setUniversityDepartment] = useState("");
+
+  const [industryName, setIndustryName] = useState("");
+  const [industryType, setIndustryType] = useState("");
+  const [industryDescription, setIndustryDescription] = useState("");
+  const [industryLocation, setIndustryLocation] = useState("");
+  const [industryContactEmail, setIndustryContactEmail] = useState("");
 
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
 
-
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-  setError("");
-  setSuccess("");
-
-  if (!fullName.trim() || !email.trim() || !password.trim()) {
-    setError("Please fill in all required fields.");
-    return;
-  }
-
-  if (password.length < 6) {
-    setError("Password must be at least 6 characters long.");
-    return;
-  }
-
-  try {
-    setLoading(true);
-
-    const response = await register({
-      full_name: fullName.trim(),
-      email: email.trim(),
-      password,
-      role,
-    });
-
-    if (!response.access_token) {
-      throw new Error(
-        "Account created, but authentication token was not returned."
-      );
+  useEffect(() => {
+    if (role !== "student" && role !== "faculty") {
+      return;
     }
 
-    setSuccess("Account created successfully. Redirecting...");
+    async function loadUniversities() {
+      try {
+        setLoadingUniversities(true);
+        setError("");
 
-    setTimeout(() => {
+        const data = await getUniversities();
+        setUniversities(data);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load universities."
+        );
+      } finally {
+        setLoadingUniversities(false);
+      }
+    }
+
+    loadUniversities();
+  }, [role]);
+
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+    setError("");
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
+    if (
+      (role === "student" || role === "faculty") &&
+      !universityId
+    ) {
+      setError("Please select your university.");
+      return;
+    }
+
+    if (role === "university" && !universityName.trim()) {
+      setError("Please enter your university name.");
+      return;
+    }
+
+    if (role === "industry" && !industryName.trim()) {
+      setError("Please enter your industry/company name.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await register({
+        full_name: fullName.trim(),
+        email: email.trim(),
+        password,
+        role,
+
+        ...(role === "student"
+          ? {
+              university_id: universityId,
+              course: course.trim(),
+              year: year.trim(),
+            }
+          : {}),
+
+        ...(role === "faculty"
+          ? {
+              university_id: universityId,
+              department: facultyDepartment.trim(),
+              designation: designation.trim(),
+            }
+          : {}),
+
+        ...(role === "university"
+          ? {
+              university_name: universityName.trim(),
+              expertise_area: expertiseArea
+                .split(",")
+                .map((item) => item.trim())
+                .filter(Boolean),
+              district: universityDistrict.trim(),
+              department: universityDepartment.trim(),
+            }
+          : {}),
+
+        ...(role === "industry"
+          ? {
+              industry_name: industryName.trim(),
+              industry_type: industryType.trim(),
+              industry_description: industryDescription.trim(),
+              industry_location: industryLocation.trim(),
+              industry_contact_email:
+                industryContactEmail.trim(),
+            }
+          : {}),
+      });
+
+      if (!response.access_token) {
+        throw new Error(
+          "Registration successful, but no login token was returned. Please login manually."
+        );
+      }
+
       if (role === "government") {
         router.push("/government/dashboard");
       } else if (role === "university") {
         router.push("/university/dashboard");
       } else if (role === "industry") {
         router.push("/industry/dashboard");
+      } else if (
+        role === "student" ||
+        role === "faculty"
+      ) {
+        router.push("/university/dashboard");
       } else {
         router.push("/");
       }
-    }, 500);
-  } catch (err) {
-    console.error("Registration error:", err);
-
-    if (err instanceof Error) {
-      setError(err.message);
-    } else {
-      setError("Unable to create your account. Please try again.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Registration failed."
+      );
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
   }
-};
-
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <div className="flex min-h-screen">
+      <div className="grid min-h-screen lg:grid-cols-2">
+        {/* Left side */}
+        <section className="hidden bg-slate-950 p-12 text-white lg:flex lg:flex-col lg:justify-between">
+          <div>
+            <Link
+              href="/"
+              className="flex items-center gap-3"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-700 text-sm font-bold">
+                S
+              </div>
 
-        {/* =====================================================
-            LEFT — BRAND / PLATFORM INTRO
-        ====================================================== */}
+              <div>
+                <p className="text-xl font-bold">
+                  SamadhanX
+                </p>
+                <p className="text-xs text-slate-400">
+                  Ideas → Action → Impact
+                </p>
+              </div>
+            </Link>
 
-        <section className="relative hidden overflow-hidden bg-slate-950 lg:flex lg:w-[48%]">
-          <div className="absolute inset-0">
-            <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-teal-600/20 blur-3xl" />
-            <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-teal-500/10 blur-3xl" />
-          </div>
-
-          <div className="relative z-10 flex w-full flex-col justify-between p-12 xl:p-16">
-
-            {/* Brand */}
-
-            <div>
-              <Link
-                href="/"
-                className="inline-flex items-center gap-3"
-              >
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-600 text-white shadow-lg">
-                  <ShieldCheck size={27} strokeWidth={2} />
-                </div>
-
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl font-bold tracking-tight text-white">
-                      SamadhanX
-                    </span>
-
-                    <span className="rounded-full bg-teal-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-teal-300 ring-1 ring-teal-400/20">
-                      Platform
-                    </span>
-                  </div>
-
-                  <p className="mt-0.5 text-xs font-medium text-slate-400">
-                    Ideas → Action → Impact
-                  </p>
-                </div>
-              </Link>
-            </div>
-
-            {/* Main message */}
-
-            <div className="max-w-lg">
-              <p className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-teal-400">
-                Join the Civic Innovation Network
+            <div className="mt-24 max-w-lg">
+              <p className="text-sm font-semibold uppercase tracking-wider text-teal-400">
+                Join the platform
               </p>
 
-              <h1 className="text-4xl font-bold leading-tight text-white xl:text-5xl">
-                Be part of turning
-                <span className="block text-teal-400">
-                  problems into impact.
+              <h1 className="mt-4 text-5xl font-bold leading-tight">
+                Turn ideas into
+                <span className="text-teal-400">
+                  {" "}
+                  real impact.
                 </span>
               </h1>
 
-              <p className="mt-6 max-w-md text-base leading-7 text-slate-400">
-                Join citizens, government, universities and industry
-                working together to identify challenges, build solutions
-                and create measurable impact.
+              <p className="mt-6 text-lg leading-8 text-slate-300">
+                Connect citizens, universities, students,
+                faculty, government and industry to solve
+                real-world problems together.
               </p>
-
-              {/* Feature cards */}
-
-              <div className="mt-10 grid grid-cols-2 gap-3">
-
-                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                  <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-teal-500/10 text-teal-400">
-                    <ShieldCheck size={18} />
-                  </div>
-
-                  <p className="text-sm font-semibold text-white">
-                    Secure Platform
-                  </p>
-
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    Protected account access
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                  <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-teal-500/10 text-teal-400">
-                    <ArrowRight size={18} />
-                  </div>
-
-                  <p className="text-sm font-semibold text-white">
-                    Collaborative
-                  </p>
-
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    Ideas → solutions → impact
-                  </p>
-                </div>
-
-              </div>
             </div>
-
-            {/* Footer */}
-
-            <p className="text-xs text-slate-600">
-              SamadhanX Civic Problem Solving Platform
-            </p>
           </div>
+
+          <p className="text-sm text-slate-500">
+            SamadhanX • Collaborative Civic Innovation
+          </p>
         </section>
 
-        {/* =====================================================
-            RIGHT — REGISTER FORM
-        ====================================================== */}
-
-        <section className="flex w-full items-center justify-center px-5 py-10 sm:px-8 lg:w-[52%]">
-
-          <div className="w-full max-w-md">
-
-            {/* Mobile brand */}
-
-            <div className="mb-10 flex items-center justify-center lg:hidden">
-              <Link
-                href="/"
-                className="flex items-center gap-3"
-              >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-600 text-white">
-                  <ShieldCheck size={24} />
-                </div>
-
-                <div>
-                  <p className="text-lg font-bold text-slate-900">
-                    SamadhanX
-                  </p>
-
-                  <p className="text-[10px] font-medium text-slate-500">
-                    Ideas → Action → Impact
-                  </p>
-                </div>
-              </Link>
-            </div>
-
-            {/* Heading */}
-
+        {/* Right side */}
+        <section className="flex items-center justify-center bg-white px-6 py-10 sm:px-10 lg:px-16">
+          <div className="w-full max-w-xl">
             <div className="mb-8">
-              <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
-                <UserRound size={21} />
+              <div className="mb-4 flex items-center gap-2 lg:hidden">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-700 text-sm font-bold text-white">
+                  S
+                </div>
+                <p className="text-lg font-bold text-slate-900">
+                  SamadhanX
+                </p>
               </div>
 
               <h2 className="text-3xl font-bold tracking-tight text-slate-900">
                 Create your account
               </h2>
 
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Join SamadhanX and start making an impact.
+              <p className="mt-2 text-sm text-slate-500">
+                Choose your role and provide the details
+                needed for your SamadhanX profile.
               </p>
             </div>
 
-            {/* Error */}
-
-            {error && (
-              <div className="mb-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                <AlertCircle
-                  size={18}
-                  className="mt-0.5 shrink-0"
-                />
-
-                <p>{error}</p>
-              </div>
-            )}
-
-            {/* Success */}
-
-            {success && (
-              <div className="mb-5 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
-                <CheckCircle2
-                  size={18}
-                  className="mt-0.5 shrink-0"
-                />
-
+            <form
+              onSubmit={handleSubmit}
+              className="space-y-6"
+            >
+              {/* Basic details */}
+              <div className="grid gap-5 sm:grid-cols-2">
                 <div>
-                  <p>{success}</p>
-
-                  <button
-                    type="button"
-                    onClick={() => router.push("/login")}
-                    className="mt-3 font-semibold text-teal-700 hover:text-teal-800"
-                  >
-                    Go to login →
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Form */}
-
-            {!success && (
-              <form
-                onSubmit={handleSubmit}
-                className="space-y-5"
-              >
-
-                {/* Full Name */}
-
-                <div>
-                  <label
-                    htmlFor="fullName"
-                    className="mb-2 block text-sm font-semibold text-slate-700"
-                  >
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">
                     Full name
                   </label>
 
-                  <div className="relative">
-                    <UserRound
-                      size={18}
-                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-
-                    <input
-                      id="fullName"
-                      type="text"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="Enter your full name"
-                      autoComplete="name"
-                      disabled={loading}
-                      className="
-                        h-12 w-full rounded-xl
-                        border border-slate-200
-                        bg-white
-                        pl-11 pr-4
-                        text-sm text-slate-900
-                        outline-none
-                        transition
-                        placeholder:text-slate-400
-                        hover:border-slate-300
-                        focus:border-teal-500
-                        focus:ring-4 focus:ring-teal-500/10
-                        disabled:cursor-not-allowed
-                        disabled:bg-slate-50
-                      "
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={fullName}
+                    onChange={(e) =>
+                      setFullName(e.target.value)
+                    }
+                    placeholder="Enter your full name"
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                  />
                 </div>
-
-                {/* Email */}
-
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="mb-2 block text-sm font-semibold text-slate-700"
-                  >
-                    Email address
-                  </label>
-
-                  <div className="relative">
-                    <Mail
-                      size={18}
-                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-
-                    <input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      autoComplete="email"
-                      disabled={loading}
-                      className="
-                        h-12 w-full rounded-xl
-                        border border-slate-200
-                        bg-white
-                        pl-11 pr-4
-                        text-sm text-slate-900
-                        outline-none
-                        transition
-                        placeholder:text-slate-400
-                        hover:border-slate-300
-                        focus:border-teal-500
-                        focus:ring-4 focus:ring-teal-500/10
-                        disabled:cursor-not-allowed
-                        disabled:bg-slate-50
-                      "
-                    />
-                  </div>
-                </div>
-
-                {/* Password */}
-
-                <div>
-                  <label
-                    htmlFor="password"
-                    className="mb-2 block text-sm font-semibold text-slate-700"
-                  >
-                    Password
-                  </label>
-
-                  <div className="relative">
-                    <LockKeyhole
-                      size={18}
-                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-
-                    <input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Create a password"
-                      autoComplete="new-password"
-                      disabled={loading}
-                      className="
-                        h-12 w-full rounded-xl
-                        border border-slate-200
-                        bg-white
-                        pl-11 pr-12
-                        text-sm text-slate-900
-                        outline-none
-                        transition
-                        placeholder:text-slate-400
-                        hover:border-slate-300
-                        focus:border-teal-500
-                        focus:ring-4 focus:ring-teal-500/10
-                        disabled:cursor-not-allowed
-                        disabled:bg-slate-50
-                      "
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      disabled={loading}
-                      className="
-                        absolute right-3.5 top-1/2
-                        -translate-y-1/2
-                        text-slate-400
-                        transition
-                        hover:text-teal-700
-                      "
-                      aria-label={
-                        showPassword
-                          ? "Hide password"
-                          : "Show password"
-                      }
-                    >
-                      {showPassword ? (
-                        <EyeOff size={18} />
-                      ) : (
-                        <Eye size={18} />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Role */}
 
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Account type
+                    Email
                   </label>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    {roles.map((item) => {
-                      const Icon = item.icon;
-                      const selected = role === item.value;
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) =>
+                      setEmail(e.target.value)
+                    }
+                    placeholder="you@example.com"
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                  />
+                </div>
+              </div>
 
-                      return (
-                        <button
-                          key={item.value}
-                          type="button"
-                          onClick={() => setRole(item.value)}
-                          disabled={loading}
-                          className={`
-                            flex h-12 items-center gap-2.5
-                            rounded-xl border
-                            px-3.5
-                            text-sm font-semibold
-                            transition
-                            disabled:cursor-not-allowed
-                            ${
-                              selected
-                                ? "border-teal-500 bg-teal-50 text-teal-800 ring-2 ring-teal-500/10"
-                                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-800"
-                            }
-                          `}
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Password
+                </label>
+
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) =>
+                    setPassword(e.target.value)
+                  }
+                  placeholder="At least 6 characters"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                />
+              </div>
+
+              {/* Role */}
+              <div>
+                <label className="mb-3 block text-sm font-semibold text-slate-700">
+                  Account type
+                </label>
+
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {roles.map((item) => {
+                    const Icon = item.icon;
+                    const selected = role === item.value;
+
+                    return (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() =>
+                          setRole(item.value)
+                        }
+                        className={`rounded-xl border p-4 text-left transition ${
+                          selected
+                            ? "border-teal-600 bg-teal-50 ring-1 ring-teal-600"
+                            : "border-slate-200 hover:border-teal-300 hover:bg-slate-50"
+                        }`}
+                      >
+                        <Icon
+                          className={`h-5 w-5 ${
+                            selected
+                              ? "text-teal-700"
+                              : "text-slate-500"
+                          }`}
+                        />
+
+                        <p
+                          className={`mt-2 text-sm font-semibold ${
+                            selected
+                              ? "text-teal-800"
+                              : "text-slate-700"
+                          }`}
                         >
-                          <Icon size={17} />
                           {item.label}
-                        </button>
-                      );
-                    })}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Student */}
+              {role === "student" && (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <h3 className="text-base font-bold text-slate-900">
+                    Student details
+                  </h3>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Tell us which university you belong to.
+                  </p>
+
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        University
+                      </label>
+
+                      <select
+                        required
+                        value={universityId}
+                        onChange={(e) =>
+                          setUniversityId(e.target.value)
+                        }
+                        disabled={loadingUniversities}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                      >
+                        <option value="">
+                          {loadingUniversities
+                            ? "Loading universities..."
+                            : "Select your university"}
+                        </option>
+
+                        {universities.map(
+                          (university) => (
+                            <option
+                              key={university.id}
+                              value={university.id}
+                            >
+                              {university.name}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">
+                          Course
+                        </label>
+
+                        <input
+                          type="text"
+                          value={course}
+                          onChange={(e) =>
+                            setCourse(e.target.value)
+                          }
+                          placeholder="e.g. B.Tech CSE"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">
+                          Year
+                        </label>
+
+                        <input
+                          type="text"
+                          value={year}
+                          onChange={(e) =>
+                            setYear(e.target.value)
+                          }
+                          placeholder="e.g. 3rd Year"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
+              )}
 
-                {/* Security */}
+              {/* Faculty */}
+              {role === "faculty" && (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <h3 className="text-base font-bold text-slate-900">
+                    Faculty details
+                  </h3>
 
-                <div className="flex items-center gap-2">
-                  <div className="flex h-4 w-4 items-center justify-center rounded border border-teal-200 bg-teal-50">
-                    <CheckCircle2
-                      size={11}
-                      className="text-teal-600"
-                    />
+                  <p className="mt-1 text-sm text-slate-500">
+                    Tell us which university you teach at.
+                  </p>
+
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        University
+                      </label>
+
+                      <select
+                        required
+                        value={universityId}
+                        onChange={(e) =>
+                          setUniversityId(e.target.value)
+                        }
+                        disabled={loadingUniversities}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                      >
+                        <option value="">
+                          {loadingUniversities
+                            ? "Loading universities..."
+                            : "Select your university"}
+                        </option>
+
+                        {universities.map(
+                          (university) => (
+                            <option
+                              key={university.id}
+                              value={university.id}
+                            >
+                              {university.name}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">
+                          Department
+                        </label>
+
+                        <input
+                          type="text"
+                          value={facultyDepartment}
+                          onChange={(e) =>
+                            setFacultyDepartment(
+                              e.target.value
+                            )
+                          }
+                          placeholder="e.g. Computer Science"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">
+                          Designation
+                        </label>
+
+                        <input
+                          type="text"
+                          value={designation}
+                          onChange={(e) =>
+                            setDesignation(e.target.value)
+                          }
+                          placeholder="e.g. Assistant Professor"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                        />
+                      </div>
+                    </div>
                   </div>
-
-                  <span className="text-xs text-slate-500">
-                    Your account will be protected with secure authentication.
-                  </span>
                 </div>
+              )}
 
-                {/* Submit */}
+              {/* University */}
+              {role === "university" && (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <h3 className="text-base font-bold text-slate-900">
+                    University details
+                  </h3>
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="
-                    flex h-12 w-full
-                    items-center justify-center gap-2
-                    rounded-xl
-                    bg-teal-600
-                    px-5
-                    text-sm font-bold text-white
-                    shadow-sm
-                    transition-all duration-200
-                    hover:bg-teal-700
-                    hover:shadow-md
-                    focus:outline-none
-                    focus:ring-4 focus:ring-teal-500/20
-                    disabled:cursor-not-allowed
-                    disabled:opacity-70
-                  "
-                >
-                  {loading ? (
-                    <>
-                      <Loader2
-                        size={18}
-                        className="animate-spin"
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        University name
+                      </label>
+
+                      <input
+                        type="text"
+                        required
+                        value={universityName}
+                        onChange={(e) =>
+                          setUniversityName(e.target.value)
+                        }
+                        placeholder="Enter university name"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                       />
-                      Creating account...
-                    </>
-                  ) : (
-                    <>
-                      Create account
-                      <ArrowRight size={18} />
-                    </>
-                  )}
-                </button>
+                    </div>
 
-              </form>
-            )}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">
+                          District
+                        </label>
 
-            {/* Bottom info */}
+                        <input
+                          type="text"
+                          value={universityDistrict}
+                          onChange={(e) =>
+                            setUniversityDistrict(
+                              e.target.value
+                            )
+                          }
+                          placeholder="e.g. Ghaziabad"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                        />
+                      </div>
 
-            <div className="mt-8 border-t border-slate-200 pt-6">
-            
-<div className="flex items-start gap-3">
-  <ShieldCheck
-    size={18}
-    className="mt-0.5 shrink-0 text-teal-600"
-  />
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">
+                          Department
+                        </label>
 
-  <p className="text-xs leading-5 text-slate-500">
-    Your account is protected with secure authentication.
-    After registration, you will be redirected to your workspace.
-  </p>
-</div>
+                        <input
+                          type="text"
+                          value={universityDepartment}
+                          onChange={(e) =>
+                            setUniversityDepartment(
+                              e.target.value
+                            )
+                          }
+                          placeholder="e.g. CSE"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                        />
+                      </div>
+                    </div>
 
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Expertise areas
+                      </label>
 
+                      <input
+                        type="text"
+                        value={expertiseArea}
+                        onChange={(e) =>
+                          setExpertiseArea(e.target.value)
+                        }
+                        placeholder="AI, IoT, Data Science"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                      />
 
-              <p className="mt-5 text-center text-sm text-slate-500">
+                      <p className="mt-1 text-xs text-slate-400">
+                        Separate multiple areas with commas.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Industry */}
+              {role === "industry" && (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <h3 className="text-base font-bold text-slate-900">
+                    Industry details
+                  </h3>
+
+                  <div className="mt-4 space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">
+                          Company / Industry name
+                        </label>
+
+                        <input
+                          type="text"
+                          required
+                          value={industryName}
+                          onChange={(e) =>
+                            setIndustryName(e.target.value)
+                          }
+                          placeholder="Company name"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">
+                          Industry type
+                        </label>
+
+                        <input
+                          type="text"
+                          value={industryType}
+                          onChange={(e) =>
+                            setIndustryType(e.target.value)
+                          }
+                          placeholder="e.g. Technology"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Location
+                      </label>
+
+                      <input
+                        type="text"
+                        value={industryLocation}
+                        onChange={(e) =>
+                          setIndustryLocation(e.target.value)
+                        }
+                        placeholder="City / District"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Contact email
+                      </label>
+
+                      <input
+                        type="email"
+                        value={industryContactEmail}
+                        onChange={(e) =>
+                          setIndustryContactEmail(
+                            e.target.value
+                          )
+                        }
+                        placeholder="company@example.com"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Description
+                      </label>
+
+                      <textarea
+                        rows={3}
+                        value={industryDescription}
+                        onChange={(e) =>
+                          setIndustryDescription(
+                            e.target.value
+                          )
+                        }
+                        placeholder="Briefly describe the company."
+                        className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Error */}
+              {error && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={loading || loadingUniversities}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
+
+                {loading
+                  ? "Creating account..."
+                  : "Create account"}
+              </button>
+
+              <p className="text-center text-sm text-slate-500">
                 Already have an account?{" "}
                 <Link
                   href="/login"
@@ -592,8 +775,7 @@ export default function RegisterPage() {
                   Sign in
                 </Link>
               </p>
-            </div>
-
+            </form>
           </div>
         </section>
       </div>
