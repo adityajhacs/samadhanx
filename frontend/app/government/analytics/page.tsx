@@ -1,5 +1,7 @@
+
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertCircle,
@@ -13,69 +15,394 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-import { problems } from "@/lib/mockData";
+/* =============================================================
+   TYPES
+============================================================= */
 
-const districtData = [
-  { name: "Ranchi", problems: 18, critical: 4, resolved: 9 },
-  { name: "Jamshedpur", problems: 14, critical: 3, resolved: 7 },
-  { name: "Dhanbad", problems: 12, critical: 4, resolved: 5 },
-  { name: "Bokaro", problems: 9, critical: 2, resolved: 5 },
-  { name: "Hazaribagh", problems: 7, critical: 1, resolved: 4 },
-  { name: "Deoghar", problems: 6, critical: 1, resolved: 3 },
-];
+type BackendProblem = {
+  id: string;
+  title: string;
+  description?: string | null;
+  district?: string | null;
+  category?: string | null;
+  severity_score?: number | null;
+  status?: string | null;
+  citizen_id?: string | null;
+};
 
-const categoryData = [
-  { name: "Roads", count: 28 },
-  { name: "Water", count: 21 },
-  { name: "Electricity", count: 17 },
-  { name: "Sanitation", count: 12 },
-];
+type BackendProject = {
+  id: string;
+  problem_id?: string | null;
+  solution_id?: string | null;
+  title?: string | null;
+  description?: string | null;
+  status?: string | null;
+  created_by?: string | null;
+  deadline?: string | null;
+  progress?: number | null;
+  budget?: number | null;
+  expected_impact?: string | null;
+  prototype_name?: string | null;
+  prototype_url?: string | null;
+  member_count?: number | null;
+};
 
-const severityData = [
-  { name: "Critical", count: 14, icon: AlertCircle },
-  { name: "High", count: 22, icon: CircleDot },
-  { name: "Medium", count: 31, icon: Activity },
-  { name: "Resolved", count: 35, icon: CheckCircle2 },
-];
-
-const projectData = [
-  {
-    label: "Projects",
-    value: 12,
-    description: "University-led projects",
-  },
-  {
-    label: "In Progress",
-    value: 7,
-    description: "Solutions under development",
-  },
-  {
-    label: "Pilot",
-    value: 3,
-    description: "Field validation projects",
-  },
-  {
-    label: "Deployed",
-    value: 2,
-    description: "Solutions deployed",
-  },
-];
+/* =============================================================
+   PAGE
+============================================================= */
 
 export default function GovernmentAnalyticsPage() {
+  const [problems, setProblems] = useState<BackendProblem[]>([]);
+  const [projects, setProjects] = useState<BackendProject[]>([]);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  /* ===========================================================
+     FETCH BACKEND DATA
+  =========================================================== */
+
+  useEffect(() => {
+    const fetchAnalyticsData = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("access_token") ||
+              sessionStorage.getItem("access_token") ||
+              localStorage.getItem("token") ||
+              sessionStorage.getItem("token")
+            : null;
+
+        if (!token) {
+          throw new Error("Authentication token not found.");
+        }
+
+        const apiUrl =
+          process.env.NEXT_PUBLIC_API_URL ||
+          "http://localhost:8000";
+
+        const headers = {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        };
+
+        const [problemsResponse, projectsResponse] =
+          await Promise.all([
+            fetch(`${apiUrl}/api/problems/`, {
+              method: "GET",
+              headers,
+            }),
+
+            fetch(`${apiUrl}/api/projects`, {
+              method: "GET",
+              headers,
+            }),
+          ]);
+
+        if (!problemsResponse.ok) {
+          if (problemsResponse.status === 401) {
+            throw new Error(
+              "Unauthorized while loading problems. Please login again."
+            );
+          }
+
+          throw new Error(
+            `Failed to load problems. Status: ${problemsResponse.status}`
+          );
+        }
+
+        if (!projectsResponse.ok) {
+          if (projectsResponse.status === 401) {
+            throw new Error(
+              "Unauthorized while loading projects. Please login again."
+            );
+          }
+
+          throw new Error(
+            `Failed to load projects. Status: ${projectsResponse.status}`
+          );
+        }
+
+        const problemsData = await problemsResponse.json();
+        const projectsData = await projectsResponse.json();
+
+        /*
+         * Some APIs return the array directly while others
+         * return { data: [...] }.
+         */
+        const normalizedProblems: BackendProblem[] =
+          Array.isArray(problemsData)
+            ? problemsData
+            : Array.isArray(problemsData?.data)
+            ? problemsData.data
+            : [];
+
+        const normalizedProjects: BackendProject[] =
+          Array.isArray(projectsData)
+            ? projectsData
+            : Array.isArray(projectsData?.data)
+            ? projectsData.data
+            : [];
+
+        setProblems(normalizedProblems);
+        setProjects(normalizedProjects);
+      } catch (err) {
+        console.error("Analytics fetch error:", err);
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load analytics data."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnalyticsData();
+  }, []);
+
+  /* ===========================================================
+     BASIC PROBLEM STATS
+  =========================================================== */
+
   const totalProblems = problems.length;
 
-  const criticalProblems = problems.filter(
-    (problem) => problem.status === "Critical"
-  ).length;
+ const criticalProblems = useMemo(() => {
+  return problems.filter((problem) => {
+    const score = Number(problem.severity_score ?? 0);
+    const status = (problem.status || "").toLowerCase();
 
-  const resolvedProblems = problems.filter(
-    (problem) => problem.status === "Resolved"
-  ).length;
+    return (
+      (score >= 60 && score < 80) ||
+      status === "high"
+    );
+  }).length;
+}, [problems]);
+
+  const resolvedProblems = useMemo(() => {
+    return problems.filter(
+      (problem) =>
+        (problem.status || "").toLowerCase() === "resolved"
+    ).length;
+  }, [problems]);
+
+  const highProblems = useMemo(() => {
+    return problems.filter((problem) => {
+      const score = Number(problem.severity_score ?? 0);
+
+      return (
+        (score >= 60 && score < 80) ||
+        (problem.status || "").toLowerCase() === "high"
+      );
+    }).length;
+  }, [problems]);
+
+  const mediumProblems = useMemo(() => {
+    return problems.filter((problem) => {
+      const score = Number(problem.severity_score ?? 0);
+
+      return (
+        score >= 30 &&
+        score < 60 &&
+        (problem.status || "").toLowerCase() !== "resolved"
+      );
+    }).length;
+  }, [problems]);
 
   const resolutionRate =
     totalProblems > 0
       ? Math.round((resolvedProblems / totalProblems) * 100)
       : 0;
+
+  /* ===========================================================
+     DISTRICT ANALYTICS
+  =========================================================== */
+
+  const districtData = useMemo(() => {
+    const districtMap = new Map<
+      string,
+      {
+        name: string;
+        problems: number;
+        critical: number;
+        resolved: number;
+      }
+    >();
+
+    problems.forEach((problem) => {
+      const district =
+        problem.district?.trim() || "Unknown";
+
+      const existing = districtMap.get(district);
+
+     const score = Number(problem.severity_score ?? 0);
+const status = (problem.status || "").toLowerCase();
+
+const isCritical =
+  (score >= 60 && score < 80) ||
+  status === "high";;
+
+      const isResolved =
+        (problem.status || "").toLowerCase() ===
+        "resolved";
+
+      if (existing) {
+        existing.problems += 1;
+
+        if (isCritical) {
+          existing.critical += 1;
+        }
+
+        if (isResolved) {
+          existing.resolved += 1;
+        }
+      } else {
+        districtMap.set(district, {
+          name: district,
+          problems: 1,
+          critical: isCritical ? 1 : 0,
+          resolved: isResolved ? 1 : 0,
+        });
+      }
+    });
+
+    return Array.from(districtMap.values()).sort(
+      (a, b) => b.problems - a.problems
+    );
+  }, [problems]);
+
+  /* ===========================================================
+     CATEGORY ANALYTICS
+  =========================================================== */
+
+  const categoryData = useMemo(() => {
+    const categoryMap = new Map<string, number>();
+
+    problems.forEach((problem) => {
+      const category =
+        problem.category?.trim() || "Uncategorized";
+
+      categoryMap.set(
+        category,
+        (categoryMap.get(category) || 0) + 1
+      );
+    });
+
+    return Array.from(categoryMap.entries())
+      .map(([name, count]) => ({
+        name,
+        count,
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [problems]);
+
+  /* ===========================================================
+     PROJECT ANALYTICS
+  =========================================================== */
+
+  const projectData = useMemo(() => {
+    const normalizedStatuses = projects.map((project) =>
+      (project.status || "").toLowerCase()
+    );
+
+    const inProgress = normalizedStatuses.filter(
+      (status) =>
+        status === "in_progress" ||
+        status === "in progress" ||
+        status === "development" ||
+        status === "active"
+    ).length;
+
+    const pilot = normalizedStatuses.filter(
+      (status) =>
+        status === "pilot" ||
+        status === "field_pilot"
+    ).length;
+
+    const deployed = normalizedStatuses.filter(
+      (status) =>
+        status === "deployed" ||
+        status === "deployment"
+    ).length;
+
+    return [
+      {
+        label: "Projects",
+        value: projects.length,
+        description: "University-led projects",
+      },
+      {
+        label: "In Progress",
+        value: inProgress,
+        description: "Projects under development",
+      },
+      {
+        label: "Pilot",
+        value: pilot,
+        description: "Field validation projects",
+      },
+      {
+        label: "Deployed",
+        value: deployed,
+        description: "Solutions deployed",
+      },
+    ];
+  }, [projects]);
+
+  /* ===========================================================
+     LOADING STATE
+  =========================================================== */
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#f6f9f9]">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+          <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-teal-600" />
+
+            <p className="mt-4 text-sm font-semibold text-slate-600">
+              Loading government analytics...
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  /* ===========================================================
+     ERROR STATE
+  =========================================================== */
+
+  if (error) {
+    return (
+      <main className="min-h-screen bg-[#f6f9f9]">
+        <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+          <div className="rounded-2xl border border-red-200 bg-white p-10 text-center shadow-sm">
+            <AlertCircle
+              size={34}
+              className="mx-auto text-red-500"
+            />
+
+            <h1 className="mt-4 text-xl font-bold text-slate-900">
+              Unable to Load Analytics
+            </h1>
+
+            <p className="mt-2 text-sm text-slate-500">
+              {error}
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  /* ===========================================================
+     MAIN PAGE
+  =========================================================== */
 
   return (
     <main className="min-h-screen bg-[#f6f9f9]">
@@ -124,9 +451,9 @@ export default function GovernmentAnalyticsPage() {
                   </h1>
 
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-teal-50">
-                    Monitor problem trends, district priorities,
-                    solution progress and measurable impact across
-                    Jharkhand.
+                    Monitor actual problem trends, district
+                    priorities, solution projects and measurable
+                    outcomes across the platform.
                   </p>
 
                 </div>
@@ -148,7 +475,7 @@ export default function GovernmentAnalyticsPage() {
                   </p>
 
                   <p className="mt-1 text-[10px] text-teal-100">
-                    Citizen challenges
+                    Backend records
                   </p>
 
                 </div>
@@ -163,17 +490,17 @@ export default function GovernmentAnalyticsPage() {
                     />
 
                     <p className="text-[10px] font-bold uppercase tracking-wide text-red-100">
-                      Critical
+                      High
                     </p>
 
                   </div>
 
                   <p className="mt-1 text-2xl font-bold">
-                    {criticalProblems}
+                    {highProblems}
                   </p>
 
                   <p className="mt-1 text-[10px] text-red-100">
-                    Require attention
+                    Immediate action
                   </p>
 
                 </div>
@@ -222,7 +549,7 @@ export default function GovernmentAnalyticsPage() {
             icon={TrendingUp}
             label="Resolution Rate"
             value={`${resolutionRate}%`}
-            description="Overall resolution progress"
+            description="Based on backend records"
             iconClass="text-teal-700"
             bgClass="bg-teal-50"
           />
@@ -230,8 +557,8 @@ export default function GovernmentAnalyticsPage() {
           <StatCard
             icon={Building2}
             label="Active Projects"
-            value={12}
-            description="University-led initiatives"
+            value={projects.length}
+            description="University-led projects"
             iconClass="text-blue-600"
             bgClass="bg-blue-50"
           />
@@ -257,13 +584,15 @@ export default function GovernmentAnalyticsPage() {
                 </div>
 
                 <div>
+
                   <h2 className="text-base font-bold text-slate-900">
                     District-wise Problems
                   </h2>
 
                   <p className="mt-1 text-xs text-slate-500">
-                    Problem concentration across major districts.
+                    Calculated from actual backend problem records.
                   </p>
+
                 </div>
 
               </div>
@@ -272,54 +601,61 @@ export default function GovernmentAnalyticsPage() {
 
             <div className="space-y-4 p-5">
 
-              {districtData.map((district) => {
+              {districtData.length > 0 ? (
+                districtData.map((district) => {
 
-                const percentage = Math.min(
-                  (district.problems / 20) * 100,
-                  100
-                );
+                  const maxProblems =
+                    districtData[0]?.problems || 1;
 
-                return (
-                  <div key={district.name}>
+                  const percentage = Math.min(
+                    (district.problems / maxProblems) * 100,
+                    100
+                  );
 
-                    <div className="flex items-center justify-between">
+                  return (
+                    <div key={district.name}>
 
-                      <p className="text-xs font-bold text-slate-700">
-                        {district.name}
-                      </p>
+                      <div className="flex items-center justify-between">
 
-                      <p className="text-[10px] font-semibold text-slate-400">
-                        {district.problems} problems
-                      </p>
+                        <p className="text-xs font-bold text-slate-700">
+                          {district.name}
+                        </p>
+
+                        <p className="text-[10px] font-semibold text-slate-400">
+                          {district.problems} problems
+                        </p>
+
+                      </div>
+
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+
+                        <div
+                          className="h-full rounded-full bg-teal-600"
+                          style={{
+                            width: `${percentage}%`,
+                          }}
+                        />
+
+                      </div>
+
+                      <div className="mt-2 flex justify-between text-[10px]">
+
+                        <span className="text-red-600">
+                          {district.critical} critical
+                        </span>
+
+                        <span className="text-emerald-600">
+                          {district.resolved} resolved
+                        </span>
+
+                      </div>
 
                     </div>
-
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-
-                      <div
-                        className="h-full rounded-full bg-teal-600"
-                        style={{
-                          width: `${percentage}%`,
-                        }}
-                      />
-
-                    </div>
-
-                    <div className="mt-2 flex justify-between text-[10px]">
-
-                      <span className="text-red-600">
-                        {district.critical} critical
-                      </span>
-
-                      <span className="text-emerald-600">
-                        {district.resolved} resolved
-                      </span>
-
-                    </div>
-
-                  </div>
-                );
-              })}
+                  );
+                })
+              ) : (
+                <EmptyState message="No district data available." />
+              )}
 
             </div>
 
@@ -338,13 +674,15 @@ export default function GovernmentAnalyticsPage() {
                 </div>
 
                 <div>
+
                   <h2 className="text-base font-bold text-slate-900">
                     Category-wise Problems
                   </h2>
 
                   <p className="mt-1 text-xs text-slate-500">
-                    Identify the most common service categories.
+                    Categories calculated from backend problem data.
                   </p>
+
                 </div>
 
               </div>
@@ -353,42 +691,49 @@ export default function GovernmentAnalyticsPage() {
 
             <div className="space-y-5 p-5">
 
-              {categoryData.map((category) => {
+              {categoryData.length > 0 ? (
+                categoryData.map((category) => {
 
-                const maxCount = 30;
+                  const maxCount =
+                    categoryData[0]?.count || 1;
 
-                const percentage =
-                  (category.count / maxCount) * 100;
+                  const percentage = Math.min(
+                    (category.count / maxCount) * 100,
+                    100
+                  );
 
-                return (
-                  <div key={category.name}>
+                  return (
+                    <div key={category.name}>
 
-                    <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between">
 
-                      <p className="text-xs font-bold text-slate-700">
-                        {category.name}
-                      </p>
+                        <p className="text-xs font-bold text-slate-700">
+                          {category.name}
+                        </p>
 
-                      <p className="text-xs font-bold text-slate-900">
-                        {category.count}
-                      </p>
+                        <p className="text-xs font-bold text-slate-900">
+                          {category.count}
+                        </p>
+
+                      </div>
+
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+
+                        <div
+                          className="h-full rounded-full bg-cyan-600"
+                          style={{
+                            width: `${percentage}%`,
+                          }}
+                        />
+
+                      </div>
 
                     </div>
-
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-
-                      <div
-                        className="h-full rounded-full bg-cyan-600"
-                        style={{
-                          width: `${percentage}%`,
-                        }}
-                      />
-
-                    </div>
-
-                  </div>
-                );
-              })}
+                  );
+                })
+              ) : (
+                <EmptyState message="No category data available." />
+              )}
 
             </div>
 
@@ -409,60 +754,41 @@ export default function GovernmentAnalyticsPage() {
             </h2>
 
             <p className="mt-1 text-xs text-slate-500">
-              Understand current problem priority and resolution status.
+              Severity is calculated from backend severity scores
+              and problem statuses.
             </p>
 
           </div>
 
           <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
 
-            {severityData.map((item) => {
+            <SeverityCard
+              name="Critical"
+              count={criticalProblems}
+              icon={AlertCircle}
+              className="bg-red-50 text-red-600"
+            />
 
-              const Icon = item.icon;
+            <SeverityCard
+              name="High"
+              count={highProblems}
+              icon={CircleDot}
+              className="bg-amber-50 text-amber-600"
+            />
 
-              const isCritical =
-                item.name === "Critical";
+            <SeverityCard
+              name="Medium"
+              count={mediumProblems}
+              icon={Activity}
+              className="bg-teal-50 text-teal-700"
+            />
 
-              const isResolved =
-                item.name === "Resolved";
-
-              return (
-                <div
-                  key={item.name}
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-4"
-                >
-
-                  <div className="flex items-center justify-between">
-
-                    <div
-                      className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-                        isCritical
-                          ? "bg-red-50 text-red-600"
-                          : isResolved
-                          ? "bg-emerald-50 text-emerald-600"
-                          : "bg-teal-50 text-teal-700"
-                      }`}
-                    >
-                      <Icon size={18} />
-                    </div>
-
-                    <span className="text-2xl font-bold text-slate-900">
-                      {item.count}
-                    </span>
-
-                  </div>
-
-                  <p className="mt-4 text-xs font-bold text-slate-700">
-                    {item.name}
-                  </p>
-
-                  <p className="mt-1 text-[10px] text-slate-400">
-                    Reported cases
-                  </p>
-
-                </div>
-              );
-            })}
+            <SeverityCard
+              name="Resolved"
+              count={resolvedProblems}
+              icon={CheckCircle2}
+              className="bg-emerald-50 text-emerald-600"
+            />
 
           </div>
 
@@ -489,7 +815,8 @@ export default function GovernmentAnalyticsPage() {
                 </h2>
 
                 <p className="mt-1 text-xs text-slate-500">
-                  Track how validated solutions are moving toward deployment.
+                  Project information calculated from actual backend
+                  project records.
                 </p>
 
               </div>
@@ -550,10 +877,48 @@ export default function GovernmentAnalyticsPage() {
               </h2>
 
               <p className="mt-2 max-w-3xl text-xs leading-5 text-slate-600">
-                Use district trends and severity patterns to prioritize
-                validated challenges, route them to suitable universities,
-                monitor solution projects and evaluate measurable outcomes.
+                Analytics are calculated from current backend
+                problem and project records. District and category
+                patterns can help identify recurring challenges,
+                while project status data shows the current
+                implementation pipeline.
               </p>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* =====================================================
+            DATA SOURCE
+        ===================================================== */}
+
+        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+
+            <div>
+
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                Data Source
+              </p>
+
+              <p className="mt-1 text-xs font-semibold text-slate-700">
+                FastAPI Backend
+              </p>
+
+            </div>
+
+            <div className="flex gap-2">
+
+              <span className="rounded-lg bg-teal-50 px-3 py-1.5 text-[10px] font-bold text-teal-700">
+                {problems.length} Problems
+              </span>
+
+              <span className="rounded-lg bg-blue-50 px-3 py-1.5 text-[10px] font-bold text-blue-700">
+                {projects.length} Projects
+              </span>
 
             </div>
 
@@ -564,14 +929,18 @@ export default function GovernmentAnalyticsPage() {
         {/* FOOTER */}
 
         <footer className="mt-8 border-t border-slate-200 py-4 text-center text-[11px] text-slate-400">
-  © 2026 SamadhanX • Ideas → Action → Impact
-</footer>
+          © 2026 SamadhanX • Ideas → Action → Impact
+        </footer>
 
       </div>
 
     </main>
   );
 }
+
+/* =============================================================
+   STAT CARD
+============================================================= */
 
 function StatCard({
   icon: Icon,
@@ -581,7 +950,7 @@ function StatCard({
   iconClass,
   bgClass,
 }: {
-  icon: typeof AlertCircle;
+  icon: React.ElementType;
   label: string;
   value: string | number;
   description: string;
@@ -594,6 +963,7 @@ function StatCard({
       <div className="flex items-start justify-between">
 
         <div>
+
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
             {label}
           </p>
@@ -605,6 +975,7 @@ function StatCard({
           <p className="mt-1 text-[10px] text-slate-500">
             {description}
           </p>
+
         </div>
 
         <div
@@ -614,6 +985,75 @@ function StatCard({
         </div>
 
       </div>
+
+    </div>
+  );
+}
+
+/* =============================================================
+   SEVERITY CARD
+============================================================= */
+
+function SeverityCard({
+  name,
+  count,
+  icon: Icon,
+  className,
+}: {
+  name: string;
+  count: number;
+  icon: React.ElementType;
+  className: string;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+
+      <div className="flex items-center justify-between">
+
+        <div
+          className={`flex h-9 w-9 items-center justify-center rounded-lg ${className}`}
+        >
+          <Icon size={18} />
+        </div>
+
+        <span className="text-2xl font-bold text-slate-900">
+          {count}
+        </span>
+
+      </div>
+
+      <p className="mt-4 text-xs font-bold text-slate-700">
+        {name}
+      </p>
+
+      <p className="mt-1 text-[10px] text-slate-400">
+        Backend records
+      </p>
+
+    </div>
+  );
+}
+
+/* =============================================================
+   EMPTY STATE
+============================================================= */
+
+function EmptyState({
+  message,
+}: {
+  message: string;
+}) {
+  return (
+    <div className="rounded-xl bg-slate-50 p-8 text-center">
+
+      <BarChart3
+        size={28}
+        className="mx-auto text-slate-300"
+      />
+
+      <p className="mt-3 text-sm font-semibold text-slate-600">
+        {message}
+      </p>
 
     </div>
   );

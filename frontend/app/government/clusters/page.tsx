@@ -1,44 +1,124 @@
+
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Layers3,
-  MapPin,
   AlertCircle,
-  Activity,
-  Building2,
   ArrowRight,
   CheckCircle2,
   Sparkles,
+  Target,
 } from "lucide-react";
 
-import {
-  clusters,
-  type ProblemCategory,
-} from "@/lib/mockData";
+type BackendCluster = {
+  cluster_id: string;
+  name: string;
+  common_theme: string | null;
+  possible_root_cause: string | null;
+  problem_count: number;
+};
+
+function getAuthToken(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return (
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("token") ||
+    sessionStorage.getItem("access_token") ||
+    sessionStorage.getItem("token")
+  );
+}
 
 export default function GovernmentClustersPage() {
   const router = useRouter();
 
-  const [category, setCategory] =
-    useState<"All" | ProblemCategory>("All");
+  const [clusters, setClusters] = useState<BackendCluster[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const filteredClusters = useMemo(() => {
-    if (category === "All") return clusters;
+  const loadClusters = async () => {
+    setLoading(true);
+    setError("");
 
-    return clusters.filter(
-      (cluster) => cluster.category === category
+    try {
+      const token = getAuthToken();
+
+      if (!token) {
+        throw new Error(
+          "Government authentication token not found."
+        );
+      }
+
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL ||
+        "http://localhost:8000";
+
+      const response = await fetch(
+        `${apiUrl}/api/clusters`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        let message = "Failed to load problem clusters.";
+
+        try {
+          const errorData = await response.json();
+
+          if (typeof errorData?.detail === "string") {
+            message = errorData.detail;
+          }
+        } catch {
+          // Keep default error message
+        }
+
+        throw new Error(message);
+      }
+
+      const data = await response.json();
+
+      if (!Array.isArray(data)) {
+        throw new Error(
+          "Invalid cluster data received from backend."
+        );
+      }
+
+      setClusters(data);
+    } catch (err) {
+      console.error("Failed to load clusters:", err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to load problem clusters."
+      );
+
+      setClusters([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadClusters();
+  }, []);
+
+  const totalProblems = useMemo(() => {
+    return clusters.reduce(
+      (total, cluster) =>
+        total + Number(cluster.problem_count || 0),
+      0
     );
-  }, [category]);
-
-  const active = clusters.filter(
-    (cluster) => cluster.status === "Active"
-  ).length;
-
-  const critical = clusters.filter(
-    (cluster) => cluster.status === "Critical"
-  ).length;
+  }, [clusters]);
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -47,104 +127,82 @@ export default function GovernmentClustersPage() {
           PAGE HEADER
       ===================================================== */}
 
-      {/* CHANGED: Header is now contained instead of full width */}
-      {/* =====================================================
-    PAGE HEADER
-===================================================== */}
+      <div className="mx-auto max-w-7xl px-4 pt-7 sm:px-6 lg:px-8">
 
-<div className="mx-auto max-w-7xl px-4 pt-7 sm:px-6 lg:px-8">
-  <section className="relative overflow-hidden rounded-2xl border border-teal-100 bg-gradient-to-r from-teal-700 via-teal-600 to-cyan-700 text-white shadow-sm">
+        <section className="relative overflow-hidden rounded-2xl border border-teal-100 bg-gradient-to-r from-teal-700 via-teal-600 to-cyan-700 text-white shadow-sm">
 
-    {/* Decorative background */}
-    <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
-    <div className="absolute -bottom-24 left-1/3 h-64 w-64 rounded-full bg-cyan-300/10 blur-3xl" />
+          {/* Decorative background */}
 
-    <div className="relative px-6 py-7 sm:px-8 sm:py-8">
+          <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
 
-      <div className="flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
+          <div className="absolute -bottom-24 left-1/3 h-64 w-64 rounded-full bg-cyan-300/10 blur-3xl" />
 
-        {/* LEFT SIDE */}
-        <div className="flex items-start gap-4">
+          <div className="relative px-6 py-7 sm:px-8 sm:py-8">
 
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20 backdrop-blur-sm">
-            <Layers3 size={24} />
-          </div>
+            <div className="flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
 
-          <div>
-            <div className="flex items-center gap-2">
-              <Sparkles
-                size={13}
-                className="text-teal-100"
-              />
+              {/* LEFT SIDE */}
 
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal-100">
-                Infrastructure Intelligence
-              </p>
+              <div className="flex items-start gap-4">
+
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20 backdrop-blur-sm">
+                  <Layers3 size={24} />
+                </div>
+
+                <div>
+
+                  <div className="flex items-center gap-2">
+
+                    <Sparkles
+                      size={13}
+                      className="text-teal-100"
+                    />
+
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal-100">
+                      Infrastructure Intelligence
+                    </p>
+
+                  </div>
+
+                  <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
+                    Problem Clusters
+                  </h1>
+
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-teal-50">
+                    Identify recurring citizen challenges grouped
+                    around common themes to help departments
+                    coordinate targeted interventions.
+                  </p>
+
+                </div>
+
+              </div>
+
+              {/* HEADER SUMMARY */}
+
+              <div className="grid shrink-0 grid-cols-2 gap-3">
+
+                <SummaryBox
+                  label="Total Clusters"
+                  value={clusters.length}
+                  description="AI-identified patterns"
+                />
+
+                <SummaryBox
+                  label="Problems Grouped"
+                  value={totalProblems}
+                  description="Across all clusters"
+                />
+
+              </div>
+
             </div>
 
-            <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
-              Problem Clusters
-            </h1>
-
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-teal-50">
-              Identify recurring citizen challenges by location and
-              service category to help departments coordinate
-              targeted interventions.
-            </p>
           </div>
 
-        </div>
-
-        {/* RIGHT SIDE SUMMARY */}
-        <div className="grid shrink-0 grid-cols-2 gap-3">
-
-          <div className="min-w-[135px] rounded-xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
-
-            <p className="text-[10px] font-bold uppercase tracking-wide text-teal-100">
-              Total Clusters
-            </p>
-
-            <p className="mt-1 text-2xl font-bold">
-              {clusters.length}
-            </p>
-
-            <p className="mt-1 text-[10px] text-teal-100">
-              Identified patterns
-            </p>
-
-          </div>
-
-          <div className="min-w-[135px] rounded-xl border border-red-200/20 bg-red-500/15 px-4 py-3 backdrop-blur-sm">
-
-            <div className="flex items-center gap-2">
-              <AlertCircle
-                size={13}
-                className="text-red-100"
-              />
-
-              <p className="text-[10px] font-bold uppercase tracking-wide text-red-100">
-                Critical
-              </p>
-            </div>
-
-            <p className="mt-1 text-2xl font-bold text-white">
-              {critical}
-            </p>
-
-            <p className="mt-1 text-[10px] text-red-100">
-              Require attention
-            </p>
-
-          </div>
-
-        </div>
+        </section>
 
       </div>
-
-    </div>
-
-  </section>
-</div>
 
       {/* =====================================================
           MAIN CONTENT
@@ -162,104 +220,49 @@ export default function GovernmentClustersPage() {
             title="Total Clusters"
             value={clusters.length}
             icon={<Layers3 size={19} />}
-            accent="teal"
             description="AI-identified patterns"
           />
 
           <Stat
-            title="Active Clusters"
-            value={active}
-            icon={<Activity size={19} />}
-            accent="emerald"
-            description="Currently being addressed"
+            title="Problems Grouped"
+            value={totalProblems}
+            icon={<Target size={19} />}
+            description="Problems linked to clusters"
           />
 
           <Stat
-            title="Critical Clusters"
-            value={critical}
-            icon={<AlertCircle size={19} />}
-            accent="red"
-            description="High-priority intervention"
+            title="Cluster Analysis"
+            value={clusters.length}
+            icon={<CheckCircle2 size={19} />}
+            description="Available for review"
           />
 
         </section>
 
         {/* =====================================================
-            CLUSTER LIST HEADER
+            SECTION HEADER
         ===================================================== */}
 
         <section className="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
-          <div className="border-b border-slate-200 bg-gradient-to-r from-teal-50 via-white to-cyan-50 p-5 sm:p-6">
+          <div className="border-b border-slate-200 bg-white p-5 sm:p-6">
 
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
 
-              <div className="flex items-center gap-3">
-
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-600 text-white shadow-sm shadow-teal-600/20">
-                  <Layers3 size={19} />
-                </div>
-
-                <div>
-
-                  <h2 className="text-lg font-bold text-slate-900">
-                    Infrastructure Clusters
-                  </h2>
-
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    Review recurring citizen problems grouped by
-                    location and service category.
-                  </p>
-
-                </div>
-
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50 text-teal-700 ring-1 ring-teal-100">
+                <Layers3 size={19} />
               </div>
 
-              {/* CATEGORY FILTER */}
+              <div>
 
-              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-bold text-slate-900">
+                  Infrastructure Clusters
+                </h2>
 
-                <label
-                  htmlFor="cluster-category"
-                  className="text-xs font-semibold text-slate-500"
-                >
-                  Category
-                </label>
-
-                <select
-                  id="cluster-category"
-                  value={category}
-                  onChange={(e) =>
-                    setCategory(
-                      e.target.value as
-                        | "All"
-                        | ProblemCategory
-                    )
-                  }
-                  className="h-10 min-w-[170px] rounded-xl border border-teal-100 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm outline-none transition hover:border-teal-300 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
-                >
-
-                  <option value="All">
-                    All Categories
-                  </option>
-
-                  <option value="Roads">
-                    Roads
-                  </option>
-
-                  <option value="Water">
-                    Water
-                  </option>
-
-                  <option value="Electricity">
-                    Electricity
-                  </option>
-
-                  <option value="Sanitation">
-                    Sanitation
-                  </option>
-
-                </select>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Review recurring citizen problems grouped by
+                  common themes and identified root causes.
+                </p>
 
               </div>
 
@@ -270,156 +273,227 @@ export default function GovernmentClustersPage() {
         </section>
 
         {/* =====================================================
+            LOADING STATE
+        ===================================================== */}
+
+        {loading && (
+
+          <section className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+
+            {[1, 2, 3].map((item) => (
+
+              <div
+                key={item}
+                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+              >
+
+                <div className="h-1 w-full bg-slate-200" />
+
+                <div className="animate-pulse p-5">
+
+                  <div className="h-3 w-24 rounded bg-slate-200" />
+
+                  <div className="mt-3 h-5 w-3/4 rounded bg-slate-200" />
+
+                  <div className="mt-5 h-16 rounded-xl bg-slate-100" />
+
+                  <div className="mt-3 h-16 rounded-xl bg-slate-100" />
+
+                  <div className="mt-5 h-10 rounded-xl bg-slate-200" />
+
+                </div>
+
+              </div>
+
+            ))}
+
+          </section>
+
+        )}
+
+        {/* =====================================================
+            ERROR STATE
+        ===================================================== */}
+
+        {!loading && error && (
+
+          <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+              <AlertCircle size={21} />
+            </div>
+
+            <h3 className="mt-4 text-center text-sm font-bold text-slate-900">
+              Unable to load clusters
+            </h3>
+
+            <p className="mx-auto mt-2 max-w-xl text-center text-xs leading-5 text-slate-500">
+              {error}
+            </p>
+
+            <div className="mt-5 flex justify-center">
+
+              <button
+                type="button"
+                onClick={loadClusters}
+                className="rounded-xl bg-teal-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-teal-700"
+              >
+                Try Again
+              </button>
+
+            </div>
+
+          </section>
+
+        )}
+
+        {/* =====================================================
             CLUSTER GRID
         ===================================================== */}
 
-        <section className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+        {!loading && !error && clusters.length > 0 && (
 
-          {filteredClusters.map((cluster) => (
+          <section className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
 
-            <article
-              key={cluster.id}
-              className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-teal-300 hover:shadow-lg hover:shadow-teal-900/5"
-            >
+            {clusters.map((cluster) => (
 
-              {/* Teal top accent */}
+              <article
+                key={cluster.cluster_id}
+                className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-teal-200 hover:shadow-md"
+              >
 
-              <div className="h-1 w-full bg-gradient-to-r from-teal-600 via-cyan-500 to-teal-400" />
+                {/* Teal top accent */}
 
-              <div className="p-5">
+                <div className="h-1 w-full bg-teal-600" />
 
-                {/* CARD HEADER */}
+                <div className="p-5">
 
-                <div className="flex items-start justify-between gap-3">
+                  {/* CARD HEADER */}
 
-                  <div className="min-w-0">
+                  <div className="flex items-start justify-between gap-3">
 
-                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-teal-600">
-                      {cluster.id}
-                    </p>
+                    <div className="min-w-0">
 
-                    <h3 className="mt-1 text-base font-bold leading-6 text-slate-900 transition group-hover:text-teal-700">
-                      {cluster.name}
-                    </h3>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-teal-600">
+                        Cluster
+                      </p>
 
-                  </div>
-
-                  <span
-                    className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold ${
-                      cluster.status === "Critical"
-                        ? "border-red-200 bg-red-50 text-red-700"
-                        : "border-emerald-200 bg-emerald-50 text-emerald-700"
-                    }`}
-                  >
-                    {cluster.status}
-                  </span>
-
-                </div>
-
-                {/* LOCATION */}
-
-                <div className="mt-4 flex items-center gap-2 text-xs text-slate-500">
-
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50 text-teal-600">
-                    <MapPin size={14} />
-                  </span>
-
-                  <span className="font-medium">
-                    {cluster.location}
-                  </span>
-
-                </div>
-
-                {/* CATEGORY */}
-
-                <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-1.5">
-
-                  <Building2
-                    size={13}
-                    className="text-teal-600"
-                  />
-
-                  <span className="text-[10px] font-semibold text-slate-600">
-                    {cluster.category}
-                  </span>
-
-                </div>
-
-                {/* METRICS */}
-
-                <div className="mt-5 grid grid-cols-3 gap-2">
-
-                  <Metric
-                    value={cluster.problems}
-                    label="Problems"
-                    highlight="teal"
-                  />
-
-                  <Metric
-                    value={cluster.critical}
-                    label="Critical"
-                    highlight="red"
-                  />
-
-                  <Metric
-                    value={cluster.resolved}
-                    label="Resolved"
-                    highlight="emerald"
-                  />
-
-                </div>
-
-                {/* PROGRESS */}
-
-                <div className="mt-5 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-
-                  <div className="flex items-center justify-between">
-
-                    <div className="flex items-center gap-2">
-
-                      <CheckCircle2
-                        size={14}
-                        className="text-teal-600"
-                      />
-
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                        Solution Progress
-                      </span>
+                      <h3 className="mt-1 text-base font-bold leading-6 text-slate-900 transition group-hover:text-teal-700">
+                        {cluster.name}
+                      </h3>
 
                     </div>
 
-                    <span className="text-xs font-bold text-teal-700">
-                      {cluster.progress}%
+                    <span className="shrink-0 rounded-full border border-teal-100 bg-teal-50 px-2.5 py-1 text-[10px] font-bold text-teal-700">
+                      {cluster.problem_count} Problems
                     </span>
 
                   </div>
 
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+                  {/* CLUSTER ID */}
 
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-teal-600 to-cyan-500 transition-all duration-500"
-                      style={{
-                        width: `${cluster.progress}%`,
-                      }}
-                    />
+                  <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-3">
+
+                    <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                      Cluster ID
+                    </p>
+
+                    <p className="mt-1 break-all font-mono text-[10px] text-slate-600">
+                      {cluster.cluster_id}
+                    </p>
 
                   </div>
 
-                </div>
+                  {/* COMMON THEME */}
 
-                {/* ACTIONS */}
+                  <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
 
-                <div className="mt-5 flex gap-2">
+                    <div className="flex items-center gap-2">
+
+                      <Layers3
+                        size={14}
+                        className="shrink-0 text-teal-600"
+                      />
+
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                        Common Theme
+                      </p>
+
+                    </div>
+
+                    <p className="mt-2 text-xs leading-5 text-slate-600">
+                      {cluster.common_theme ||
+                        "No common theme available."}
+                    </p>
+
+                  </div>
+
+                  {/* ROOT CAUSE */}
+
+                  <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+
+                    <div className="flex items-center gap-2">
+
+                      <Target
+                        size={14}
+                        className="shrink-0 text-teal-600"
+                      />
+
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                        Possible Root Cause
+                      </p>
+
+                    </div>
+
+                    <p className="mt-2 text-xs leading-5 text-slate-600">
+                      {cluster.possible_root_cause ||
+                        "Root cause analysis not available."}
+                    </p>
+
+                  </div>
+
+                  {/* PROBLEM COUNT */}
+
+                  <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
+
+                    <div className="flex items-center gap-2">
+
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
+                        <AlertCircle size={15} />
+                      </div>
+
+                      <div>
+
+                        <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                          Related Problems
+                        </p>
+
+                        <p className="mt-0.5 text-sm font-bold text-slate-900">
+                          {cluster.problem_count}
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                    <span className="text-[10px] font-semibold text-slate-400">
+                      Linked
+                    </span>
+
+                  </div>
+
+                  {/* ACTION */}
 
                   <button
                     type="button"
                     onClick={() =>
                       router.push(
-                        `/government/clusters/${cluster.id}`
+                        `/government/clusters/${cluster.cluster_id}`
                       )
                     }
-                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-teal-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm shadow-teal-600/20 transition hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-300"
+                    className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-300"
                   >
+
                     View Related Problems
 
                     <ArrowRight
@@ -429,37 +503,25 @@ export default function GovernmentClustersPage() {
 
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      router.push(
-                        `/government/clusters/${cluster.id}`
-                      )
-                    }
-                    className="rounded-xl border border-teal-200 bg-teal-50 px-3 py-2.5 text-xs font-bold text-teal-700 transition hover:border-teal-300 hover:bg-teal-100"
-                  >
-                    Details
-                  </button>
-
                 </div>
 
-              </div>
+              </article>
 
-            </article>
+            ))}
 
-          ))}
+          </section>
 
-        </section>
+        )}
 
         {/* =====================================================
             EMPTY STATE
         ===================================================== */}
 
-        {filteredClusters.length === 0 && (
+        {!loading && !error && clusters.length === 0 && (
 
-          <section className="mt-6 rounded-2xl border border-teal-100 bg-white p-12 text-center shadow-sm">
+          <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
 
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50 text-teal-500">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50 text-teal-600 ring-1 ring-teal-100">
               <Layers3 size={22} />
             </div>
 
@@ -468,16 +530,8 @@ export default function GovernmentClustersPage() {
             </h3>
 
             <p className="mt-1 text-xs text-slate-500">
-              No problem clusters match the selected category.
+              No problem clusters are currently available.
             </p>
-
-            <button
-              type="button"
-              onClick={() => setCategory("All")}
-              className="mt-4 rounded-xl bg-teal-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-teal-700"
-            >
-              Clear Filter
-            </button>
 
           </section>
 
@@ -572,6 +626,38 @@ export default function GovernmentClustersPage() {
 }
 
 /* =============================================================
+   SUMMARY BOX
+============================================================= */
+
+function SummaryBox({
+  label,
+  value,
+  description,
+}: {
+  label: string;
+  value: number;
+  description: string;
+}) {
+  return (
+    <div className="min-w-[135px] rounded-xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
+
+      <p className="text-[10px] font-bold uppercase tracking-wide text-teal-100">
+        {label}
+      </p>
+
+      <p className="mt-1 text-2xl font-bold">
+        {value}
+      </p>
+
+      <p className="mt-1 text-[10px] text-teal-100">
+        {description}
+      </p>
+
+    </div>
+  );
+}
+
+/* =============================================================
    STAT COMPONENT
 ============================================================= */
 
@@ -579,47 +665,17 @@ function Stat({
   title,
   value,
   icon,
-  accent,
   description,
 }: {
   title: string;
   value: number;
   icon: React.ReactNode;
-  accent: "teal" | "emerald" | "red";
   description: string;
 }) {
-
-  const accentStyles = {
-
-    teal: {
-      box: "bg-teal-50 text-teal-600 ring-teal-100",
-      value: "text-teal-700",
-      line: "bg-teal-600",
-    },
-
-    emerald: {
-      box: "bg-emerald-50 text-emerald-600 ring-emerald-100",
-      value: "text-emerald-700",
-      line: "bg-emerald-500",
-    },
-
-    red: {
-      box: "bg-red-50 text-red-600 ring-red-100",
-      value: "text-red-700",
-      line: "bg-red-500",
-    },
-
-  };
-
-  const styles = accentStyles[accent];
-
   return (
-
     <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
 
-      <div
-        className={`absolute left-0 top-0 h-full w-1 ${styles.line}`}
-      />
+      <div className="absolute left-0 top-0 h-full w-1 bg-teal-600" />
 
       <div className="flex items-center justify-between">
 
@@ -629,7 +685,7 @@ function Stat({
             {title}
           </p>
 
-          <p className={`mt-2 text-3xl font-bold ${styles.value}`}>
+          <p className="mt-2 text-3xl font-bold text-slate-900">
             {value}
           </p>
 
@@ -639,69 +695,12 @@ function Stat({
 
         </div>
 
-        <div
-          className={`flex h-11 w-11 items-center justify-center rounded-xl ring-4 ${styles.box}`}
-        >
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50 text-teal-700 ring-4 ring-teal-50">
           {icon}
         </div>
 
       </div>
 
     </div>
-
-  );
-}
-
-/* =============================================================
-   METRIC COMPONENT
-============================================================= */
-
-function Metric({
-  value,
-  label,
-  highlight,
-}: {
-  value: number;
-  label: string;
-  highlight: "teal" | "red" | "emerald";
-}) {
-
-  const styles = {
-
-    teal: {
-      box: "bg-teal-50",
-      value: "text-teal-700",
-    },
-
-    red: {
-      box: "bg-red-50",
-      value: "text-red-700",
-    },
-
-    emerald: {
-      box: "bg-emerald-50",
-      value: "text-emerald-700",
-    },
-
-  };
-
-  const current = styles[highlight];
-
-  return (
-
-    <div
-      className={`rounded-xl ${current.box} p-3 text-center transition hover:-translate-y-0.5`}
-    >
-
-      <p className={`text-lg font-bold ${current.value}`}>
-        {value}
-      </p>
-
-      <p className="mt-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-400">
-        {label}
-      </p>
-
-    </div>
-
   );
 }

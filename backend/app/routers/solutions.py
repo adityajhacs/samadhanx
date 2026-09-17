@@ -81,6 +81,7 @@ def require_solution_portal_access(
         "university",
         "faculty",
         "student",
+        "government",
     }:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

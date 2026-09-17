@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -14,61 +15,318 @@ import {
   ClipboardList,
 } from "lucide-react";
 
-import {
-  problems,
-  type Problem,
-  type ProblemCategory,
-  type ProblemStatus,
-} from "@/lib/mockData";
+import { apiRequest, getAuthToken } from "@/lib/api/client";
+
+type BackendProblem = {
+  id: string;
+  title: string;
+  description?: string | null;
+  district?: string | null;
+  category?: string | null;
+  severity_score?: number | null;
+  status?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  image_url?: string | null;
+  video_url?: string | null;
+
+  // Backend normally uses created_at.
+  // createdAt is kept as a safe fallback.
+  created_at?: string | null;
+  createdAt?: string | null;
+};
+
+type ProblemStatus =
+  | "Critical"
+  | "In Progress"
+  | "Pending"
+  | "Resolved";
+
+type Problem = {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  district: string;
+  category: string;
+  status: ProblemStatus;
+  priority: "High" | "Medium" | "Low";
+  reportedAt: string;
+  department: string;
+  clusterId: string;
+  citizenReports: number;
+  solutionId: string;
+};
+
+function normalizeStatus(status?: string | null) {
+  return (status || "").trim().toLowerCase();
+}
+
+function getProblemStatus(
+  problem: BackendProblem
+): ProblemStatus {
+  const status = normalizeStatus(problem.status);
+
+  if (
+    status.includes("resolved") ||
+    status.includes("complete") ||
+    status.includes("closed")
+  ) {
+    return "Resolved";
+  }
+
+  if (
+    status.includes("progress") ||
+    status.includes("active") ||
+    status.includes("assigned") ||
+    status.includes("accepted") ||
+    status.includes("in_progress")
+  ) {
+    return "In Progress";
+  }
+
+  if (
+    status.includes("critical") ||
+    (problem.severity_score !== null &&
+      problem.severity_score !== undefined &&
+      problem.severity_score >= 0.8)
+  ) {
+    return "Critical";
+  }
+
+  return "Pending";
+}
+
+function getPriority(
+  severityScore?: number | null
+): "High" | "Medium" | "Low" {
+  if (
+    severityScore !== null &&
+    severityScore !== undefined
+  ) {
+    if (severityScore >= 0.8) {
+      return "High";
+    }
+
+    if (severityScore >= 0.5) {
+      return "Medium";
+    }
+  }
+
+  return "Low";
+}
+
+function formatReportedAt(
+  createdAt?: string | null
+) {
+  if (!createdAt) {
+    return "Date not available";
+  }
+
+  const date = new Date(createdAt);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Date not available";
+  }
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function mapBackendProblem(
+  problem: BackendProblem
+): Problem {
+  const createdAt =
+    problem.created_at ?? problem.createdAt ?? null;
+
+  return {
+    id: problem.id,
+
+    title: problem.title,
+
+    description:
+      problem.description ||
+      "No problem description available.",
+
+    location:
+      problem.district ||
+      "Location not specified",
+
+    district:
+      problem.district ||
+      "District not specified",
+
+    category:
+      problem.category ||
+      "Other",
+
+    status: getProblemStatus(problem),
+
+    priority: getPriority(
+      problem.severity_score
+    ),
+
+    reportedAt:
+      formatReportedAt(createdAt),
+
+    /*
+     * These fields are not currently returned
+     * by GET /api/problems/.
+     *
+     * We keep the existing UI without inventing
+     * backend values.
+     */
+    department: "Not specified",
+    clusterId: "Not assigned",
+    citizenReports: 1,
+    solutionId: "Not assigned",
+  };
+}
 
 export default function GovernmentProblemsPage() {
   const router = useRouter();
+
+  const [problems, setProblems] = useState<Problem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] =
+    useState<string | null>(null);
+
   const [search, setSearch] = useState("");
+
   const [category, setCategory] =
-    useState<"All" | ProblemCategory>("All");
+    useState<string>("All");
+
   const [status, setStatus] =
     useState<"All" | ProblemStatus>("All");
 
-  // NEW: District filter
-  const [district, setDistrict] = useState("All");
+  const [district, setDistrict] =
+    useState("All");
 
-  // NEW: Severity filter
-  // Severity is represented by the existing "priority" field
   const [severity, setSeverity] =
-    useState<"All" | Problem["priority"]>("All");
+    useState<
+      "All" | Problem["priority"]
+    >("All");
 
   const [selectedProblem, setSelectedProblem] =
     useState<Problem | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
+
+  const [currentPage, setCurrentPage] =
+    useState(1);
 
   const problemsPerPage = 5;
-  // NEW: Get unique districts from shared mock data
+
+  /*
+   * =========================================================
+   * LOAD REAL BACKEND PROBLEMS
+   * =========================================================
+   */
+
+  useEffect(() => {
+    async function loadProblems() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const token = getAuthToken();
+
+        if (!token) {
+          throw new Error(
+            "Authentication required"
+          );
+        }
+
+        const data =
+          await apiRequest<BackendProblem[]>(
+            "/api/problems/",
+            {
+              method: "GET",
+              token,
+            }
+          );
+
+        setProblems(
+          (data || []).map(mapBackendProblem)
+        );
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load problems"
+        );
+
+        setProblems([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadProblems();
+  }, []);
+
+  /*
+   * =========================================================
+   * DYNAMIC FILTER OPTIONS
+   * =========================================================
+   */
+
   const districts = useMemo(() => {
     return Array.from(
-      new Set(problems.map((problem) => problem.district))
+      new Set(
+        problems
+          .map(
+            (problem) => problem.district
+          )
+          .filter(Boolean)
+      )
     ).sort();
-  }, []);
+  }, [problems]);
+
+  const categories = useMemo(() => {
+    return Array.from(
+      new Set(
+        problems
+          .map(
+            (problem) => problem.category
+          )
+          .filter(Boolean)
+      )
+    ).sort();
+  }, [problems]);
+
+  /*
+   * =========================================================
+   * FILTER PROBLEMS
+   * =========================================================
+   */
 
   const filteredProblems = useMemo(() => {
     return problems.filter((problem) => {
       const text =
         `${problem.id} ${problem.title} ${problem.location} ${problem.district} ${problem.category}`.toLowerCase();
 
-      const matchesSearch = text.includes(search.toLowerCase());
+      const matchesSearch =
+        text.includes(
+          search.toLowerCase()
+        );
 
       const matchesCategory =
-        category === "All" || problem.category === category;
+        category === "All" ||
+        problem.category === category;
 
       const matchesStatus =
-        status === "All" || problem.status === status;
+        status === "All" ||
+        problem.status === status;
 
-      // NEW: District matching
       const matchesDistrict =
-        district === "All" || problem.district === district;
+        district === "All" ||
+        problem.district === district;
 
-      // NEW: Severity matching using priority
       const matchesSeverity =
-        severity === "All" || problem.priority === severity;
+        severity === "All" ||
+        problem.priority === severity;
 
       return (
         matchesSearch &&
@@ -78,36 +336,68 @@ export default function GovernmentProblemsPage() {
         matchesSeverity
       );
     });
-  }, [search, category, status, district, severity]);
- useEffect(() => {
+  }, [
+    problems,
+    search,
+    category,
+    status,
+    district,
+    severity,
+  ]);
+
+  useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1);
-  }, [search, category, status, district, severity]);
+  }, [
+    search,
+    category,
+    status,
+    district,
+    severity,
+  ]);
 
-  const totalPages = Math.ceil(
-    filteredProblems.length / problemsPerPage
+  const totalPages = Math.max(
+    1,
+    Math.ceil(
+      filteredProblems.length /
+        problemsPerPage
+    )
   );
 
-  const startIndex = (currentPage - 1) * problemsPerPage;
+  const startIndex =
+    (currentPage - 1) *
+    problemsPerPage;
 
-  const paginatedProblems = filteredProblems.slice(
-    startIndex,
-    startIndex + problemsPerPage
-  );
+  const paginatedProblems =
+    filteredProblems.slice(
+      startIndex,
+      startIndex + problemsPerPage
+    );
+
+  /*
+   * =========================================================
+   * STATUS COUNTS
+   * =========================================================
+   */
+
   const critical = problems.filter(
-    (problem) => problem.status === "Critical"
+    (problem) =>
+      problem.status === "Critical"
   ).length;
 
   const inProgress = problems.filter(
-    (problem) => problem.status === "In Progress"
+    (problem) =>
+      problem.status === "In Progress"
   ).length;
 
   const pending = problems.filter(
-    (problem) => problem.status === "Pending"
+    (problem) =>
+      problem.status === "Pending"
   ).length;
 
   const resolved = problems.filter(
-    (problem) => problem.status === "Resolved"
+    (problem) =>
+      problem.status === "Resolved"
   ).length;
 
   return (
@@ -118,21 +408,21 @@ export default function GovernmentProblemsPage() {
 
         <section className="relative overflow-hidden rounded-3xl border border-teal-800 bg-gradient-to-r from-teal-800 via-teal-700 to-teal-600 px-6 py-7 text-white shadow-md sm:px-8">
 
-          {/* Decorative circles */}
           <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-teal-500/20" />
+
           <div className="pointer-events-none absolute -bottom-20 left-1/3 h-40 w-40 rounded-full bg-teal-400/10" />
 
           <div className="relative flex flex-col justify-between gap-7 lg:flex-row lg:items-center">
-
-            {/* LEFT */}
 
             <div className="max-w-xl">
 
               <div className="flex items-center gap-4">
 
-                {/* Icon */}
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-white ring-1 ring-white/20">
-                  <ClipboardList size={22} strokeWidth={2} />
+                  <ClipboardList
+                    size={22}
+                    strokeWidth={2}
+                  />
                 </div>
 
                 <div>
@@ -150,20 +440,21 @@ export default function GovernmentProblemsPage() {
               </div>
 
               <p className="mt-4 max-w-lg text-sm leading-6 text-teal-50">
-                Review, prioritise and track citizen-reported issues
-                across locations and public service categories.
+                Review, prioritise and track citizen-reported
+                issues across locations and public service
+                categories.
               </p>
 
             </div>
 
-
-            {/* RIGHT — STATUS BUTTONS */}
-
             <div className="relative grid w-full grid-cols-2 gap-3 sm:w-auto sm:min-w-[360px]">
 
               {/* CRITICAL */}
+
               <button
-                onClick={() => setStatus("Critical")}
+                onClick={() =>
+                  setStatus("Critical")
+                }
                 className={`
                   group rounded-2xl border p-4 text-left
                   transition-all duration-200
@@ -176,13 +467,20 @@ export default function GovernmentProblemsPage() {
                 `}
               >
                 <div className="flex items-center justify-between">
+
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100 text-red-600">
-                    <AlertCircle size={15} strokeWidth={2} />
+                    <AlertCircle
+                      size={15}
+                      strokeWidth={2}
+                    />
                   </div>
 
                   <span className="text-lg font-bold text-slate-900">
-                    {critical}
+                    {loading
+                      ? "—"
+                      : critical}
                   </span>
+
                 </div>
 
                 <p className="mt-2 text-xs font-semibold text-slate-700">
@@ -192,12 +490,15 @@ export default function GovernmentProblemsPage() {
                 <p className="mt-0.5 text-[10px] text-slate-400">
                   Immediate attention
                 </p>
+
               </button>
 
-
               {/* IN PROGRESS */}
+
               <button
-                onClick={() => setStatus("In Progress")}
+                onClick={() =>
+                  setStatus("In Progress")
+                }
                 className={`
                   group rounded-2xl border p-4 text-left
                   transition-all duration-200
@@ -210,13 +511,20 @@ export default function GovernmentProblemsPage() {
                 `}
               >
                 <div className="flex items-center justify-between">
+
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-100 text-teal-700">
-                    <Clock3 size={15} strokeWidth={2} />
+                    <Clock3
+                      size={15}
+                      strokeWidth={2}
+                    />
                   </div>
 
                   <span className="text-lg font-bold text-slate-900">
-                    {inProgress}
+                    {loading
+                      ? "—"
+                      : inProgress}
                   </span>
+
                 </div>
 
                 <p className="mt-2 text-xs font-semibold text-slate-700">
@@ -226,12 +534,15 @@ export default function GovernmentProblemsPage() {
                 <p className="mt-0.5 text-[10px] text-slate-400">
                   Currently handled
                 </p>
+
               </button>
 
-
               {/* PENDING */}
+
               <button
-                onClick={() => setStatus("Pending")}
+                onClick={() =>
+                  setStatus("Pending")
+                }
                 className={`
                   group rounded-2xl border p-4 text-left
                   transition-all duration-200
@@ -244,13 +555,20 @@ export default function GovernmentProblemsPage() {
                 `}
               >
                 <div className="flex items-center justify-between">
+
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
-                    <Clock3 size={15} strokeWidth={2} />
+                    <Clock3
+                      size={15}
+                      strokeWidth={2}
+                    />
                   </div>
 
                   <span className="text-lg font-bold text-slate-900">
-                    {pending}
+                    {loading
+                      ? "—"
+                      : pending}
                   </span>
+
                 </div>
 
                 <p className="mt-2 text-xs font-semibold text-slate-700">
@@ -260,12 +578,15 @@ export default function GovernmentProblemsPage() {
                 <p className="mt-0.5 text-[10px] text-slate-400">
                   Awaiting action
                 </p>
+
               </button>
 
-
               {/* RESOLVED */}
+
               <button
-                onClick={() => setStatus("Resolved")}
+                onClick={() =>
+                  setStatus("Resolved")
+                }
                 className={`
                   group rounded-2xl border p-4 text-left
                   transition-all duration-200
@@ -278,13 +599,20 @@ export default function GovernmentProblemsPage() {
                 `}
               >
                 <div className="flex items-center justify-between">
+
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
-                    <CheckCircle2 size={15} strokeWidth={2} />
+                    <CheckCircle2
+                      size={15}
+                      strokeWidth={2}
+                    />
                   </div>
 
                   <span className="text-lg font-bold text-slate-900">
-                    {resolved}
+                    {loading
+                      ? "—"
+                      : resolved}
                   </span>
+
                 </div>
 
                 <p className="mt-2 text-xs font-semibold text-slate-700">
@@ -294,6 +622,7 @@ export default function GovernmentProblemsPage() {
                 <p className="mt-0.5 text-[10px] text-slate-400">
                   Successfully completed
                 </p>
+
               </button>
 
             </div>
@@ -302,10 +631,15 @@ export default function GovernmentProblemsPage() {
 
         </section>
 
+        {/* ERROR */}
 
-        {/* =====================================================
-            FILTERS
-           ===================================================== */}
+        {error && (
+          <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {/* FILTERS */}
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
@@ -329,7 +663,9 @@ export default function GovernmentProblemsPage() {
 
                 <input
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) =>
+                    setSearch(e.target.value)
+                  }
                   placeholder="Search ID, problem or location..."
                   className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm outline-none transition focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-500/10"
                 />
@@ -337,7 +673,6 @@ export default function GovernmentProblemsPage() {
               </div>
 
             </div>
-
 
             {/* CATEGORY */}
 
@@ -350,21 +685,27 @@ export default function GovernmentProblemsPage() {
               <select
                 value={category}
                 onChange={(e) =>
-                  setCategory(
-                    e.target.value as "All" | ProblemCategory
-                  )
+                  setCategory(e.target.value)
                 }
                 className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-teal-400 focus:bg-white"
               >
-                <option>All</option>
-                <option>Roads</option>
-                <option>Water</option>
-                <option>Electricity</option>
-                <option>Sanitation</option>
+
+                <option value="All">
+                  All
+                </option>
+
+                {categories.map((item) => (
+                  <option
+                    key={item}
+                    value={item}
+                  >
+                    {item}
+                  </option>
+                ))}
+
               </select>
 
             </div>
-
 
             {/* STATUS */}
 
@@ -378,22 +719,39 @@ export default function GovernmentProblemsPage() {
                 value={status}
                 onChange={(e) =>
                   setStatus(
-                    e.target.value as "All" | ProblemStatus
+                    e.target.value as
+                      | "All"
+                      | ProblemStatus
                   )
                 }
                 className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-teal-400 focus:bg-white"
               >
-                <option>All</option>
-                <option>Critical</option>
-                <option>In Progress</option>
-                <option>Pending</option>
-                <option>Resolved</option>
+
+                <option value="All">
+                  All
+                </option>
+
+                <option value="Critical">
+                  Critical
+                </option>
+
+                <option value="In Progress">
+                  In Progress
+                </option>
+
+                <option value="Pending">
+                  Pending
+                </option>
+
+                <option value="Resolved">
+                  Resolved
+                </option>
+
               </select>
 
             </div>
 
-
-            {/* NEW: DISTRICT */}
+            {/* DISTRICT */}
 
             <div>
 
@@ -403,13 +761,21 @@ export default function GovernmentProblemsPage() {
 
               <select
                 value={district}
-                onChange={(e) => setDistrict(e.target.value)}
+                onChange={(e) =>
+                  setDistrict(e.target.value)
+                }
                 className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-teal-400 focus:bg-white"
               >
-                <option value="All">All</option>
+
+                <option value="All">
+                  All
+                </option>
 
                 {districts.map((item) => (
-                  <option key={item} value={item}>
+                  <option
+                    key={item}
+                    value={item}
+                  >
                     {item}
                   </option>
                 ))}
@@ -418,8 +784,7 @@ export default function GovernmentProblemsPage() {
 
             </div>
 
-
-            {/* NEW: SEVERITY */}
+            {/* SEVERITY */}
 
             <div>
 
@@ -438,14 +803,26 @@ export default function GovernmentProblemsPage() {
                 }
                 className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-teal-400 focus:bg-white"
               >
-                <option value="All">All</option>
-                <option value="High">High</option>
-                <option value="Medium">Medium</option>
-                <option value="Low">Low</option>
+
+                <option value="All">
+                  All
+                </option>
+
+                <option value="High">
+                  High
+                </option>
+
+                <option value="Medium">
+                  Medium
+                </option>
+
+                <option value="Low">
+                  Low
+                </option>
+
               </select>
 
             </div>
-
 
             {/* RESET */}
 
@@ -459,41 +836,45 @@ export default function GovernmentProblemsPage() {
               }}
               className="inline-flex h-11 items-center justify-center gap-2 self-end rounded-xl border border-slate-200 px-5 text-xs font-bold text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
             >
-              <RotateCcw size={14} strokeWidth={2} />
+              <RotateCcw
+                size={14}
+                strokeWidth={2}
+              />
+
               Reset Filters
             </button>
 
           </div>
 
-
-          {/* RESULT COUNT */}
-
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
 
             <p className="text-xs text-slate-500">
+
               Showing{" "}
+
               <span className="font-bold text-slate-800">
                 {filteredProblems.length}
-              </span>{" "}
-              of{" "}
+              </span>
+
+              {" "}of{" "}
+
               <span className="font-bold text-slate-800">
                 {problems.length}
-              </span>{" "}
-              problems
+              </span>
+
+              {" "}problems
+
             </p>
 
             <span className="rounded-full bg-teal-50 px-3 py-1 text-[10px] font-bold text-teal-700">
-              SHARED DATA
+              LIVE BACKEND DATA
             </span>
 
           </div>
 
         </section>
 
-
-        {/* =====================================================
-            CITIZEN REPORTS
-           ===================================================== */}
+        {/* CITIZEN REPORTS */}
 
         <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
@@ -504,10 +885,12 @@ export default function GovernmentProblemsPage() {
               <div className="flex items-center gap-2">
 
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-50 text-teal-600">
+
                   <ClipboardList
                     size={15}
                     strokeWidth={2}
                   />
+
                 </div>
 
                 <h2 className="text-lg font-bold text-slate-900">
@@ -527,7 +910,6 @@ export default function GovernmentProblemsPage() {
             </span>
 
           </div>
-
 
           <div className="overflow-x-auto">
 
@@ -561,92 +943,154 @@ export default function GovernmentProblemsPage() {
 
               </thead>
 
-
               <tbody>
 
-                {paginatedProblems.map((problem) => (
+                {loading ? (
 
-                  <tr
-                    key={problem.id}
-                    className="border-t border-slate-100 transition hover:bg-teal-50/30"
-                  >
+                  <tr>
 
-                    {/* PROBLEM */}
-
-                    <td className="px-6 py-4">
-
-                      <p className="text-xs font-bold text-teal-600">
-                        {problem.id}
-                      </p>
-
-                      <p className="mt-1 text-sm font-bold text-slate-800">
-                        {problem.title}
-                      </p>
-
-                      <p className="mt-1 text-[10px] text-slate-400">
-                        {problem.reportedAt}
-                      </p>
-
+                    <td
+                      colSpan={5}
+                      className="px-6 py-16 text-center text-sm text-slate-500"
+                    >
+                      Loading citizen reports...
                     </td>
 
+                  </tr>
 
-                    {/* LOCATION */}
+                ) : paginatedProblems.length === 0 ? (
 
-                    <td className="px-6 py-4 text-sm text-slate-600">
+                  <tr>
 
-                      <div className="flex items-center gap-2">
+                    <td
+                      colSpan={5}
+                      className="px-6 py-16 text-center"
+                    >
 
-                        <MapPin
-                          size={15}
-                          strokeWidth={2}
-                          className="shrink-0 text-teal-500"
-                        />
-
-                        {problem.location}
-
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                        <Search size={20} />
                       </div>
 
-                    </td>
+                      <h3 className="mt-4 font-bold text-slate-900">
+                        No problems found
+                      </h3>
 
-
-                    {/* CATEGORY */}
-
-                    <td className="px-6 py-4">
-
-                      <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
-                        {problem.category}
-                      </span>
-
-                    </td>
-
-
-                    {/* STATUS */}
-
-                    <td className="px-6 py-4">
-                      <StatusBadge status={problem.status} />
-                    </td>
-
-
-                    {/* ACTION */}
-
-                    <td className="px-6 py-4 text-right">
-
-                      <button
-  onClick={() => router.push(`/government/problems/${problem.id}`)}
-  className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-teal-700"
->
-                        <Eye
-                          size={14}
-                          strokeWidth={2}
-                        />
-                        View Details
-                      </button>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Try changing your search or filters.
+                      </p>
 
                     </td>
 
                   </tr>
 
-                ))}
+                ) : (
+
+                  paginatedProblems.map(
+                    (problem, index) => {
+
+                      /*
+                       * IMPORTANT:
+                       *
+                       * problem.id is the real backend UUID.
+                       * We DO NOT display it.
+                       *
+                       * The visible number is calculated
+                       * from the current pagination position.
+                       */
+
+                      const displayNumber =
+                        startIndex + index + 1;
+
+                      return (
+                        <tr
+                          key={problem.id}
+                          className="border-t border-slate-100 transition hover:bg-teal-50/30"
+                        >
+
+                          {/* PROBLEM */}
+
+                          <td className="px-6 py-4">
+
+                            <p className="text-xs font-bold text-teal-600">
+                              Problem #{displayNumber}
+                            </p>
+
+                            <p className="mt-1 text-sm font-bold text-slate-800">
+                              {problem.title}
+                            </p>
+
+                           
+
+                          </td>
+
+                          {/* LOCATION */}
+
+                          <td className="px-6 py-4 text-sm text-slate-600">
+
+                            <div className="flex items-center gap-2">
+
+                              <MapPin
+                                size={15}
+                                strokeWidth={2}
+                                className="shrink-0 text-teal-500"
+                              />
+
+                              {problem.location}
+
+                            </div>
+
+                          </td>
+
+                          {/* CATEGORY */}
+
+                          <td className="px-6 py-4">
+
+                            <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                              {problem.category}
+                            </span>
+
+                          </td>
+
+                          {/* STATUS */}
+
+                          <td className="px-6 py-4">
+
+                            <StatusBadge
+                              status={problem.status}
+                            />
+
+                          </td>
+
+                          {/* ACTION */}
+
+                          <td className="px-6 py-4 text-right">
+
+                            <button
+                              onClick={() =>
+                                router.push(
+                                  `/government/problems/${problem.id}`
+                                )
+                              }
+                              className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-teal-700"
+                            >
+
+                              <Eye
+                                size={14}
+                                strokeWidth={2}
+                              />
+
+                              View Details
+
+                            </button>
+
+                          </td>
+
+                        </tr>
+                      );
+                    }
+                  )
+
+                )}
 
               </tbody>
 
@@ -654,55 +1098,77 @@ export default function GovernmentProblemsPage() {
 
           </div>
 
-
-                    {/* PAGINATION */}
+          {/* PAGINATION */}
 
           {filteredProblems.length > 0 && (
+
             <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-200 px-6 py-4 sm:flex-row">
 
               <p className="text-xs text-slate-500">
+
                 Showing{" "}
+
                 <span className="font-bold text-slate-800">
                   {startIndex + 1}
                 </span>
+
                 {" - "}
+
                 <span className="font-bold text-slate-800">
                   {Math.min(
-                    startIndex + problemsPerPage,
+                    startIndex +
+                      problemsPerPage,
                     filteredProblems.length
                   )}
-                </span>{" "}
-                of{" "}
+                </span>
+
+                {" "}of{" "}
+
                 <span className="font-bold text-slate-800">
                   {filteredProblems.length}
                 </span>
+
               </p>
 
               <div className="flex items-center gap-2">
 
                 <button
                   onClick={() =>
-                    setCurrentPage((page) =>
-                      Math.max(page - 1, 1)
+                    setCurrentPage(
+                      (page) =>
+                        Math.max(
+                          page - 1,
+                          1
+                        )
                     )
                   }
-                  disabled={currentPage === 1}
+                  disabled={
+                    currentPage === 1
+                  }
                   className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Previous
                 </button>
 
                 <span className="rounded-lg bg-teal-50 px-3 py-2 text-xs font-bold text-teal-700">
-                  Page {currentPage} of {totalPages}
+                  Page {currentPage} of{" "}
+                  {totalPages}
                 </span>
 
                 <button
                   onClick={() =>
-                    setCurrentPage((page) =>
-                      Math.min(page + 1, totalPages)
+                    setCurrentPage(
+                      (page) =>
+                        Math.min(
+                          page + 1,
+                          totalPages
+                        )
                     )
                   }
-                  disabled={currentPage === totalPages}
+                  disabled={
+                    currentPage ===
+                    totalPages
+                  }
                   className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Next
@@ -711,34 +1177,12 @@ export default function GovernmentProblemsPage() {
               </div>
 
             </div>
-          )}
-
-          {filteredProblems.length === 0 && (
-
-            <div className="px-6 py-16 text-center">
-
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                <Search size={20} />
-              </div>
-
-              <h3 className="mt-4 font-bold text-slate-900">
-                No problems found
-              </h3>
-
-              <p className="mt-1 text-xs text-slate-500">
-                Try changing your search or filters.
-              </p>
-
-            </div>
 
           )}
 
         </section>
 
-
-        {/* =====================================================
-            FOOTER MESSAGE
-           ===================================================== */}
+        {/* FOOTER MESSAGE */}
 
         <div className="mt-8 border-t border-slate-200 py-5 text-center">
 
@@ -750,24 +1194,23 @@ export default function GovernmentProblemsPage() {
 
       </div>
 
-
-      {/* =====================================================
-          MODAL
-         ===================================================== */}
+      {/* MODAL */}
 
       {selectedProblem && (
 
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
-          onClick={() => setSelectedProblem(null)}
+          onClick={() =>
+            setSelectedProblem(null)
+          }
         >
 
           <div
             className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) =>
+              e.stopPropagation()
+            }
           >
-
-            {/* MODAL HEADER */}
 
             <div className="bg-gradient-to-r from-[#115e59] to-[#0d9488] p-6 text-white">
 
@@ -780,7 +1223,7 @@ export default function GovernmentProblemsPage() {
                   </p>
 
                   <p className="mt-1 text-xs font-bold text-teal-100">
-                    {selectedProblem.id}
+                    Problem Details
                   </p>
 
                   <h2 className="mt-2 text-xl font-bold">
@@ -790,69 +1233,85 @@ export default function GovernmentProblemsPage() {
                 </div>
 
                 <button
-                  onClick={() => setSelectedProblem(null)}
+                  onClick={() =>
+                    setSelectedProblem(null)
+                  }
                   className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 transition hover:bg-white/20"
                 >
-                  <X size={17} strokeWidth={2} />
+
+                  <X
+                    size={17}
+                    strokeWidth={2}
+                  />
+
                 </button>
 
               </div>
 
             </div>
 
-
-            {/* MODAL CONTENT */}
-
             <div className="space-y-4 p-6">
 
               <div className="flex items-center justify-between gap-3">
 
                 <StatusBadge
-                  status={selectedProblem.status}
+                  status={
+                    selectedProblem.status
+                  }
                 />
 
-                <span className="text-xs text-slate-400">
-                  {selectedProblem.reportedAt}
-                </span>
+              
 
               </div>
-
 
               <div className="grid grid-cols-2 gap-4">
 
                 <InfoBox
                   title="Location"
-                  value={selectedProblem.location}
-                  icon={<MapPin size={15} />}
+                  value={
+                    selectedProblem.location
+                  }
+                  icon={
+                    <MapPin size={15} />
+                  }
                 />
 
                 <InfoBox
                   title="District"
-                  value={selectedProblem.district}
+                  value={
+                    selectedProblem.district
+                  }
                 />
 
                 <InfoBox
                   title="Category"
-                  value={selectedProblem.category}
+                  value={
+                    selectedProblem.category
+                  }
                 />
 
                 <InfoBox
                   title="Severity"
-                  value={selectedProblem.priority}
+                  value={
+                    selectedProblem.priority
+                  }
                 />
 
                 <InfoBox
                   title="Department"
-                  value={selectedProblem.department}
+                  value={
+                    selectedProblem.department
+                  }
                 />
 
                 <InfoBox
                   title="Cluster"
-                  value={selectedProblem.clusterId}
+                  value={
+                    selectedProblem.clusterId
+                  }
                 />
 
               </div>
-
 
               <div className="rounded-xl border border-teal-100 bg-teal-50 p-4">
 
@@ -861,11 +1320,12 @@ export default function GovernmentProblemsPage() {
                 </p>
 
                 <p className="mt-2 text-sm leading-6 text-slate-700">
-                  {selectedProblem.description}
+                  {
+                    selectedProblem.description
+                  }
                 </p>
 
               </div>
-
 
               <div className="grid grid-cols-2 gap-4">
 
@@ -878,14 +1338,17 @@ export default function GovernmentProblemsPage() {
 
                 <InfoBox
                   title="Solution"
-                  value={selectedProblem.solutionId}
+                  value={
+                    selectedProblem.solutionId
+                  }
                 />
 
               </div>
 
-
               <button
-                onClick={() => setSelectedProblem(null)}
+                onClick={() =>
+                  setSelectedProblem(null)
+                }
                 className="w-full rounded-xl bg-teal-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-teal-700"
               >
                 Close Details
@@ -905,8 +1368,6 @@ export default function GovernmentProblemsPage() {
 
         <div className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-5 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
 
-          {/* LEFT — LOGO + TAGLINE */}
-
           <div className="flex items-center gap-3 lg:min-w-[280px]">
 
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-600 text-sm font-bold text-white">
@@ -914,6 +1375,7 @@ export default function GovernmentProblemsPage() {
             </div>
 
             <div>
+
               <p className="text-sm font-bold tracking-tight">
                 SamadhanX
               </p>
@@ -921,12 +1383,10 @@ export default function GovernmentProblemsPage() {
               <p className="mt-0.5 text-[10px] text-slate-400">
                 Ideas → Action → Impact
               </p>
+
             </div>
 
           </div>
-
-
-          {/* CENTER — COPYRIGHT */}
 
           <div className="text-center">
 
@@ -935,9 +1395,6 @@ export default function GovernmentProblemsPage() {
             </p>
 
           </div>
-
-
-          {/* RIGHT — LINKS */}
 
           <div className="flex items-center justify-center gap-5 lg:min-w-[280px] lg:justify-end">
 
@@ -972,7 +1429,6 @@ export default function GovernmentProblemsPage() {
   );
 }
 
-
 /* =============================================================
    STATUS BADGE
    ============================================================= */
@@ -1004,7 +1460,6 @@ function StatusBadge({
     </span>
   );
 }
-
 
 /* =============================================================
    INFO BOX

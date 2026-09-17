@@ -760,6 +760,7 @@ def get_project_member_details(
         "university",
         "faculty",
         "student",
+        "government",
     }:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -9,6 +9,18 @@ class DashboardOverviewResponse(BaseModel):
     active_collaborations: int
     total_funding: float
 
+    reported_count: int
+    ai_analysis_count: int
+    university_matching_count: int
+    solution_count: int
+    project_count: int
+    industry_support_count: int
+    prototype_count: int
+    deployment_count: int
+    resolved_count: int
+
+
+
 class ProjectStatusResponse(BaseModel):
     IDEA: int
     VALIDATION: int

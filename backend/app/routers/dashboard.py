@@ -1,12 +1,21 @@
+
 import uuid
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+
+from app.models.problem import Problem
+from app.models.problem_ai_analysis import ProblemAIAnalysis
+from app.models.university_problem_interest import UniversityProblemInterest
+from app.models.solution import Solution
 from app.models.project import Project
 from app.models.industry_partner import IndustryPartner
 from app.models.collaboration import Collaboration
+from app.models.project_member import ProjectMember
+
 from app.schemas.dashboard import (
     DashboardOverviewResponse,
     ProjectStatusResponse,
@@ -15,15 +24,18 @@ from app.schemas.dashboard import (
     ProjectDashboardResponse,
     ProjectDashboardListResponse,
 )
-from app.models.project_member import ProjectMember
+
+
 router = APIRouter(
     prefix="/api/dashboard",
     tags=["Dashboard"],
 )
+
 project_dashboard_router = APIRouter(
     prefix="/api/projects",
     tags=["Dashboard"],
 )
+
 
 @router.get(
     "/overview",
@@ -32,6 +44,10 @@ project_dashboard_router = APIRouter(
 def get_dashboard_overview(
     db: Session = Depends(get_db),
 ):
+    # ---------------------------------------------------------
+    # Existing dashboard statistics
+    # ---------------------------------------------------------
+
     total_projects = db.query(Project).count()
 
     active_projects = (
@@ -69,10 +85,141 @@ def get_dashboard_overview(
         db.query(
             func.coalesce(
                 func.sum(Collaboration.amount),
-                0
+                0,
             )
         )
         .scalar()
+    )
+
+    # ---------------------------------------------------------
+    # Solution Lifecycle
+    # ---------------------------------------------------------
+
+    # 1. Reported
+    # Every problem in the problems table.
+    reported_count = (
+        db.query(Problem.id)
+        .count()
+    )
+
+    # 2. AI Analysis
+    # Count unique problems which have an AI analysis record.
+    ai_analysis_count = (
+        db.query(
+            func.count(
+                func.distinct(ProblemAIAnalysis.problem_id)
+            )
+        )
+        .scalar()
+    )
+
+    # 3. University Matching
+    # Count unique problems which have at least one
+    # university interest/matching record.
+    university_matching_count = (
+        db.query(
+            func.count(
+                func.distinct(
+                    UniversityProblemInterest.problem_id
+                )
+            )
+        )
+        .scalar()
+    )
+
+    # 4. Solution
+    # Count unique problems having at least one solution.
+    solution_count = (
+        db.query(
+            func.count(
+                func.distinct(Solution.problem_id)
+            )
+        )
+        .filter(
+            Solution.problem_id.isnot(None)
+        )
+        .scalar()
+    )
+
+    # 5. Project
+    # Count unique problems having at least one project.
+    project_count = (
+        db.query(
+            func.count(
+                func.distinct(Project.problem_id)
+            )
+        )
+        .filter(
+            Project.problem_id.isnot(None)
+        )
+        .scalar()
+    )
+
+    # 6. Industry Support
+    # Count collaborations.
+    industry_support_count = (
+        db.query(Collaboration)
+        .count()
+    )
+
+    # 7. Prototype
+    # Count unique problems whose solution has reached
+    # prototype-related status.
+    prototype_count = (
+        db.query(
+            func.count(
+                func.distinct(Solution.problem_id)
+            )
+        )
+        .filter(
+            Solution.problem_id.isnot(None),
+            func.upper(
+                func.coalesce(
+                    Solution.prototype_status,
+                    "",
+                )
+            ).in_([
+                "PROTOTYPE",
+                "FIELD_TEST",
+                "DEPLOYED",
+            ]),
+        )
+        .scalar()
+    )
+
+    # 8. Deployment
+    # Count unique problems whose project is deployed.
+    deployment_count = (
+        db.query(
+            func.count(
+                func.distinct(Project.problem_id)
+            )
+        )
+        .filter(
+            Project.problem_id.isnot(None),
+            func.upper(
+                func.coalesce(
+                    Project.status,
+                    "",
+                )
+            ) == "DEPLOYED",
+        )
+        .scalar()
+    )
+
+    # 9. Resolved
+    # Count problems whose status is Resolved.
+    resolved_count = (
+        db.query(Problem)
+        .filter(
+            func.upper(
+                func.coalesce(
+                    Problem.status,
+                    "",
+                )
+            ) == "RESOLVED"
+        )
+        .count()
     )
 
     return {
@@ -81,8 +228,21 @@ def get_dashboard_overview(
         "total_industry_partners": total_industry_partners,
         "total_collaborations": total_collaborations,
         "active_collaborations": active_collaborations,
-        "total_funding": float(total_funding),
+        "total_funding": float(total_funding or 0),
+
+        # Lifecycle counts
+        "reported_count": reported_count,
+        "ai_analysis_count": ai_analysis_count,
+        "university_matching_count": university_matching_count,
+        "solution_count": solution_count,
+        "project_count": project_count,
+        "industry_support_count": industry_support_count,
+        "prototype_count": prototype_count,
+        "deployment_count": deployment_count,
+        "resolved_count": resolved_count,
     }
+
+
 @router.get(
     "/project-status",
     response_model=ProjectStatusResponse,
@@ -113,6 +273,7 @@ def get_project_status(
         result[project_status] = count
 
     return result
+
 
 @router.get(
     "/collaboration-summary",
@@ -147,7 +308,7 @@ def get_collaboration_summary(
         db.query(
             func.coalesce(
                 func.sum(Collaboration.amount),
-                0
+                0,
             )
         )
         .scalar()
@@ -158,8 +319,9 @@ def get_collaboration_summary(
         "pending_collaborations": pending_collaborations,
         "approved_collaborations": approved_collaborations,
         "active_collaborations": active_collaborations,
-        "total_funding": float(total_funding),
+        "total_funding": float(total_funding or 0),
     }
+
 
 @router.get(
     "/industry-partners",
@@ -175,6 +337,8 @@ def get_industry_partner_summary(
     return {
         "total_industry_partners": total_industry_partners,
     }
+
+
 @router.get(
     "/projects",
     response_model=ProjectDashboardListResponse,
@@ -207,10 +371,12 @@ def get_projects_dashboard(
             db.query(
                 func.coalesce(
                     func.sum(Collaboration.amount),
-                    0
+                    0,
                 )
             )
-            .filter(Collaboration.project_id == project.id)
+            .filter(
+                Collaboration.project_id == project.id
+            )
             .scalar()
         )
 
@@ -220,12 +386,13 @@ def get_projects_dashboard(
             "status": project.status,
             "team_size": team_size,
             "collaborations": collaborations,
-            "total_funding": float(total_funding),
+            "total_funding": float(total_funding or 0),
         })
 
     return {
         "projects": result
     }
+
 
 @router.get(
     "/projects/{project_id}",
@@ -263,10 +430,12 @@ def get_project_dashboard(
         db.query(
             func.coalesce(
                 func.sum(Collaboration.amount),
-                0
+                0,
             )
         )
-        .filter(Collaboration.project_id == project_id)
+        .filter(
+            Collaboration.project_id == project_id
+        )
         .scalar()
     )
 
@@ -276,8 +445,10 @@ def get_project_dashboard(
         "status": project.status,
         "team_size": team_size,
         "collaborations": collaborations,
-        "total_funding": float(total_funding),
+        "total_funding": float(total_funding or 0),
     }
+
+
 @project_dashboard_router.get(
     "/{project_id}/dashboard",
     response_model=ProjectDashboardResponse,
@@ -314,10 +485,12 @@ def get_project_dashboard_by_project(
         db.query(
             func.coalesce(
                 func.sum(Collaboration.amount),
-                0
+                0,
             )
         )
-        .filter(Collaboration.project_id == project_id)
+        .filter(
+            Collaboration.project_id == project_id
+        )
         .scalar()
     )
 
@@ -327,5 +500,6 @@ def get_project_dashboard_by_project(
         "status": project.status,
         "team_size": team_size,
         "collaborations": collaborations,
-        "total_funding": float(total_funding),
+        "total_funding": float(total_funding or 0),
     }
+
