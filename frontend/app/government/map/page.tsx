@@ -31,6 +31,8 @@ type BackendProblem = {
   severity_score?: number | string | null;
   status?: string | null;
   citizen_id?: string | null;
+  latitude?: number | string | null;
+longitude?: number | string | null;
 };
 
 type BackendProject = {
@@ -520,8 +522,10 @@ export default function GovernmentProblemMapPage() {
 
         {/* MAP REMAINS UNCHANGED */}
 
-        <JharkhandProblemMap />
-
+      <JharkhandProblemMap
+  problems={problems}
+  projects={projects}
+/>
         {/* DISTRICT-WISE SUMMARY */}
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">

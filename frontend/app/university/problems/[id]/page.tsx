@@ -427,102 +427,89 @@ export default function UniversityProblemDetails() {
           {/* ================= LEFT ================= */}
           <div className="space-y-6">
 
-            {/* ================= CITIZEN EVIDENCE ================= */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          {hasEvidence && (
+  <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="flex items-start gap-3">
+      <div className="rounded-xl bg-teal-50 p-2 text-teal-700">
+        <ImageIcon size={20} />
+      </div>
 
-              <div className="flex items-center gap-3">
+      <div>
+        <h2 className="text-lg font-bold text-slate-900">
+          Citizen Evidence
+        </h2>
 
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-100">
-                  <ImageIcon className="h-5 w-5 text-teal-700" />
-                </div>
+        <p className="mt-1 text-sm text-slate-500">
+          Photo and video evidence submitted with this problem.
+        </p>
+      </div>
+    </div>
 
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-teal-700">
-                    Citizen Evidence
-                  </p>
+    <div className="mt-5 space-y-3">
+      {/* PHOTO */}
+      {evidenceImage && (
+        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-teal-50 p-2">
+              <ImageIcon className="h-5 w-5 text-teal-700" />
+            </div>
 
-                  <h3 className="text-xl font-bold">
-                    Uploaded Evidence
-                  </h3>
-                </div>
-
-              </div>
-
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Photos and videos uploaded by the citizen to help document
-                this community problem.
+            <div>
+              <p className="text-sm font-semibold text-slate-800">
+                Photo Evidence
               </p>
 
-              {hasEvidence ? (
-                <div className="mt-5 space-y-5">
-
-                  {/* Image Evidence */}
-                  {evidenceImage && (
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-
-                      <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-3">
-                        <ImageIcon className="h-4 w-4 text-teal-700" />
-
-                        <p className="text-sm font-semibold text-slate-800">
-                          Photo Evidence
-                        </p>
-                      </div>
-
-                      <div className="p-4">
-                        <Image
-                          src={evidenceImage}
-                          alt={`Evidence for ${problem.title}`}
-                          className="max-h-[500px] w-full rounded-xl object-contain"
-                        />
-                      </div>
-
-                    </div>
-                  )}
-
-                  {/* Video Evidence */}
-                  {evidenceVideo && (
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-
-                      <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-3">
-                        <Video className="h-4 w-4 text-teal-700" />
-
-                        <p className="text-sm font-semibold text-slate-800">
-                          Video Evidence
-                        </p>
-                      </div>
-
-                      <div className="p-4">
-                        <video
-                          src={evidenceVideo}
-                          controls
-                          className="max-h-[500px] w-full rounded-xl"
-                        >
-                          Your browser does not support video playback.
-                        </video>
-                      </div>
-
-                    </div>
-                  )}
-
-                </div>
-              ) : (
-                <div className="mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
-
-                  <ImageIcon className="mx-auto h-8 w-8 text-slate-400" />
-
-                  <p className="mt-3 text-sm font-semibold text-slate-700">
-                    No evidence uploaded
-                  </p>
-
-                  <p className="mt-1 text-xs text-slate-500">
-                    The citizen has not uploaded any photo or video evidence
-                    for this problem.
-                  </p>
-
-                </div>
-              )}
-
+              <p className="text-xs text-slate-500">
+                Citizen uploaded photo
+              </p>
             </div>
+          </div>
+
+          <a
+            href={evidenceImage}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700"
+          >
+            <ImageIcon className="h-4 w-4" />
+            View Photo
+          </a>
+        </div>
+      )}
+
+      {/* VIDEO */}
+      {evidenceVideo && (
+        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-teal-50 p-2">
+              <Video className="h-5 w-5 text-teal-700" />
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold text-slate-800">
+                Video Evidence
+              </p>
+
+              <p className="text-xs text-slate-500">
+                Citizen uploaded video
+              </p>
+            </div>
+          </div>
+
+          <a
+            href={evidenceVideo}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700"
+          >
+            <Video className="h-4 w-4" />
+            View Video
+          </a>
+        </div>
+      )}
+    </div>
+  </section>
+)}
 
             {/* ================= AI ANALYSIS ================= */}
             <div className="rounded-2xl border border-teal-300 bg-teal-200 p-6 shadow-sm">

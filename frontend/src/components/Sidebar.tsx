@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -20,7 +21,11 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { logout } from "@/lib/api/auth";
+import {
+  getCurrentUser,
+  logout,
+} from "@/lib/api/auth";
+import { getProblems } from "@/lib/api/problems";
 
 /* =========================================================
    NAVIGATION DATA
@@ -36,7 +41,6 @@ const mainNavigation = [
     name: "Community Challenges",
     href: "/government/problems",
     icon: AlertCircle,
-    badge: "128",
   },
   {
     name: "Challenge Clusters",
@@ -70,8 +74,11 @@ const mainNavigation = [
    SIDEBAR STATE
    ========================================================= */
 
-const SIDEBAR_STORAGE_KEY = "government-sidebar-collapsed";
-const SIDEBAR_EVENT = "government-sidebar-toggle";
+const SIDEBAR_STORAGE_KEY =
+  "government-sidebar-collapsed";
+
+const SIDEBAR_EVENT =
+  "government-sidebar-toggle";
 
 /* =========================================================
    SIDEBAR
@@ -80,23 +87,35 @@ const SIDEBAR_EVENT = "government-sidebar-toggle";
 export default function Sidebar() {
   const pathname = usePathname();
 
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] =
+    useState(false);
+
+  const [problemCount, setProblemCount] =
+    useState<number | null>(null);
+
+  const [governmentUserName, setGovernmentUserName] =
+    useState("Government User");
 
   /* =======================================================
      LOAD SAVED SIDEBAR STATE
      ======================================================= */
 
   useEffect(() => {
-    const savedState = localStorage.getItem(
-      SIDEBAR_STORAGE_KEY
-    );
+    const savedState =
+      localStorage.getItem(
+        SIDEBAR_STORAGE_KEY
+      );
 
     if (savedState === "true") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCollapsed(true);
     }
 
-    const handleSidebarToggle = (event: Event) => {
-      const customEvent = event as CustomEvent<boolean>;
+    const handleSidebarToggle = (
+      event: Event
+    ) => {
+      const customEvent =
+        event as CustomEvent<boolean>;
 
       setCollapsed(customEvent.detail);
     };
@@ -112,6 +131,38 @@ export default function Sidebar() {
         handleSidebarToggle
       );
     };
+  }, []);
+
+  /* =======================================================
+     LOAD GOVERNMENT USER + PROBLEM COUNT
+     ======================================================= */
+
+  useEffect(() => {
+    const loadSidebarData = async () => {
+      try {
+        const [user, problems] =
+          await Promise.all([
+            getCurrentUser(),
+            getProblems(),
+          ]);
+
+        const name =
+          user.full_name ||
+          user.name ||
+          user.email ||
+          "Government User";
+
+        setGovernmentUserName(name);
+        setProblemCount(problems.length);
+      } catch (error) {
+        console.error(
+          "Failed to load government sidebar data:",
+          error
+        );
+      }
+    };
+
+    loadSidebarData();
   }, []);
 
   /* =======================================================
@@ -140,7 +191,9 @@ export default function Sidebar() {
      ======================================================= */
 
   const isActive = (href: string) => {
-    if (href === "/government/dashboard") {
+    if (
+      href === "/government/dashboard"
+    ) {
       return pathname === href;
     }
 
@@ -179,13 +232,11 @@ export default function Sidebar() {
             relative overflow-hidden
             rounded-2xl
             border border-slate-200
-            bg-teal-50/70
+            bg-slate-50
             transition-all duration-300
             ${collapsed ? "p-3" : "p-4"}
           `}
         >
-          {/* Decorative circle */}
-
           {!collapsed && (
             <div
               className="
@@ -193,7 +244,7 @@ export default function Sidebar() {
                 absolute -right-8 -top-8
                 h-24 w-24
                 rounded-full
-                bg-teal-200/40
+                bg-teal-100
               "
             />
           )}
@@ -201,7 +252,10 @@ export default function Sidebar() {
           <div
             className={`
               relative flex items-center
-              ${collapsed ? "justify-center" : "gap-3"}
+              ${collapsed
+                ? "justify-center"
+                : "gap-3"
+              }
             `}
           >
             <div
@@ -209,7 +263,7 @@ export default function Sidebar() {
                 flex h-10 w-10 shrink-0
                 items-center justify-center
                 rounded-xl
-                bg-teal-600
+                bg-teal-700
                 text-white
                 shadow-sm
               "
@@ -232,7 +286,7 @@ export default function Sidebar() {
                 </p>
 
                 <div className="mt-1 flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-600" />
 
                   <span className="text-[10px] font-medium text-slate-500">
                     Platform operational
@@ -271,27 +325,35 @@ export default function Sidebar() {
 
         <nav className="space-y-1">
           {mainNavigation.map((item) => {
-            const active = isActive(item.href);
+            const active = isActive(
+              item.href
+            );
+
             const Icon = item.icon;
 
             return (
               <Link
                 key={item.name}
                 href={item.href}
-                title={collapsed ? item.name : undefined}
+                title={
+                  collapsed
+                    ? item.name
+                    : undefined
+                }
                 className={`
                   group relative flex items-center
                   rounded-xl
                   transition-all duration-200
 
-                  ${collapsed
-                    ? "justify-center px-2 py-2.5"
-                    : "gap-3 px-3 py-2.5"
+                  ${
+                    collapsed
+                      ? "justify-center px-2 py-2.5"
+                      : "gap-3 px-3 py-2.5"
                   }
 
                   ${
                     active
-                      ? "bg-teal-50 text-teal-700 shadow-[inset_3px_0_0_#0d9488]"
+                      ? "bg-teal-50 text-teal-700 shadow-[inset_3px_0_0_#0f766e]"
                       : "text-slate-600 hover:bg-slate-50 hover:text-teal-700"
                   }
                 `}
@@ -338,20 +400,25 @@ export default function Sidebar() {
                       {item.name}
                     </span>
 
-                    {/* Badge */}
+                    {/* Community Problems Count */}
 
-                    {item.badge && (
+                    {item.name ===
+                      "Community Challenges" && (
                       <span
                         className="
+                          min-w-[28px]
                           rounded-full
-                          bg-amber-50
+                          bg-slate-100
                           px-2 py-0.5
+                          text-center
                           text-[9px]
                           font-bold
-                          text-amber-700
+                          text-slate-600
                         "
                       >
-                        {item.badge}
+                        {problemCount === null
+                          ? "—"
+                          : problemCount}
                       </span>
                     )}
 
@@ -363,7 +430,7 @@ export default function Sidebar() {
                           className="
                             h-1.5 w-1.5
                             rounded-full
-                            bg-green-500
+                            bg-green-600
                             shadow-[0_0_0_3px_rgba(34,197,94,0.10)]
                           "
                         />
@@ -376,24 +443,26 @@ export default function Sidebar() {
 
                     {/* Arrow */}
 
-                    {!item.badge && !item.live && (
-                      <span
-                        className={`
-                          transition-all duration-200
+                    {!item.live &&
+                      item.name !==
+                        "Community Challenges" && (
+                        <span
+                          className={`
+                            transition-all duration-200
 
-                          ${
-                            active
-                              ? "translate-x-0 text-teal-600 opacity-100"
-                              : "-translate-x-1 text-slate-300 opacity-0 group-hover:translate-x-0 group-hover:opacity-100"
-                          }
-                        `}
-                      >
-                        <ChevronRight
-                          size={15}
-                          strokeWidth={2}
-                        />
-                      </span>
-                    )}
+                            ${
+                              active
+                                ? "translate-x-0 text-teal-600 opacity-100"
+                                : "-translate-x-1 text-slate-300 opacity-0 group-hover:translate-x-0 group-hover:opacity-100"
+                            }
+                          `}
+                        >
+                          <ChevronRight
+                            size={15}
+                            strokeWidth={2}
+                          />
+                        </span>
+                      )}
                   </>
                 )}
               </Link>
@@ -488,8 +557,6 @@ export default function Sidebar() {
             </p>
 
             <nav className="space-y-1">
-              {/* Settings */}
-
               <button
                 type="button"
                 className="
@@ -523,8 +590,6 @@ export default function Sidebar() {
                   Settings
                 </span>
               </button>
-
-              {/* Help */}
 
               <button
                 type="button"
@@ -627,7 +692,7 @@ export default function Sidebar() {
       </div>
 
       {/* =====================================================
-          FOOTER / ADMIN PROFILE
+          FOOTER / GOVERNMENT USER PROFILE
          ===================================================== */}
 
       <div className="border-t border-slate-200 p-3">
@@ -638,9 +703,10 @@ export default function Sidebar() {
             border border-slate-200
             bg-slate-50
             transition-all duration-300
-            ${collapsed
-              ? "justify-center p-2"
-              : "gap-3 p-2.5"
+            ${
+              collapsed
+                ? "justify-center p-2"
+                : "gap-3 p-2.5"
             }
           `}
         >
@@ -649,45 +715,60 @@ export default function Sidebar() {
               flex h-9 w-9 shrink-0
               items-center justify-center
               rounded-lg
-              bg-teal-600
+              bg-teal-700
               text-[10px]
               font-bold
               text-white
             "
             title={
               collapsed
-                ? "Admin Officer"
+                ? governmentUserName
                 : undefined
             }
           >
-            AO
+            {governmentUserName
+              .trim()
+              .split(/\s+/)
+              .map(
+                (part) =>
+                  part.charAt(0)
+              )
+              .join("")
+              .slice(0, 2)
+              .toUpperCase()}
           </div>
 
           {!collapsed && (
             <>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[11px] font-bold text-slate-900">
-                  Admin Officer
+                  {governmentUserName}
                 </p>
 
                 <p className="truncate text-[9px] font-medium text-slate-500">
-                  District Administration
+                  Government Administration
                 </p>
               </div>
 
-              <span className="h-2 w-2 rounded-full bg-green-500" />
+              <span className="h-2 w-2 rounded-full bg-green-600" />
             </>
           )}
         </div>
- {/* LOGOUT BUTTON */}
+
+        {/* LOGOUT BUTTON */}
 
         <button
           type="button"
           onClick={() => {
             logout();
-            window.location.href = "/login";
+            window.location.href =
+              "/login";
           }}
-          title={collapsed ? "Logout" : undefined}
+          title={
+            collapsed
+              ? "Logout"
+              : undefined
+          }
           className={`
             mt-2
             flex w-full items-center
@@ -696,7 +777,11 @@ export default function Sidebar() {
             transition-all duration-200
             hover:bg-red-50
             hover:text-red-600
-            ${collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"}
+            ${
+              collapsed
+                ? "justify-center px-2 py-2.5"
+                : "gap-3 px-3 py-2.5"
+            }
           `}
         >
           <span
@@ -706,8 +791,6 @@ export default function Sidebar() {
               rounded-lg
               text-slate-400
               transition-colors
-              group-hover:bg-red-50
-              group-hover:text-red-600
             "
           >
             <LogOut
@@ -722,6 +805,7 @@ export default function Sidebar() {
             </span>
           )}
         </button>
+
         {/* COLLAPSE BUTTON */}
 
         <button
@@ -732,7 +816,7 @@ export default function Sidebar() {
               ? "Expand sidebar"
               : "Collapse sidebar"
           }
-          className={`
+          className="
             mt-2
             flex w-full
             items-center justify-center
@@ -742,7 +826,7 @@ export default function Sidebar() {
             transition-all duration-200
             hover:bg-slate-50
             hover:text-teal-700
-          `}
+          "
         >
           <span
             className="

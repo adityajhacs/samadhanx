@@ -599,7 +599,7 @@ export default function RegisterPage() {
                               e.target.value
                             )
                           }
-                          placeholder="e.g. Ghaziabad"
+                          placeholder="e.g. Ranchi"
                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                         />
                       </div>

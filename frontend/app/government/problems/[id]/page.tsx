@@ -14,9 +14,11 @@ import {
   CheckCircle2,
   AlertTriangle,
   FileSearch,
-  Lightbulb,
-  ChevronDown,
+   Lightbulb, 
+  ChevronDown, 
   ChevronUp,
+  ImageIcon,
+  Video,
 } from "lucide-react";
 
 import { apiRequest, getAuthToken } from "@/lib/api/client";
@@ -166,17 +168,19 @@ type BackendProgress = {
    FRONTEND TYPES
 ========================================================= */
 
-type ProblemView = {
-  id: string;
-  title: string;
-  description: string;
-  location: string;
-  district: string;
-  category: string;
-  status: string;
-  priority: "High" | "Medium" | "Low";
-  department: string;
+type ProblemView = { 
+  id: string; 
+  title: string; 
+  description: string; 
+  location: string; 
+  district: string; 
+  category: string; 
+  status: string; 
+  priority: "High" | "Medium" | "Low"; 
+  department: string; 
   citizenReports: number;
+  image_url?: string | null;
+  video_url?: string | null;
 };
 
 type UniversityView = {
@@ -317,10 +321,14 @@ function mapProblem(
     priority:
       getPriority(problem.severity_score),
 
-    department:
-      "Not specified",
+        department: 
+      "Not specified", 
 
     citizenReports: 1,
+
+    image_url: problem.image_url,
+
+    video_url: problem.video_url,
   };
 }
 
@@ -1141,7 +1149,94 @@ export default function GovernmentProblemDetailPage() {
               </div>
 
             </section>
+         
+{/* =================================================
+    CITIZEN EVIDENCE
+================================================= */}
 
+{(problem.image_url || problem.video_url) && (
+  <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="flex items-start gap-3">
+      <div className="rounded-xl bg-teal-50 p-2 text-teal-700">
+        <FileSearch size={20} />
+      </div>
+
+      <div>
+        <h2 className="text-lg font-bold text-slate-900">
+          Citizen Evidence
+        </h2>
+
+        <p className="mt-1 text-sm text-slate-500">
+          Photo and video evidence submitted with this problem.
+        </p>
+      </div>
+    </div>
+
+    <div className="mt-5 space-y-3">
+      {/* PHOTO */}
+      {problem.image_url && (
+        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-teal-50 p-2">
+              <ImageIcon className="h-5 w-5 text-teal-700" />
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold text-slate-800">
+                Photo Evidence
+              </p>
+
+              <p className="text-xs text-slate-500">
+                Citizen uploaded photo
+              </p>
+            </div>
+          </div>
+
+          <a
+            href={problem.image_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700"
+          >
+            <ImageIcon className="h-4 w-4" />
+            View Photo
+          </a>
+        </div>
+      )}
+
+      {/* VIDEO */}
+      {problem.video_url && (
+        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-teal-50 p-2">
+              <Video className="h-5 w-5 text-teal-700" />
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold text-slate-800">
+                Video Evidence
+              </p>
+
+              <p className="text-xs text-slate-500">
+                Citizen uploaded video
+              </p>
+            </div>
+          </div>
+
+          <a
+            href={problem.video_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700"
+          >
+            <Video className="h-4 w-4" />
+            View Video
+          </a>
+        </div>
+      )}
+    </div>
+  </section>
+)}
             {/* =================================================
                 AI INTELLIGENCE
             ================================================= */}

@@ -484,7 +484,7 @@ export default function ReportProblemPage() {
                   type="text"
                   value={district}
                   onChange={(e) => setDistrict(e.target.value)}
-                  placeholder="Example: Ghaziabad"
+                  placeholder="Example: Ranchi"
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
                 />
               </div>
