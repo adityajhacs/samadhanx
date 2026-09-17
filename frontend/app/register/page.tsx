@@ -308,7 +308,7 @@ export default function RegisterPage() {
                       setFullName(e.target.value)
                     }
                     placeholder="Enter your full name"
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                   className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                   />
                 </div>
 
@@ -325,7 +325,7 @@ export default function RegisterPage() {
                       setEmail(e.target.value)
                     }
                     placeholder="you@example.com"
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                   />
                 </div>
               </div>
@@ -343,7 +343,7 @@ export default function RegisterPage() {
                     setPassword(e.target.value)
                   }
                   placeholder="At least 6 characters"
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                 />
               </div>
 
@@ -452,7 +452,7 @@ export default function RegisterPage() {
                             setCourse(e.target.value)
                           }
                           placeholder="e.g. B.Tech CSE"
-                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                         />
                       </div>
 
@@ -468,7 +468,7 @@ export default function RegisterPage() {
                             setYear(e.target.value)
                           }
                           placeholder="e.g. 3rd Year"
-                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                         />
                       </div>
                     </div>
@@ -536,7 +536,7 @@ export default function RegisterPage() {
                             )
                           }
                           placeholder="e.g. Computer Science"
-                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                         />
                       </div>
 
@@ -552,7 +552,7 @@ export default function RegisterPage() {
                             setDesignation(e.target.value)
                           }
                           placeholder="e.g. Assistant Professor"
-                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                         className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                         />
                       </div>
                     </div>
@@ -581,7 +581,7 @@ export default function RegisterPage() {
                           setUniversityName(e.target.value)
                         }
                         placeholder="Enter university name"
-                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                       className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                       />
                     </div>
 
@@ -600,7 +600,7 @@ export default function RegisterPage() {
                             )
                           }
                           placeholder="e.g. Ghaziabad"
-                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                         className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                         />
                       </div>
 
@@ -618,7 +618,7 @@ export default function RegisterPage() {
                             )
                           }
                           placeholder="e.g. CSE"
-                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                         />
                       </div>
                     </div>
@@ -635,7 +635,7 @@ export default function RegisterPage() {
                           setExpertiseArea(e.target.value)
                         }
                         placeholder="AI, IoT, Data Science"
-                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                       className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                       />
 
                       <p className="mt-1 text-xs text-slate-400">
@@ -668,7 +668,7 @@ export default function RegisterPage() {
                             setIndustryName(e.target.value)
                           }
                           placeholder="Company name"
-                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                         />
                       </div>
 
@@ -684,7 +684,7 @@ export default function RegisterPage() {
                             setIndustryType(e.target.value)
                           }
                           placeholder="e.g. Technology"
-                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                         />
                       </div>
                     </div>
@@ -701,7 +701,7 @@ export default function RegisterPage() {
                           setIndustryLocation(e.target.value)
                         }
                         placeholder="City / District"
-                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                       />
                     </div>
 
@@ -719,7 +719,7 @@ export default function RegisterPage() {
                           )
                         }
                         placeholder="company@example.com"
-                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                       className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                       />
                     </div>
 
@@ -737,7 +737,7 @@ export default function RegisterPage() {
                           )
                         }
                         placeholder="Briefly describe the company."
-                        className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                       className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                       />
                     </div>
                   </div>
