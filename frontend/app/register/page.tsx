@@ -308,7 +308,7 @@ export default function RegisterPage() {
                       setFullName(e.target.value)
                     }
                     placeholder="Enter your full name"
-                   className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                   className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm !text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                   />
                 </div>
 
