@@ -38,9 +38,3 @@ html {
   animation-duration: 150ms;
   animation-timing-function: ease-out;
 }
-input,
-textarea,
-select {
-  color: #0f172a;
-  -webkit-text-fill-color: #0f172a;
-}
