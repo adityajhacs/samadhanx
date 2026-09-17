@@ -195,7 +195,7 @@ type CollaborationView = {
   industryPartnerName: string;
   collaborationType: string;
   amount: number | null;
-  status: string;
+  status: string | null;
   description: string | null;
 };
 

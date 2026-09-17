@@ -1,3 +1,4 @@
+
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -40,30 +41,32 @@ class Solution(Base):
         Text,
         nullable=False
     )
+
     description: Mapped[str | None] = mapped_column(
-    Text,
-    nullable=True
-)
+        Text,
+        nullable=True
+    )
 
     prototype_description: Mapped[str | None] = mapped_column(
-    Text,
-    nullable=True
-)
+        Text,
+        nullable=True
+    )
 
     how_it_works: Mapped[str | None] = mapped_column(
-    Text,
-    nullable=True
-)
+        Text,
+        nullable=True
+    )
 
     key_features: Mapped[str | None] = mapped_column(
-    Text,
-    nullable=True
-)
+        Text,
+        nullable=True
+    )
 
     problem_solution: Mapped[str | None] = mapped_column(
-    Text,
-    nullable=True
-)
+        Text,
+        nullable=True
+    )
+
     prototype_status: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
@@ -86,3 +89,4 @@ class Solution(Base):
         nullable=True,
         server_default=text("now()")
     )
+

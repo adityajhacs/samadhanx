@@ -460,7 +460,7 @@ export default function ProblemsPage() {
 
                       <span
                         className={`rounded-full border px-3 py-1 text-xs font-semibold ${getStatusClass(
-                          problem.status
+                              problem.status || "Pending"
                         )}`}
                       >
                         {problem.status || "Pending"}

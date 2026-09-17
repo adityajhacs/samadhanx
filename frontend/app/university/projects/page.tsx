@@ -41,6 +41,7 @@ import {
   apiRequest,
   getAuthToken,
 } from "@/lib/api/client";
+import Link from "next/link";
 
 type ProjectMember = {
   id: string;
@@ -558,6 +559,7 @@ export default function UniversityProjects() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadProjects();
   }, []);
 
@@ -734,7 +736,7 @@ export default function UniversityProjects() {
           members.map(
             (member) => ({
               id: member.id,
-              name: member.name,
+              name: member.full_name ?? undefined,
               full_name:
                 member.full_name,
               role: member.role,
@@ -764,6 +766,7 @@ export default function UniversityProjects() {
         )
       )
     ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadUniversityMembers();
     }
   }, [
@@ -1074,26 +1077,26 @@ export default function UniversityProjects() {
               Dashboard
             </a>
 
-            <a
+            <Link
               href="/university/problems"
               className="text-sm text-slate-600 transition hover:text-teal-600"
             >
               Problems
-            </a>
+            </Link>
 
-            <a
+            <Link
               href="/university/projects"
               className="text-sm font-semibold text-teal-600"
             >
               Projects
-            </a>
+            </Link>
 
-            <a
+            <Link
               href="/university/solutions"
               className="text-sm text-slate-600 transition hover:text-teal-600"
             >
               Solutions
-            </a>
+            </Link>
 
             <a
               href="/university/teams"
@@ -1139,13 +1142,13 @@ export default function UniversityProjects() {
             </p>
           </div>
 
-          <a
+          <Link
             href="/university/projects/create"
             className="flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700"
           >
             <Plus className="h-4 w-4" />
             Create Project
-          </a>
+          </Link>
 
         </div>
 
@@ -1578,13 +1581,13 @@ export default function UniversityProjects() {
 
             </div>
 
-            <a
+            <Link
               href="/university/projects/create"
               className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-teal-700 transition hover:bg-teal-50"
             >
               Create Project
               <ArrowRight className="h-4 w-4" />
-            </a>
+            </Link>
 
           </div>
 
@@ -1627,19 +1630,19 @@ export default function UniversityProjects() {
 
           <div className="flex gap-5 text-sm text-slate-400">
 
-            <a
+            <Link
               href="/university/problems"
               className="transition hover:text-white"
             >
               Problems
-            </a>
+            </Link>
 
-            <a
+            <Link
               href="/university/solutions"
               className="transition hover:text-white"
             >
               Solutions
-            </a>
+            </Link>
 
             <a
               href="/help"

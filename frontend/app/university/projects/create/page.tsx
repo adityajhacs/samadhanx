@@ -35,6 +35,7 @@ import {
 import { getCurrentUser } from "@/lib/api/auth";
 
 import type { Project as ApiProject } from "@/lib/api/projects";
+import Link from "next/link";
 
 export default function CreateUniversityProject() {
   const router = useRouter();
@@ -347,13 +348,13 @@ export default function CreateUniversityProject() {
 
         {/* Back */}
 
-        <a
+        <Link
           href="/university/projects"
           className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-teal-700"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Projects
-        </a>
+        </Link>
 
         {/* Header */}
 
@@ -773,12 +774,12 @@ export default function CreateUniversityProject() {
 
           <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row">
 
-            <a
+            <Link
               href="/university/projects"
               className="flex flex-1 items-center justify-center rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
               Cancel
-            </a>
+            </Link>
 
             <button
               type="button"

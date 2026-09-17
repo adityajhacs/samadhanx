@@ -10,6 +10,9 @@ export interface Project {
   status?: string | null;
   created_by?: string | null;
 
+  problem_name?: string | null;
+  solution_name?: string | null;
+
   member_count?: number;
 
   deadline?: string | null;
@@ -23,6 +26,7 @@ export interface Project {
 
   created_at?: string | null;
   updated_at?: string | null;
+
 }
 
 export async function getProjects(): Promise<Project[]> {

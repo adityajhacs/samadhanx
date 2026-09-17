@@ -418,7 +418,7 @@ function ProblemCard({
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <span
               className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getCategoryClasses(
-                problem.category
+                 problem.category || "Other"
               )}`}
             >
               {problem.category}
@@ -426,10 +426,11 @@ function ProblemCard({
 
             <span
               className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusClasses(
-                problem.status
+               problem.status || "Pending"
+
               )}`}
             >
-              {getStatusIcon(problem.status)}
+              {getStatusIcon(problem.status || "Pending")}
               {problem.status || "Pending"}
             </span>
 
@@ -612,6 +613,7 @@ export default function MyProblemsPage() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadProblems();
   }, []);
 
@@ -961,7 +963,7 @@ export default function MyProblemsPage() {
               </div>
 
               <h2 className="mt-5 text-xl font-bold text-slate-900">
-                You haven't reported any problems yet
+                You haven&apos;t reported any problems yet
               </h2>
 
               <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">

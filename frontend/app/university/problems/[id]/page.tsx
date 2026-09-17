@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
@@ -25,6 +26,7 @@ import {
   rejectUniversityProblem,
   type UniversityProblem,
 } from "@/lib/api/universities";
+import Image from "next/image";
 
 export default function UniversityProblemDetails() {
   const params = useParams();
@@ -77,6 +79,7 @@ export default function UniversityProblemDetails() {
 
   useEffect(() => {
     if (problemId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadProblem();
     }
   }, [problemId]);
@@ -174,13 +177,13 @@ export default function UniversityProblemDetails() {
             {error || "Problem not found."}
           </p>
 
-          <a
+          <Link
             href="/university/problems"
             className="mt-6 inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-teal-700"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Problems
-          </a>
+          </Link>
         </div>
       </main>
     );
@@ -306,40 +309,40 @@ export default function UniversityProblemDetails() {
               Dashboard
             </a>
 
-            <a
+            <Link
               href="/university/problems"
               className="text-[15px] font-semibold text-teal-600"
             >
               Problems
-            </a>
+            </Link>
 
-            <a
+            <Link
               href="/university/projects"
               className="text-[15px] font-medium text-slate-600 transition hover:text-teal-600"
             >
               Projects
-            </a>
+            </Link>
 
-            <a
+            <Link
               href="/university/solutions"
               className="text-[15px] font-medium text-slate-600 transition hover:text-teal-600"
             >
               Solutions
-            </a>
+            </Link>
 
-            <a
+            <Link
               href="/university/teams"
               className="text-[15px] font-medium text-slate-600 transition hover:text-teal-600"
             >
               Teams
-            </a>
+            </Link>
 
-            <a
+            <Link
               href="/university/profile"
               className="text-[15px] font-medium text-slate-600 transition hover:text-teal-600"
             >
               Profile
-            </a>
+            </Link>
           </div>
         </div>
       </nav>
@@ -348,13 +351,13 @@ export default function UniversityProblemDetails() {
       <section className="mx-auto max-w-7xl px-6 py-6">
 
         {/* Back */}
-        <a
+        <Link
           href="/university/problems"
           className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-teal-600"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Problems
-        </a>
+        </Link>
 
         {/* ================= PROBLEM HEADER ================= */}
         <div className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm md:p-8">
@@ -466,7 +469,7 @@ export default function UniversityProblemDetails() {
                       </div>
 
                       <div className="p-4">
-                        <img
+                        <Image
                           src={evidenceImage}
                           alt={`Evidence for ${problem.title}`}
                           className="max-h-[500px] w-full rounded-xl object-contain"
@@ -929,13 +932,13 @@ export default function UniversityProblemDetails() {
                 </>
               )}
 
-              <a
+              <Link
                 href="/university/solutions"
                 className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-teal-300 hover:bg-teal-100 hover:text-teal-800"
               >
                 Propose a Solution
                 <ArrowRight className="h-4 w-4" />
-              </a>
+              </Link>
 
             </div>
 
@@ -962,13 +965,13 @@ export default function UniversityProblemDetails() {
                   Review solutions proposed for community challenges.
                 </p>
 
-                <a
+                <Link
                   href="/university/solutions"
                   className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-teal-700"
                 >
                   View solutions
                   <ArrowRight className="h-4 w-4" />
-                </a>
+                </Link>
 
               </div>
 
@@ -1000,13 +1003,13 @@ export default function UniversityProblemDetails() {
 
             </div>
 
-            <a
+            <Link
               href="/university/solutions"
               className="flex shrink-0 items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-teal-700 transition hover:bg-teal-50"
             >
               Propose a Solution
               <ArrowRight className="h-4 w-4" />
-            </a>
+            </Link>
 
           </div>
 
@@ -1106,12 +1109,12 @@ export default function UniversityProblemDetails() {
           {/* Links */}
           <div className="flex gap-5 text-sm text-slate-400">
 
-            <a
+            <Link
               href="/university/problems"
               className="transition hover:text-white"
             >
               Problems
-            </a>
+            </Link>
 
             <a
               href="/help"

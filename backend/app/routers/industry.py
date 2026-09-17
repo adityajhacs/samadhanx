@@ -32,39 +32,19 @@ router = APIRouter(
 # ============================================================
 
 def get_role(current_user: User) -> str:
-    """
-    Normalize the current user's role.
-
-    This keeps role checks consistent across the backend,
-    regardless of whether the database contains:
-        industry
-        INDUSTRY
-        Industry
-    """
-
     return (current_user.role or "").strip().lower()
 
 
 # ============================================================
-# INDUSTRY ACCESS
+# INDUSTRY / ADMIN ACCESS
 # ============================================================
 
-def require_industry_write_access(
+def require_industry_or_admin(
     current_user: User,
 ):
-    """
-    Only Industry and Admin users can create, update,
-    or delete industry partner records.
-
-    Other portal roles are read-only.
-    """
-
     role = get_role(current_user)
 
-    if role not in {
-        "industry",
-        "admin",
-    }:
+    if role not in {"industry", "admin"}:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
@@ -74,35 +54,45 @@ def require_industry_write_access(
         )
 
 
-def require_industry_or_admin(
+# ============================================================
+# OWNERSHIP CHECK
+# ============================================================
+
+def check_industry_ownership(
+    industry_id: uuid.UUID,
     current_user: User,
 ):
-    """
-    Explicit helper for operations that require
-    Industry or Admin access.
-    """
-
     role = get_role(current_user)
 
-    if role not in {
-        "industry",
-        "admin",
-    }:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "Only industry and admin users have "
-                "access to this operation"
-            ),
-        )
+    # Admin can manage any industry profile
+    if role == "admin":
+        return
+
+    # Industry user can manage only the profile
+    # linked to their own account.
+    if role == "industry":
+        if current_user.industry_id != industry_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "You can only manage your own "
+                    "industry profile"
+                ),
+            )
+        return
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=(
+            "You are not authorized to manage "
+            "this industry profile"
+        ),
+    )
 
 
 # ============================================================
 # GET /api/industry
-#
-# Get all industry partners.
-#
-# Authenticated users can view industry partners.
+# Get all industry partners
 # ============================================================
 
 @router.get(
@@ -124,10 +114,7 @@ def get_industry_partners(
 
 # ============================================================
 # GET /api/industry/{industry_id}
-#
-# Get one industry partner.
-#
-# Authenticated users can view an industry partner.
+# Get one industry partner
 # ============================================================
 
 @router.get(
@@ -158,11 +145,7 @@ def get_industry_partner(
 
 # ============================================================
 # POST /api/industry
-#
-# Create industry partner.
-#
-# Industry + Admin -> allowed
-# Others            -> forbidden
+# Create industry partner
 # ============================================================
 
 @router.post(
@@ -175,9 +158,20 @@ def create_industry_partner(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    require_industry_write_access(
-        current_user
-    )
+    role = get_role(current_user)
+
+    # Only Industry and Admin can create
+    require_industry_or_admin(current_user)
+
+    # One Industry account -> one Industry profile
+    if role == "industry" and current_user.industry_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Your account is already linked "
+                "to an industry profile"
+            ),
+        )
 
     partner = IndustryPartner(
         name=partner_data.name,
@@ -188,6 +182,13 @@ def create_industry_partner(
     )
 
     db.add(partner)
+    db.flush()
+
+    # Automatically link the Industry user
+    # to the newly created IndustryPartner.
+    if role == "industry":
+        current_user.industry_id = partner.id
+
     db.commit()
     db.refresh(partner)
 
@@ -196,11 +197,7 @@ def create_industry_partner(
 
 # ============================================================
 # PATCH /api/industry/{industry_id}
-#
-# Update industry partner.
-#
-# Industry + Admin -> allowed
-# Others            -> forbidden
+# Update industry partner
 # ============================================================
 
 @router.patch(
@@ -213,8 +210,14 @@ def update_industry_partner(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    require_industry_write_access(
-        current_user
+    # Only Industry/Admin
+    require_industry_or_admin(current_user)
+
+    # Industry -> own profile only
+    # Admin    -> any profile
+    check_industry_ownership(
+        industry_id,
+        current_user,
     )
 
     partner = (
@@ -250,11 +253,7 @@ def update_industry_partner(
 
 # ============================================================
 # DELETE /api/industry/{industry_id}
-#
-# Delete industry partner.
-#
-# Industry + Admin -> allowed
-# Others            -> forbidden
+# Delete industry partner
 # ============================================================
 
 @router.delete(
@@ -266,8 +265,14 @@ def delete_industry_partner(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    require_industry_write_access(
-        current_user
+    # Only Industry/Admin
+    require_industry_or_admin(current_user)
+
+    # Industry -> own profile only
+    # Admin    -> any profile
+    check_industry_ownership(
+        industry_id,
+        current_user,
     )
 
     partner = (
@@ -283,6 +288,11 @@ def delete_industry_partner(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Industry partner not found",
         )
+
+    # If the logged-in Industry user is deleting
+    # their own profile, remove the link first.
+    if get_role(current_user) == "industry":
+        current_user.industry_id = None
 
     db.delete(partner)
     db.commit()

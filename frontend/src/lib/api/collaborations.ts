@@ -47,6 +47,8 @@ export interface Project {
   id: string;
   problem_id: string | null;
   solution_id: string | null;
+  problem_name: string | null;
+  solution_name: string | null;
 
   title: string;
   description: string | null;

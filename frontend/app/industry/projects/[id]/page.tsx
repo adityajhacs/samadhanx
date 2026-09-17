@@ -254,6 +254,7 @@ export default function IndustryProjectDetailPage() {
 
   useEffect(() => {
     if (!validProjectId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setError("Project not found.");
       setLoading(false);
       return;

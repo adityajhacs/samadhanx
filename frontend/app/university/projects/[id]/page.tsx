@@ -51,6 +51,7 @@ import {
   createCollaboration,
   getCollaborations,
   type Collaboration,
+  type CollaborationType,
 } from "@/lib/api/collaborations";
 
 import {
@@ -385,7 +386,7 @@ export default function ProjectDetails() {
                   collaboration.collaboration_type
               )
               .filter(
-                (type): type is string =>
+                (type): type is CollaborationType  =>
                   !!type
               );
 
@@ -447,6 +448,7 @@ export default function ProjectDetails() {
 
   useEffect(() => {
     if (!project?.problem_id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAiAnalysis(null);
       setLinkedProblem(null);
       return;
@@ -508,6 +510,7 @@ export default function ProjectDetails() {
         );
 
       if (partnerExists) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedCompany(
           selectedPartnerId
         );
@@ -827,7 +830,7 @@ export default function ProjectDetails() {
                 item.collaboration_type
             )
             .filter(
-              (value): value is string =>
+              (value): value is CollaborationType  =>
                 !!value
             )
         );
@@ -912,7 +915,7 @@ export default function ProjectDetails() {
               collaboration.collaboration_type
           )
           .filter(
-            (type): type is string =>
+            (type): type is CollaborationType  =>
               !!type
           )
       )
@@ -1368,7 +1371,7 @@ export default function ProjectDetails() {
                   </h2>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    Track the team's development progress.
+                    Track the team&apos;s development progress.
                   </p>
 
                 </div>
