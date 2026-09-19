@@ -31,30 +31,8 @@ def can_run_reality_check(
     solution: Solution,
     project_owner_id: uuid.UUID | None = None,
 ) -> bool:
-    role = get_role(current_user)
-
-    # Admin can always run it.
-    if role == "admin":
-        return True
-
-    # University user must belong to the solution's university.
-    if (
-        role == "university"
-        and current_user.university_id
-        and solution.university_id
-        == current_user.university_id
-    ):
-        return True
-
-    # Project creator/owner can run it.
-    if (
-        project_owner_id
-        and project_owner_id == current_user.id
-    ):
-        return True
-
-    return False
-
+    # Any authenticated user can run RealityCheck.
+    return current_user is not None
 
 def get_reality_check_result(
     db: Session,
