@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
-
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import Text, TIMESTAMP, Numeric, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -66,6 +66,10 @@ class Solution(Base):
         Text,
         nullable=True
     )
+    embedding: Mapped[list[float] | None] = mapped_column(
+    Vector(768),
+    nullable=True
+)
 
     prototype_status: Mapped[str | None] = mapped_column(
         Text,
