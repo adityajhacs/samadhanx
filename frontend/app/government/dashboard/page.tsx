@@ -26,6 +26,7 @@ import {
   Rocket,
 } from "lucide-react";
 import { apiRequest, getAuthToken } from "@/lib/api/client";
+import { buildClusters } from "@/lib/api/clusters";
 
 type Problem = {
   id: string;
@@ -158,6 +159,7 @@ export default function GovernmentDashboard() {
         if (!token) {
           throw new Error("Authentication required");
         }
+        await buildClusters();
 
         const [problemData, projectData, clusterData, overviewData] =
           await Promise.all([
